@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+rawdeal-core = { path = "crates/rawdeal-core" }
+rawdeal-cards = { path = "crates/rawdeal-cards" }
+rawdeal-ai = { path = "crates/rawdeal-ai" }
+rand = "0.10.3"
+rand_chacha = { version = "0.10.0", features = ["serde"] }
+ron = "0.12.2"
+serde = { version = "1.0.229", features = ["derive"] }
+proptest = "1.12.0"

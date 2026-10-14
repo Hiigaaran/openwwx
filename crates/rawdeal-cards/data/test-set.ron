@@ -1,0 +1,57 @@
+// Invented cards for exercising the engine. They are not Raw Deal cards;
+// the real card database is loaded from the player's own files.
+(
+    name: "OpenWWX test set",
+    superstars: [
+        (id: "test/brawler", name: "The Brawler", hand_size: 6, superstar_value: 3,
+         text: "No ability yet."),
+        (id: "test/technician", name: "The Technician", hand_size: 5, superstar_value: 4,
+         text: "No ability yet."),
+    ],
+    cards: [
+        // Maneuvers
+        (id: "test/jab", title: "Jab", kinds: [Maneuver(Strike)], fortitude: 0, damage: 2, stun_value: 1),
+        (id: "test/haymaker", title: "Haymaker", kinds: [Maneuver(Strike)], fortitude: 3, damage: 4, stun_value: 2),
+        (id: "test/body-slam", title: "Body Slam", kinds: [Maneuver(Grapple)], fortitude: 0, damage: 3, stun_value: 1),
+        (id: "test/suplex", title: "Suplex", kinds: [Maneuver(Grapple)], fortitude: 4, damage: 5, stun_value: 2),
+        (id: "test/arm-lock", title: "Arm Lock", kinds: [Maneuver(Submission)], fortitude: 2, damage: 3, stun_value: 1),
+        (id: "test/diving-elbow", title: "Diving Elbow", kinds: [Maneuver(HighRisk)], fortitude: 6, damage: 6, stun_value: 3),
+        (id: "test/power-bomb", title: "Power Bomb", kinds: [Maneuver(Grapple)], fortitude: 10, damage: 8, stun_value: 4,
+         text: "Opponent discards 1 card at random.",
+         script: (on_play: [Discard(who: Opponent, n: 1, pick: Random)])),
+        (id: "test/lock-up", title: "Lock Up", kinds: [Maneuver(Grapple)], fortitude: 0, damage: 1, traits: [SetUp]),
+
+        // Actions
+        (id: "test/catch-breath", title: "Catch Your Breath", kinds: [Action], fortitude: 0, damage: 0,
+         text: "Draw 1 card.",
+         script: (on_play: [Draw(who: You, n: 1)])),
+        (id: "test/second-wind", title: "Second Wind", kinds: [Action], fortitude: 2, damage: 0,
+         text: "Discard 1 card. Then put 1 card from your Ringside pile into your hand.",
+         script: (on_play: [Discard(who: You, n: 1, pick: Chosen), RingsideToHand(who: You, n: 1)])),
+        (id: "test/regroup", title: "Regroup", kinds: [Action], fortitude: 0, damage: 0,
+         text: "You may shuffle 2 cards from your Ringside pile into your Arsenal.",
+         script: (on_play: [Optional([RingsideToArsenal(who: You, n: 2)])])),
+
+        // Reversals
+        (id: "test/block", title: "Block", kinds: [Reversal], fortitude: 0, damage: 0,
+         text: "Reverse any Strike maneuver.",
+         script: (reverses: Some((targets: ManeuverType(Strike))))),
+        (id: "test/counter-hold", title: "Counter Hold", kinds: [Reversal], fortitude: 2, damage: 2,
+         text: "Reverse any Grapple maneuver.",
+         script: (reverses: Some((targets: ManeuverType(Grapple))))),
+        (id: "test/escape", title: "Escape", kinds: [Reversal], fortitude: 3, damage: 0,
+         text: "Reverse any Submission maneuver. Draw 1 card.",
+         script: (reverses: Some((targets: ManeuverType(Submission), on_reverse: [Draw(who: You, n: 1)])))),
+        (id: "test/duck", title: "Duck", kinds: [Reversal], fortitude: 5, damage: 0,
+         text: "Reverse any maneuver that does 5D or less.",
+         script: (reverses: Some((targets: All([Maneuver, DamageAtMost(5)]))))),
+        (id: "test/no-chance", title: "Not A Chance", kinds: [Reversal], fortitude: 1, damage: 0,
+         text: "Reverse any action.",
+         script: (reverses: Some((targets: Action)))),
+
+        // Hybrid: Strike maneuver or a Reversal against Strikes.
+        (id: "test/shove", title: "Shove", kinds: [Maneuver(Strike), Reversal], fortitude: 1, damage: 2, stun_value: 1,
+         text: "Reverse any Strike maneuver.",
+         script: (reverses: Some((targets: ManeuverType(Strike))))),
+    ],
+)

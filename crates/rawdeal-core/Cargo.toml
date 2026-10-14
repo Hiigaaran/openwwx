@@ -1,0 +1,16 @@
+[package]
+name = "rawdeal-core"
+description = "Deterministic rules engine for the Raw Deal trading card game"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rand.workspace = true
+rand_chacha.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+rawdeal-cards.workspace = true
+rawdeal-ai.workspace = true

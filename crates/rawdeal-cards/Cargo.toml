@@ -1,0 +1,11 @@
+[package]
+name = "rawdeal-cards"
+description = "Card definitions and loaders for OpenWWX"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rawdeal-core.workspace = true
+ron.workspace = true
+serde.workspace = true

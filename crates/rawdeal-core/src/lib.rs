@@ -1,0 +1,27 @@
+//! Deterministic rules engine for the Raw Deal trading card game.
+//!
+//! The engine is a pure library: no I/O, no UI, no networking. A match is a
+//! [`GameState`] that only changes through [`Engine::apply`], which takes one
+//! player's answer to the pending [`Decision`] and returns the [`Event`]s it
+//! caused. All randomness comes from a seeded RNG stored in the state, so the
+//! same seed and the same actions always replay the same match.
+
+pub mod card;
+pub mod db;
+pub mod decision;
+pub mod deck;
+pub mod engine;
+pub mod event;
+pub mod state;
+pub mod view;
+
+pub use card::{
+    CardDef, CardFilter, CardKind, CardScript, Effect, ManeuverType, Pick, ReverseSpec, SuperstarDef, Trait, Who,
+};
+pub use db::{CardDb, DefIdx, SuperstarIdx};
+pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
+pub use deck::{DeckList, DeckProblem, validate_deck};
+pub use engine::{Engine, GameSetup, RuleError, SetupError};
+pub use event::Event;
+pub use state::{CardId, GameState, Outcome, Played, PlayerId, WinMethod, Zone};
+pub use view::PlayerView;

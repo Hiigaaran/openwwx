@@ -1,0 +1,82 @@
+//! Observable changes, emitted by [`crate::Engine::apply`] for UIs, logs and
+//! the network.
+
+use serde::{Deserialize, Serialize};
+
+use crate::card::CardKind;
+use crate::state::{CardId, Outcome, PlayerId, Zone};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Event {
+    GameStarted {
+        first: PlayerId,
+    },
+    TurnStarted {
+        player: PlayerId,
+        turn: u32,
+    },
+    /// `card` is `None` in the view of anyone but the drawing player.
+    CardDrawn {
+        player: PlayerId,
+        card: Option<CardId>,
+    },
+    CardPlayed {
+        player: PlayerId,
+        card: CardId,
+        kind: CardKind,
+    },
+    /// `player` reversed `reversed` with `reversal`, from hand or by
+    /// overturning it while taking damage.
+    Reversed {
+        player: PlayerId,
+        reversal: CardId,
+        reversed: CardId,
+        from_hand: bool,
+    },
+    EffectsResolved {
+        card: CardId,
+    },
+    Overturned {
+        player: PlayerId,
+        card: CardId,
+    },
+    /// A card changed zones (other than draws and overturns, which have their
+    /// own events). `card` is `None` when the move is hidden from the viewer.
+    CardMoved {
+        player: PlayerId,
+        card: Option<CardId>,
+        from: Zone,
+        to: Zone,
+    },
+    ArsenalShuffled {
+        player: PlayerId,
+    },
+    CountOutRefused {
+        player: PlayerId,
+    },
+    TurnEnded {
+        player: PlayerId,
+    },
+    GameOver(Outcome),
+}
+
+impl Event {
+    /// The event as `viewer` is allowed to see it.
+    pub fn redacted_for(&self, viewer: PlayerId) -> Event {
+        match *self {
+            Event::CardDrawn { player, card } if player != viewer && card.is_some() => {
+                Event::CardDrawn { player, card: None }
+            }
+            Event::CardMoved { player, card: Some(_), from, to }
+                if player != viewer && !is_public(from) && !is_public(to) =>
+            {
+                Event::CardMoved { player, card: None, from, to }
+            }
+            _ => self.clone(),
+        }
+    }
+}
+
+fn is_public(zone: Zone) -> bool {
+    matches!(zone, Zone::Ring | Zone::Ringside | Zone::InPlay)
+}

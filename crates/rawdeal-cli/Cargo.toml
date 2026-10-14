@@ -1,0 +1,11 @@
+[package]
+name = "rawdeal-cli"
+description = "Text-mode client to play and debug the OpenWWX engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rawdeal-core.workspace = true
+rawdeal-cards.workspace = true
+rawdeal-ai.workspace = true
