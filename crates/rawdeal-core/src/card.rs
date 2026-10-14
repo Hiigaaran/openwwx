@@ -91,6 +91,13 @@ pub struct CardDef {
     /// Original card text, for display only.
     #[serde(default)]
     pub text: String,
+    /// Printed traits the engine does not model yet (e.g. "Tag"), kept for display.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub other_traits: Vec<String>,
+    /// Identifier of the card in the data source it was imported from (e.g. an
+    /// OCTGN card GUID), used to match card art.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<String>,
     #[serde(default)]
     pub script: CardScript,
 }
@@ -127,6 +134,8 @@ pub struct SuperstarDef {
     pub text: String,
     #[serde(default)]
     pub abilities: Vec<Ability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<String>,
 }
 
 /// Superstar abilities. Optional abilities wrap their effects in

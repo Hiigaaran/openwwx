@@ -8,4 +8,8 @@ license.workspace = true
 [dependencies]
 rawdeal-core.workspace = true
 ron.workspace = true
+roxmltree = "0.21.1"
 serde.workspace = true
+
+[dev-dependencies]
+rawdeal-ai.workspace = true

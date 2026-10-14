@@ -1,11 +1,12 @@
 //! Text-mode client: play against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced] [--cards DIR --deck1 FILE --deck2 FILE] [--check]`.
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
 //!
 //! - `--advanced`: Pre-match phase and Backlash decks.
 //! - `--watch`: two bots play each other and the match log is printed.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
-//!   of the bundled test set; `--deck1`/`--deck2` are deck list files.
+//!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
+//!   `--superstar1`/`--superstar2` build a quick deck for that Superstar id.
 //! - `--check`: load the cards and decks, report problems, and exit.
 
 use std::io::{self, BufRead, Write};
@@ -47,16 +48,25 @@ fn main() -> ExitCode {
             };
             println!("Loaded {} cards and {} Superstars from {dir}.", db.cards().len(), db.superstars().len());
             let mut decks = Vec::new();
-            for flag in ["--deck1", "--deck2"] {
-                let Some(file) = arg(&args, flag) else {
-                    if args.iter().any(|a| a == "--check") {
-                        return ExitCode::SUCCESS;
+            for (flag, star) in [("--deck1", "--superstar1"), ("--deck2", "--superstar2")] {
+                if let Some(file) = arg(&args, flag) {
+                    match rawdeal_cards::load_deck(Path::new(file)) {
+                        Ok(d) => decks.push(d),
+                        Err(e) => return fail(e),
                     }
-                    return fail(format!("{flag} is required with --cards"));
-                };
-                match rawdeal_cards::load_deck(Path::new(file)) {
-                    Ok(d) => decks.push(d),
-                    Err(e) => return fail(e),
+                } else if let Some(id) = arg(&args, star) {
+                    match rawdeal_cards::auto_deck(&db, id) {
+                        Some(d) => decks.push(d),
+                        None => return fail(format!("cannot build a deck for {id}")),
+                    }
+                } else if args.iter().any(|a| a == "--check") {
+                    for s in db.superstars() {
+                        let ok = rawdeal_cards::auto_deck(&db, &s.id).is_some();
+                        println!("  {} ({}): {}", s.name, s.id, if ok { "auto deck OK" } else { "no legal auto deck" });
+                    }
+                    return ExitCode::SUCCESS;
+                } else {
+                    return fail(format!("{flag} or {star} is required with --cards"));
                 }
             }
             (db, decks.try_into().expect("two decks"))

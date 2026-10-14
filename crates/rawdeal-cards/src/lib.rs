@@ -3,6 +3,8 @@
 //! Real card data is not distributed with OpenWWX. Players keep it in a
 //! folder of their own with one RON file per set (see [`load_dir`]).
 
+pub mod octgn;
+
 use std::path::{Path, PathBuf};
 
 use rawdeal_core::{CardDb, CardDef, DeckList, SuperstarDef};
@@ -80,6 +82,42 @@ pub fn load_deck(path: &Path) -> Result<DeckList, LoadError> {
     ron::from_str(&text).map_err(|e| LoadError::File(path.to_path_buf(), Box::new(e)))
 }
 
+/// Builds a legal 60-card Arsenal for `superstar` from `db`, deterministically:
+/// the Superstar's own logo cards first, then every other card that fits
+/// (one alignment only, no Tag cards), three copies each (one if Unique),
+/// filled up with Set-Up cards. Returns `None` if 60 cards cannot be reached.
+/// Meant for trying out a card set, not for good play.
+pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
+    use rawdeal_core::Trait;
+    db.superstar_by_id(superstar)?;
+    let usable = |c: &&CardDef| {
+        !c.is_backlash()
+            && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
+            && c.superstar.as_deref().is_none_or(|s| s == superstar)
+    };
+    let own = db.cards().iter().filter(usable).filter(|c| c.superstar.is_some());
+    let generic = db.cards().iter().filter(usable).filter(|c| c.superstar.is_none());
+    for avoid in [Trait::Heel, Trait::Face] {
+        let mut arsenal = Vec::new();
+        for card in own.clone().chain(generic.clone().filter(|c| !c.has_trait(avoid) && !c.has_trait(Trait::SetUp))) {
+            let copies = if card.has_trait(Trait::Unique) { 1 } else { 3 };
+            for _ in 0..copies {
+                if arsenal.len() < 60 {
+                    arsenal.push(card.id.clone());
+                }
+            }
+        }
+        if let Some(setup) = generic.clone().find(|c| c.has_trait(Trait::SetUp) && !c.has_trait(avoid)) {
+            arsenal.resize(60, setup.id.clone());
+        }
+        let deck = DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![] };
+        if rawdeal_core::validate_deck(db, &deck).is_empty() {
+            return Some(deck);
+        }
+    }
+    None
+}
+
 const TEST_SET: &str = include_str!("../data/test-set.ron");
 
 /// The invented cards used by tests and the text client.
@@ -126,6 +164,15 @@ mod tests {
         std::fs::write(dir.join("b-broken.ron"), "(name: ").unwrap();
         assert!(matches!(load_dir(&dir), Err(LoadError::File(p, _)) if p.ends_with("b-broken.ron")));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn auto_decks_are_legal() {
+        let db = test_db();
+        for s in db.superstars() {
+            let deck = auto_deck(&db, &s.id).expect("test set can fill a deck");
+            assert_eq!(rawdeal_core::validate_deck(&db, &deck), vec![]);
+        }
     }
 
     #[test]

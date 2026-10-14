@@ -1,0 +1,22 @@
+// Hand-written scripts for Premiere cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express
+// are scripted; the rest of each card's text is display only for now.
+(
+    abilities: {
+        "Stone Cold Steve Austin": [
+            Activated(cost: [], effects: [Draw(who: You, n: 1), HandToArsenalBottom(who: You, n: 1)]),
+        ],
+        "Undertaker": [
+            Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)]),
+        ],
+        "Mankind": [DrawSegment(2), ReduceDamage(1)],
+        // Only the start-of-turn part; the card-specific bonuses come later.
+        "The Rock": [StartOfTurn([RingsideToArsenalBottom(who: You, n: 1)])],
+        "Kane": [StartOfTurn([Damage(who: Opponent, n: 1)])],
+        "Chris Jericho": [
+            Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        ],
+        // Triple H's ability only changes specific cards; not scripted yet.
+    },
+    scripts: {},
+)

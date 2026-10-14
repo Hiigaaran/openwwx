@@ -83,3 +83,24 @@ archivos `.ron` como este:
 cargo run -p rawdeal-cli -- --cards ~/raw-deal/sets --deck1 mazo1.ron --deck2 mazo2.ron --check  # validar
 cargo run -p rawdeal-cli -- --cards ~/raw-deal/sets --deck1 mazo1.ron --deck2 mazo2.ron          # jugar
 ```
+
+Sin archivos de mazo, `--superstar1`/`--superstar2` arman un mazo rápido para esa Superstar:
+
+```sh
+cargo run -p rawdeal-cli -- --cards ~/raw-deal/sets --superstar1 premiere/stone-cold-steve-austin --superstar2 premiere/the-rock
+```
+
+### Importar desde OCTGN
+
+Los sets del juego Raw Deal de OCTGN (`set.xml`) se convierten con:
+
+```sh
+cargo run -p rawdeal-cards --bin octgn-import -- <set.xml> Premiere premiere ~/raw-deal/sets/01-premiere.ron \
+    --overlay crates/rawdeal-cards/scripts/premiere.ron
+```
+
+El importador copia tipo, F, D, SV, rasgos, logo de Superstar y texto. Deduce qué revierte cada Reversal a
+partir del tipo y de frases comunes del texto. Las habilidades de Superstar vienen del archivo de scripts
+(`crates/rawdeal-cards/scripts/`). El resto del texto de cada carta todavía es solo informativo.
+
+Para probar partidas aleatorias con tus sets: `OPENWWX_CARDS=~/raw-deal/sets cargo test -p rawdeal-cards --test user_sets`.
