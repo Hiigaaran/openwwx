@@ -53,9 +53,6 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Las Acciones hacen su D impreso como daño (casi todas tienen D 0).
 - Rechazar un Count Out vale para el resto de la partida.
 - El primer jugador también roba en su primer turno.
-
-## Interpretaciones de reglas por confirmar
-
 - Multi: el primer Reversal jugado desde la mano queda en el Ring sin efectos ni daño, y el rival puede
   jugar otro. Un Reversal volteado durante el daño también cuenta como uno de los dos.
 - Chain: el costo de descartar 2 solo aplica al revertir desde la mano o el Backlash, no al voltear un
