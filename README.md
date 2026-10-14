@@ -25,8 +25,9 @@ pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`. Para compilarla tú 
 cargo run --release -p openwwx
 ```
 
-Para publicar una versión nueva, sube un tag (`git tag v0.1.0 && git push origin v0.1.0`): GitHub Actions compila
-Windows, macOS (Apple Silicon e Intel) y Linux y crea el release con los archivos.
+Para publicar una versión nueva, sube un tag (`git tag v0.1.0 && git push origin v0.1.0`) o ejecuta el workflow
+"Release" desde la pestaña Actions con la versión: GitHub Actions compila Windows, macOS (Apple Silicon e Intel) y
+Linux y crea el release con los archivos.
 
 ## Probarlo
 
