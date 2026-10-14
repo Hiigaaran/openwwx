@@ -16,13 +16,13 @@ pub mod state;
 pub mod view;
 
 pub use card::{
-    Ability, CardDef, CardFilter, CardKind, CardScript, Effect, ManeuverType, Pick, PreMatchType, ReverseSpec,
-    SuperstarDef, Trait, Who,
+    Ability, ActionScript, Bonus, Boost, CardDef, CardFilter, CardKind, CardScript, Condition, Duration, Effect,
+    ManeuverType, Pick, PreMatchType, ReversalDamage, ReverseSpec, SuperstarDef, Trait, Who,
 };
 pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
 pub use deck::{DeckList, DeckProblem, validate_deck};
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
-pub use state::{CardId, GameState, Mode, Outcome, Played, PlayerId, Source, WinMethod, Zone};
+pub use state::{CardId, GameState, Mode, Outcome, PlayBonus, Played, PlayerId, Source, WinMethod, Zone};
 pub use view::PlayerView;

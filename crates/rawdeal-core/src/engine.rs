@@ -8,13 +8,16 @@ use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::card::{Ability, CardDef, CardFilter, CardKind, Effect, Pick, PreMatchType, ReversalDamage, Trait, Who};
+use crate::card::{
+    Ability, Boost, CardDef, CardFilter, CardKind, Condition, Duration, Effect, Pick, PreMatchType, ReversalDamage,
+    Trait, Who,
+};
 use crate::db::CardDb;
 use crate::decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
 use crate::deck::{DeckList, DeckProblem, validate_deck};
 use crate::event::Event;
 use crate::state::{
-    CardId, CardInstance, GameState, Mode, Outcome, Played, PlayerId, PlayerState, Source, WinMethod, Zone,
+    CardId, CardInstance, GameState, Mode, Outcome, PlayBonus, Played, PlayerId, PlayerState, Source, WinMethod, Zone,
 };
 use crate::view::PlayerView;
 
@@ -138,6 +141,28 @@ pub(crate) enum Step {
     DecideFirst {
         starter: PlayerId,
     },
+    /// `chooser` puts the top cards of `owner`'s Arsenal back in order: `done`
+    /// from the top down, then whatever is left in `left`.
+    Arrange {
+        chooser: PlayerId,
+        owner: PlayerId,
+        left: Vec<CardId>,
+        done: Vec<CardId>,
+    },
+    /// `player` overturns until a Reversal that could stop `target` shows up.
+    OverturnUntil {
+        player: PlayerId,
+        target: Played,
+    },
+    LevelFortitude,
+    /// A large choice asked one card at a time: `remaining` more picks.
+    AskMore {
+        decider: PlayerId,
+        options: Vec<CardId>,
+        remaining: u8,
+        up_to: bool,
+        purpose: ChoicePurpose,
+    },
 }
 
 /// Pre-match card types for steps 0-3.
@@ -228,6 +253,12 @@ impl Engine {
             last_played: None,
             refused_count_out: [false; 2],
             decision: None,
+            boosts: vec![],
+            end_of_turn: vec![],
+            skip_turn: [false; 2],
+            start_after: [None; 2],
+            end_turn_after_play: false,
+            in_play_to: None,
             pending: vec![],
             rng,
         };
@@ -263,9 +294,15 @@ impl Engine {
         state.player(player).ring.iter().map(|&c| self.def(state, c).damage as u16).sum()
     }
 
-    /// Damage `card` deals if played successfully now.
-    pub fn card_damage(&self, state: &GameState, card: CardId) -> u16 {
-        self.def(state, card).damage as u16
+    /// Damage `played` deals if it succeeds, before the defender's reductions.
+    /// A hybrid card played as an Action deals none.
+    pub fn card_damage(&self, state: &GameState, played: Played) -> u16 {
+        let def = self.def(state, played.card);
+        let is_maneuver = |k: &CardKind| matches!(k, CardKind::Maneuver(_));
+        if !is_maneuver(&played.kind) && def.kinds.iter().any(is_maneuver) {
+            return 0;
+        }
+        (def.damage as i16 + played.bonus.damage).max(0) as u16
     }
 
     /// Every action `player` may take right now.
@@ -307,6 +344,7 @@ impl Engine {
             }
             DecisionKind::YesNo { .. } => vec![Action::Yes, Action::No],
             DecisionKind::StunDraw { max } => (0..=*max).map(Action::DrawCards).collect(),
+            DecisionKind::ChooseOption { options, .. } => (0..options.len() as u8).map(Action::ChooseOption).collect(),
             DecisionKind::PreMatch { step, .. } => self
                 .pre_match_options(state, player, *step)
                 .into_iter()
@@ -364,6 +402,7 @@ impl Engine {
             }
             (DecisionKind::YesNo { .. }, Action::Yes | Action::No) => true,
             (DecisionKind::StunDraw { max }, Action::DrawCards(n)) => n <= max,
+            (DecisionKind::ChooseOption { options, .. }, Action::ChooseOption(i)) => (*i as usize) < options.len(),
             (DecisionKind::PreMatch { step, .. }, Action::PlayCard { card, kind }) => {
                 self.pre_match_options(state, p, *step).contains(&(*card, *kind))
             }
@@ -385,8 +424,14 @@ impl Engine {
                 schedule_effects(state, &all, p, Source::Superstar(p));
             }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
+                let (bonus, used) = self.play_bonus(state, p, card, kind);
+                for i in used.into_iter().rev() {
+                    state.boosts.remove(i);
+                }
                 self.move_card(state, card, Zone::InPlay, events);
-                state.in_play = Some(Played { card, player: p, kind, reversals: 0 });
+                let after = state.last_played.map(|l| l.card);
+                state.in_play = Some(Played { after, bonus, ..Played::new(card, p, kind) });
+                state.in_play_to = None;
                 events.push(Event::CardPlayed { player: p, card, kind });
                 schedule(
                     state,
@@ -422,36 +467,15 @@ impl Engine {
                 }
             }
             (DecisionKind::Reversal { .. }, _) => {}
-            (DecisionKind::ChooseCards { purpose, .. }, Action::ChooseCards(chosen)) => match purpose {
-                ChoicePurpose::Discard => {
-                    for c in chosen {
-                        self.move_card(state, c, Zone::Ringside, events);
+            (DecisionKind::ChooseCards { purpose, .. }, Action::ChooseCards(chosen)) => {
+                if let Some(Step::AskMore { options, remaining, .. }) = state.pending.last_mut() {
+                    options.retain(|c| !chosen.contains(c));
+                    if chosen.is_empty() {
+                        *remaining = 0;
                     }
                 }
-                ChoicePurpose::RingsideToHand => {
-                    for c in chosen {
-                        self.move_card(state, c, Zone::Hand, events);
-                    }
-                }
-                ChoicePurpose::HandToArsenalBottom | ChoicePurpose::RingsideToArsenalBottom => {
-                    for c in chosen {
-                        self.move_card_to_bottom(state, c, events);
-                    }
-                }
-                ChoicePurpose::SearchToHand => {
-                    for c in chosen {
-                        self.move_card(state, c, Zone::Hand, events);
-                        events.push(Event::Revealed { player: p, card: c });
-                    }
-                    self.shuffle_arsenal(state, p, events);
-                }
-                ChoicePurpose::RingsideToArsenal => {
-                    for c in chosen {
-                        self.move_card(state, c, Zone::Arsenal, events);
-                    }
-                    self.shuffle_arsenal(state, p, events);
-                }
-            },
+                self.answer_choice(state, p, purpose, chosen, events);
+            }
             (DecisionKind::YesNo { purpose }, yes_no) => {
                 let yes = yes_no == Action::Yes;
                 match purpose {
@@ -478,7 +502,74 @@ impl Engine {
                 }
             }
             (DecisionKind::StunDraw { .. }, Action::DrawCards(n)) => self.draw(state, p, n, events),
+            (DecisionKind::ChooseOption { options, source }, Action::ChooseOption(i)) => {
+                schedule_effects(state, &options[i as usize], p, source);
+            }
             _ => unreachable!("validated above"),
+        }
+    }
+
+    fn answer_choice(
+        &self,
+        state: &mut GameState,
+        p: PlayerId,
+        purpose: ChoicePurpose,
+        chosen: Vec<CardId>,
+        events: &mut Vec<Event>,
+    ) {
+        match purpose {
+            ChoicePurpose::Discard | ChoicePurpose::RingToRingside => {
+                for c in chosen {
+                    self.move_card(state, c, Zone::Ringside, events);
+                }
+            }
+            ChoicePurpose::ForcedDiscard => {
+                for c in chosen {
+                    self.forced_discard(state, c, events);
+                }
+            }
+            ChoicePurpose::HandToArsenal => {
+                for c in chosen {
+                    self.move_card(state, c, Zone::Arsenal, events);
+                }
+                self.shuffle_arsenal(state, p, events);
+            }
+            ChoicePurpose::ArsenalToRingside => {
+                let Some(owner) = chosen.first().map(|&c| state.card(c).owner) else { return };
+                for c in chosen {
+                    self.move_card(state, c, Zone::Ringside, events);
+                }
+                self.shuffle_arsenal(state, owner, events);
+            }
+            ChoicePurpose::Arrange => {
+                if let (Some(Step::Arrange { left, done, .. }), Some(&c)) = (state.pending.last_mut(), chosen.first()) {
+                    left.retain(|&l| l != c);
+                    done.push(c);
+                }
+            }
+            ChoicePurpose::RingsideToHand => {
+                for c in chosen {
+                    self.move_card(state, c, Zone::Hand, events);
+                }
+            }
+            ChoicePurpose::HandToArsenalBottom | ChoicePurpose::RingsideToArsenalBottom => {
+                for c in chosen {
+                    self.move_card_to_bottom(state, c, events);
+                }
+            }
+            ChoicePurpose::SearchToHand => {
+                for c in chosen {
+                    self.move_card(state, c, Zone::Hand, events);
+                    events.push(Event::Revealed { player: p, card: c });
+                }
+                self.shuffle_arsenal(state, p, events);
+            }
+            ChoicePurpose::RingsideToArsenal => {
+                for c in chosen {
+                    self.move_card(state, c, Zone::Arsenal, events);
+                }
+                self.shuffle_arsenal(state, p, events);
+            }
         }
     }
 
@@ -500,12 +591,25 @@ impl Engine {
                 let p = state.active;
                 events.push(Event::TurnStarted { player: p, turn: state.turn });
                 state.player_mut(p).ability_used = false;
-                state.last_played = None;
+                state.last_played = state.start_after[p.index()].take().map(|c| Played::new(c, p, CardKind::Action));
+                for (owner, boost) in &mut state.boosts {
+                    if *owner == p {
+                        boost.duration = match boost.duration {
+                            Duration::NextTurn => Duration::ThisTurn,
+                            Duration::NextTurnFirstCard => Duration::NextCard,
+                            d => d,
+                        };
+                    }
+                }
                 schedule(state, [Step::DrawSegment, Step::Main]);
                 for ability in self.abilities(state, p).iter().rev() {
                     if let Ability::StartOfTurn(effects) = ability {
                         schedule_effects(state, effects, p, Source::Superstar(p));
                     }
+                }
+                for c in state.player(p).ring.clone().into_iter().rev() {
+                    let effects = self.def(state, c).script.in_ring_start_of_turn.clone();
+                    schedule_effects(state, &effects, p, Source::Card(c));
                 }
             }
             Step::DrawSegment => {
@@ -518,7 +622,13 @@ impl Engine {
                     .unwrap_or(1);
                 self.draw(state, p, n, events);
             }
-            Step::Main => state.decision = Some(Decision { player: state.active, kind: DecisionKind::Main }),
+            Step::Main => {
+                if std::mem::take(&mut state.end_turn_after_play) {
+                    state.pending.push(Step::EndTurn);
+                } else {
+                    state.decision = Some(Decision { player: state.active, kind: DecisionKind::Main });
+                }
+            }
             Step::ReversalWindow => {
                 let played = state.in_play.expect("card in play");
                 let defender = played.player.opponent();
@@ -542,7 +652,18 @@ impl Engine {
             Step::ResolveEffects => {
                 let played = state.in_play.expect("card in play");
                 events.push(Event::EffectsResolved { card: played.card });
-                let effects = self.def(state, played.card).script.on_play.clone();
+                let def = self.def(state, played.card);
+                let mut effects = match (&def.script.as_action, played.kind) {
+                    (Some(action), CardKind::Action) => action.on_play.clone(),
+                    _ => def.script.on_play.clone(),
+                };
+                for ability in self.abilities(state, played.player) {
+                    if let Ability::OnPlay { title, effects: extra } = ability
+                        && title.eq_ignore_ascii_case(&def.title)
+                    {
+                        effects.extend(extra.iter().cloned());
+                    }
+                }
                 schedule_effects(state, &effects, played.player, Source::Card(played.card));
             }
             Step::DealCardDamage => {
@@ -553,7 +674,7 @@ impl Engine {
                     .iter()
                     .map(|a| if let Ability::ReduceDamage(n) = a { *n as u16 } else { 0 })
                     .sum();
-                let damage = self.card_damage(state, played.card).saturating_sub(reduction);
+                let damage = self.card_damage(state, played).saturating_sub(reduction);
                 if damage > 0 {
                     state.pending.push(Step::Overturn {
                         player: played.player.opponent(),
@@ -566,7 +687,14 @@ impl Engine {
             Step::Overturn { player, remaining, source } => self.overturn(state, player, remaining, source, events),
             Step::ToRing => {
                 let played = state.in_play.take().expect("card in play");
-                self.move_card(state, played.card, Zone::Ring, events);
+                match state.in_play_to.take() {
+                    Some(Zone::Arsenal) => {
+                        self.move_card(state, played.card, Zone::Arsenal, events);
+                        self.shuffle_arsenal(state, played.player, events);
+                    }
+                    Some(zone) => self.move_card(state, played.card, zone, events),
+                    None => self.move_card(state, played.card, Zone::Ring, events),
+                }
                 state.last_played = Some(played);
             }
             Step::StunDraw { player, max } => {
@@ -576,8 +704,29 @@ impl Engine {
                 }
             }
             Step::EndTurn => {
-                events.push(Event::TurnEnded { player: state.active });
-                state.active = state.active.opponent();
+                let p = state.active;
+                let (now, later): (Vec<_>, Vec<_>) =
+                    std::mem::take(&mut state.end_of_turn).into_iter().partition(|(c, _)| *c == p);
+                state.end_of_turn = later;
+                if !now.is_empty() {
+                    state.pending.push(Step::EndTurn);
+                    for (controller, effect) in now.into_iter().rev() {
+                        state.pending.push(Step::Effect { effect, controller, source: Source::Superstar(controller) });
+                    }
+                    return;
+                }
+                state.end_turn_after_play = false;
+                state.in_play_to = None;
+                state.boosts.retain(|(owner, b)| {
+                    *owner != p || matches!(b.duration, Duration::NextTurn | Duration::NextTurnFirstCard)
+                });
+                events.push(Event::TurnEnded { player: p });
+                let next = p.opponent();
+                if std::mem::take(&mut state.skip_turn[next.index()]) {
+                    events.push(Event::TurnSkipped { player: next });
+                } else {
+                    state.active = next;
+                }
                 schedule(state, [Step::CountOutCheck, Step::StartTurn]);
             }
             Step::CountOutCheck => {
@@ -633,6 +782,76 @@ impl Engine {
                 }
             }
             Step::ReverseFromHand { defender, reversal } => self.reverse_from_hand(state, defender, reversal, events),
+            Step::Arrange { chooser, owner, left, mut done } => {
+                if left.len() <= 1 {
+                    done.extend(left);
+                    let arsenal = &mut state.player_mut(owner).arsenal;
+                    arsenal.retain(|c| !done.contains(c));
+                    arsenal.extend(done.iter().rev());
+                } else {
+                    let options = left.clone();
+                    state.pending.push(Step::Arrange { chooser, owner, left, done });
+                    state.decision = Some(Decision {
+                        player: chooser,
+                        kind: DecisionKind::ChooseCards { options, min: 1, max: 1, purpose: ChoicePurpose::Arrange },
+                    });
+                }
+            }
+            Step::OverturnUntil { player, target } => {
+                let Some(&card) = state.player(player).arsenal.last() else {
+                    self.finish(state, Outcome::Win { winner: player.opponent(), method: WinMethod::Pinfall }, events);
+                    return;
+                };
+                self.move_card(state, card, Zone::Ringside, &mut Vec::new());
+                events.push(Event::Overturned { player, card });
+                let found = self.def(state, card).script.reverses.as_ref().is_some_and(|spec| {
+                    self.def(state, card).is_reversal() && self.matches(state, &spec.targets, target)
+                });
+                if !found {
+                    state.pending.push(Step::OverturnUntil { player, target });
+                }
+            }
+            Step::AskMore { decider, options, remaining, up_to, purpose } => {
+                if remaining > 0 && !options.is_empty() {
+                    let min = if up_to { 0 } else { 1 };
+                    let ask_options = options.clone();
+                    state.pending.push(Step::AskMore { decider, options, remaining: remaining - 1, up_to, purpose });
+                    state.decision = Some(Decision {
+                        player: decider,
+                        kind: DecisionKind::ChooseCards { options: ask_options, min, max: 1, purpose },
+                    });
+                }
+            }
+            Step::LevelFortitude => {
+                let f = [PlayerId::ONE, PlayerId::TWO].map(|p| self.fortitude(state, p));
+                if f[0] == f[1] {
+                    return;
+                }
+                let high = if f[0] > f[1] { PlayerId::ONE } else { PlayerId::TWO };
+                let options: Vec<CardId> = state
+                    .player(high)
+                    .ring
+                    .iter()
+                    .copied()
+                    .filter(|&c| {
+                        let def = self.def(state, c);
+                        def.damage > 0
+                            && (def.is_reversal() || def.kinds.iter().any(|k| matches!(k, CardKind::Maneuver(_))))
+                    })
+                    .collect();
+                if !options.is_empty() {
+                    state.pending.push(Step::LevelFortitude);
+                    state.decision = Some(Decision {
+                        player: high,
+                        kind: DecisionKind::ChooseCards {
+                            options,
+                            min: 1,
+                            max: 1,
+                            purpose: ChoicePurpose::RingToRingside,
+                        },
+                    });
+                }
+            }
             Step::PreMatch { step, actor, passes, starter } => {
                 if step >= OPEN_STEP && passes >= 2 {
                     state.pending.push(Step::EndPreMatch { starter });
@@ -693,7 +912,9 @@ impl Engine {
 
         let stopping = source
             .and_then(|src| state.in_play.filter(|p| p.card == src))
-            .filter(|&played| self.can_reverse(state, player, card, played));
+            .filter(|played| !played.bonus.no_arsenal_reversal)
+            .filter(|&played| self.can_reverse(state, player, card, played))
+            .filter(|_| !self.def(state, card).script.reverses.as_ref().is_some_and(|s| s.from_hand_only));
         if let Some(played) = stopping.filter(|&p| self.needs_more_reversals(state, p)) {
             events.push(Event::PartialReversal { player, reversal: card, card: played.card });
             state.in_play = Some(Played { reversals: played.reversals + 1, ..played });
@@ -706,7 +927,10 @@ impl Engine {
             events.push(Event::Reversed { player, reversal: card, reversed: played.card, from_hand: false });
             state.pending.clear();
             let max = self.def(state, played.card).stun_value;
-            schedule(state, [Step::ToRing, Step::StunDraw { player: played.player, max }, Step::EndTurn]);
+            state.pending.push(Step::EndTurn);
+            let effects = self.def(state, card).script.reverses.as_ref().map(|s| s.effects.clone()).unwrap_or_default();
+            schedule_effects(state, &effects, player, Source::Card(card));
+            schedule(state, [Step::ToRing, Step::StunDraw { player: played.player, max }]);
         } else if remaining > 1 {
             state.pending.push(Step::Overturn { player, remaining: remaining - 1, source });
         }
@@ -730,12 +954,13 @@ impl Engine {
         }
         state.in_play = None;
         let spec = self.def(state, reversal).script.reverses.clone().expect("validated reversal");
-        let damage = match spec.damage {
+        let base = match spec.damage {
             ReversalDamage::Printed => self.def(state, reversal).damage as u16,
             ReversalDamage::None => 0,
             ReversalDamage::Fixed(n) => n as u16,
-            ReversalDamage::SameAsReversed => self.card_damage(state, played.card),
+            ReversalDamage::SameAsReversed => self.card_damage(state, played),
         };
+        let damage = (base as i16 + played.bonus.reversal_damage).max(0) as u16;
         events.push(Event::Reversed { player: defender, reversal, reversed: played.card, from_hand: true });
         self.move_card(state, played.card, Zone::Ringside, events);
         self.move_card(state, reversal, Zone::Ring, events);
@@ -745,7 +970,8 @@ impl Engine {
         if damage > 0 {
             state.pending.push(Step::Overturn { player: played.player, remaining: damage, source: None });
         }
-        schedule_effects(state, &spec.on_reverse, defender, Source::Card(reversal));
+        let effects: Vec<Effect> = spec.effects.iter().chain(&spec.on_reverse).cloned().collect();
+        schedule_effects(state, &effects, defender, Source::Card(reversal));
     }
 
     fn effect(
@@ -760,68 +986,193 @@ impl Engine {
             Who::You => controller,
             Who::Opponent => controller.opponent(),
         };
+        let recoverable = |state: &GameState, p: PlayerId| -> Vec<CardId> {
+            state.player(p).ringside.iter().copied().filter(|&c| !self.def(state, c).is_backlash()).collect()
+        };
         match effect {
             Effect::Draw { who, n } => self.draw(state, target(who), n, events),
+            Effect::DrawUpTo { who, n } => state.pending.push(Step::StunDraw { player: target(who), max: n }),
             Effect::Discard { who, n, pick } => {
                 let p = target(who);
-                let k = (n as usize).min(state.player(p).hand.len());
+                let forced = p != controller;
                 match pick {
                     Pick::Random => {
+                        let k = (n as usize).min(state.player(p).hand.len());
                         for _ in 0..k {
                             let i = state.rng.random_range(0..state.player(p).hand.len());
                             let c = state.player(p).hand[i];
-                            self.move_card(state, c, Zone::Ringside, events);
+                            if forced {
+                                self.forced_discard(state, c, events);
+                            } else {
+                                self.move_card(state, c, Zone::Ringside, events);
+                            }
                         }
                     }
-                    Pick::Chosen => self.ask_cards(state, p, Zone::Hand, n, ChoicePurpose::Discard),
+                    Pick::Chosen | Pick::Controller => {
+                        let decider = if pick == Pick::Chosen { p } else { controller };
+                        let purpose = if forced { ChoicePurpose::ForcedDiscard } else { ChoicePurpose::Discard };
+                        let options = state.player(p).hand.clone();
+                        ask(state, decider, options, n, false, purpose);
+                    }
                 }
             }
-            Effect::RingsideToHand { who, n } => {
+            Effect::DiscardAll { who, filter } => {
                 let p = target(who);
-                self.ask_cards(state, p, Zone::Ringside, n, ChoicePurpose::RingsideToHand);
+                let cards: Vec<CardId> = state
+                    .player(p)
+                    .hand
+                    .iter()
+                    .copied()
+                    .filter(|&c| self.matches_def(state, &filter, c, controller))
+                    .collect();
+                for c in cards {
+                    if p != controller {
+                        self.forced_discard(state, c, events);
+                    } else {
+                        self.move_card(state, c, Zone::Ringside, events);
+                    }
+                }
             }
-            Effect::RingsideToArsenal { who, n } => {
+            Effect::RingsideToHand { who, n, up_to } => {
                 let p = target(who);
-                self.ask_cards(state, p, Zone::Ringside, n, ChoicePurpose::RingsideToArsenal);
+                let options = recoverable(state, p);
+                ask(state, p, options, n, up_to, ChoicePurpose::RingsideToHand);
+            }
+            Effect::RingsideToArsenal { who, n, up_to } => {
+                let p = target(who);
+                let options = recoverable(state, p);
+                ask(state, p, options, n, up_to, ChoicePurpose::RingsideToArsenal);
+            }
+            Effect::HandToArsenal { who, n } => {
+                let p = target(who);
+                let options = state.player(p).hand.clone();
+                ask(state, p, options, n, false, ChoicePurpose::HandToArsenal);
             }
             Effect::HandToArsenalBottom { who, n } => {
                 let p = target(who);
-                self.ask_cards(state, p, Zone::Hand, n, ChoicePurpose::HandToArsenalBottom);
+                let options = state.player(p).hand.clone();
+                ask(state, p, options, n, false, ChoicePurpose::HandToArsenalBottom);
             }
             Effect::RingsideToArsenalBottom { who, n } => {
                 let p = target(who);
-                self.ask_cards(state, p, Zone::Ringside, n, ChoicePurpose::RingsideToArsenalBottom);
+                let options = recoverable(state, p);
+                ask(state, p, options, n, false, ChoicePurpose::RingsideToArsenalBottom);
             }
             Effect::Damage { who, n } => {
                 if n > 0 {
                     state.pending.push(Step::Overturn { player: target(who), remaining: n as u16, source: None });
                 }
             }
+            Effect::Mill { who, n } => {
+                let p = target(who);
+                for _ in 0..n {
+                    let Some(&c) = state.player(p).arsenal.last() else { break };
+                    self.move_card(state, c, Zone::Ringside, events);
+                }
+            }
+            Effect::MillChosen { who, n } => {
+                let p = target(who);
+                let options = state.player(p).arsenal.clone();
+                ask(state, controller, options, n, false, ChoicePurpose::ArsenalToRingside);
+            }
+            Effect::Search { filter, ringside } => {
+                let me = state.player(controller);
+                let options: Vec<CardId> = me
+                    .arsenal
+                    .iter()
+                    .chain(if ringside { me.ringside.as_slice() } else { &[] })
+                    .copied()
+                    .filter(|&c| !self.def(state, c).is_backlash() && self.matches_def(state, &filter, c, controller))
+                    .collect();
+                if options.is_empty() {
+                    self.shuffle_arsenal(state, controller, events);
+                } else {
+                    ask(state, controller, options, 1, false, ChoicePurpose::SearchToHand);
+                }
+            }
+            Effect::LookAtHand { who } => {
+                let p = target(who);
+                events.push(Event::HandShown { player: p, viewer: controller, cards: state.player(p).hand.clone() });
+            }
+            Effect::Arrange { who, n } => {
+                let owner = target(who);
+                let left: Vec<CardId> = state.player(owner).arsenal.iter().rev().take(n as usize).copied().collect();
+                if left.len() > 1 {
+                    state.pending.push(Step::Arrange { chooser: controller, owner, left, done: vec![] });
+                }
+            }
+            Effect::Shuffle { who } => self.shuffle_arsenal(state, target(who), events),
+            Effect::RemoveFromRing { who, n, filter } => {
+                let p = target(who);
+                let options: Vec<CardId> = state
+                    .player(p)
+                    .ring
+                    .iter()
+                    .copied()
+                    .filter(|&c| self.matches_def(state, &filter, c, controller))
+                    .collect();
+                ask(state, controller, options, n, false, ChoicePurpose::RingToRingside);
+            }
+            Effect::LevelFortitude => state.pending.push(Step::LevelFortitude),
+            Effect::OverturnUntilReversal { who } => {
+                if let Some(target_card) = state.last_played.filter(|l| l.player == controller) {
+                    state.pending.push(Step::OverturnUntil { player: target(who), target: target_card });
+                }
+            }
+            Effect::Boost(boost) => state.boosts.push((controller, boost)),
+            Effect::EndTurn => state.end_turn_after_play = true,
+            Effect::SkipNextTurn { who } => state.skip_turn[target(who).index()] = true,
+            Effect::AtEndOfTurn(effects) => state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e))),
+            Effect::DiscardThis => state.in_play_to = Some(Zone::Ringside),
+            Effect::ShuffleThisIntoArsenal => state.in_play_to = Some(Zone::Arsenal),
+            Effect::NextTurnAfterThis => {
+                if let Source::Card(c) = source {
+                    state.start_after[controller.index()] = Some(c);
+                }
+            }
+            Effect::WinGame => {
+                self.finish(state, Outcome::Win { winner: controller, method: WinMethod::Disqualification }, events)
+            }
             Effect::Optional(effects) => {
-                state.decision = Some(Decision {
-                    player: controller,
-                    kind: DecisionKind::YesNo { purpose: YesNoPurpose::OptionalEffect { effects, source } },
-                });
+                if self.payable(state, controller, &effects) {
+                    state.decision = Some(Decision {
+                        player: controller,
+                        kind: DecisionKind::YesNo { purpose: YesNoPurpose::OptionalEffect { effects, source } },
+                    });
+                }
+            }
+            Effect::Choice(options) => {
+                let options: Vec<Vec<Effect>> =
+                    options.into_iter().filter(|o| self.payable(state, controller, o)).collect();
+                match options.len() {
+                    0 => {}
+                    1 => schedule_effects(state, &options[0], controller, source),
+                    _ => {
+                        state.decision =
+                            Some(Decision { player: controller, kind: DecisionKind::ChooseOption { options, source } })
+                    }
+                }
             }
         }
     }
 
-    /// Asks `p` to choose `n` cards from `from` (fewer if there are not enough).
-    /// Backlash cards never leave the Ringside pile for the hand or Arsenal.
-    fn ask_cards(&self, state: &mut GameState, p: PlayerId, from: Zone, n: u8, purpose: ChoicePurpose) {
-        let options: Vec<CardId> = state
-            .player(p)
-            .zone(from)
+    /// Can `p` pay every "discard N cards" in `effects` in full?
+    fn payable(&self, state: &GameState, p: PlayerId, effects: &[Effect]) -> bool {
+        let discards: usize = effects
             .iter()
-            .copied()
-            .filter(|&c| from != Zone::Ringside || !self.def(state, c).is_backlash())
-            .collect();
-        let k = n.min(options.len().min(u8::MAX as usize) as u8);
-        if k == 0 {
-            return;
-        }
-        state.decision =
-            Some(Decision { player: p, kind: DecisionKind::ChooseCards { options, min: k, max: k, purpose } });
+            .map(|e| match e {
+                Effect::Discard { who: Who::You, n, pick: Pick::Chosen } => *n as usize,
+                _ => 0,
+            })
+            .sum();
+        state.player(p).hand.len() >= discards
+    }
+
+    /// Discards `card` because its owner's opponent made them.
+    fn forced_discard(&self, state: &mut GameState, card: CardId, events: &mut Vec<Event>) {
+        self.move_card(state, card, Zone::Ringside, events);
+        let effects = self.def(state, card).script.on_forced_discard.clone();
+        schedule_effects(state, &effects, state.card(card).owner, Source::Card(card));
     }
 
     /// Can `player` play `card` as `kind` in their Main Segment right now?
@@ -835,29 +1186,125 @@ impl Engine {
                 Zone::Backlash => def.has_trait(Trait::MidMatch),
                 _ => false,
             };
-        let follows_up = match &def.script.play_after {
-            None => true,
-            Some(filter) => state.last_played.is_some_and(|last| self.matches(state, filter, last)),
+        let as_action = def.script.as_action.as_ref().filter(|_| kind == CardKind::Action);
+        let follows_up = match (&def.script.play_after, as_action) {
+            (Some(filter), None) => state.last_played.is_some_and(|last| self.matches(state, filter, last)),
+            _ => true,
+        };
+        let requires = match as_action {
+            Some(a) => a.requires.as_ref(),
+            None => def.script.requires.as_ref(),
         };
         let female = self.db.superstar(state.player(player).superstar).female;
-        state.active == player
+        if !(state.active == player
             && state.decision.as_ref().is_none_or(|d| d.kind == DecisionKind::Main)
             && location_ok
             && kind.playable_on_own_turn()
             && def.kinds.contains(&kind)
             && follows_up
+            && requires.is_none_or(|c| self.holds(state, c, player))
+            && !self.banned_by_opponent(state, player, def)
             && !(female && def.has_trait(Trait::Multi) && matches!(kind, CardKind::Maneuver(_)))
-            && !(from_backlash && self.count_in_ring(state, player, |d| d.has_trait(Trait::MidMatch)) >= RING_LIMIT)
-            && self.ring_allows(state, player, def)
+            && !(from_backlash && self.count_in_ring(state, player, |d| d.has_trait(Trait::MidMatch)) >= RING_LIMIT))
+        {
+            return false;
+        }
+        let printed = as_action.and_then(|a| a.fortitude).unwrap_or(def.fortitude);
+        let (bonus, _) = self.play_bonus(state, player, card, kind);
+        self.ring_allows(state, player, def, printed as i32 + bonus.fortitude as i32)
     }
 
     /// Requirements shared by every way of playing a card: Fortitude, Active,
     /// Universally Unique.
-    fn ring_allows(&self, state: &GameState, player: PlayerId, def: &CardDef) -> bool {
+    fn ring_allows(&self, state: &GameState, player: PlayerId, def: &CardDef, fortitude: i32) -> bool {
         let in_ring = |p: PlayerId| state.player(p).ring.iter().any(|&c| self.def(state, c).title == def.title);
-        self.fortitude(state, player) >= def.fortitude as u16
+        self.fortitude(state, player) as i32 >= fortitude
             && !(def.has_trait(Trait::Active) && in_ring(player))
             && !(def.has_trait(Trait::UniversallyUnique) && (in_ring(player) || in_ring(player.opponent())))
+    }
+
+    /// The opponent's Superstar forbids `player` to play this card.
+    fn banned_by_opponent(&self, state: &GameState, player: PlayerId, def: &CardDef) -> bool {
+        self.abilities(state, player.opponent())
+            .iter()
+            .any(|a| matches!(a, Ability::OpponentCannotPlay(title) if title.eq_ignore_ascii_case(&def.title)))
+    }
+
+    /// Bonuses `card` would get if `player` played it as `kind` now, and the
+    /// indices of the boosts in [`GameState::boosts`] it would use up.
+    fn play_bonus(&self, state: &GameState, player: PlayerId, card: CardId, kind: CardKind) -> (PlayBonus, Vec<usize>) {
+        let def = self.def(state, card);
+        let after = state.last_played.map(|l| l.card);
+        let mut played = Played { after, ..Played::new(card, player, kind) };
+        let b = &mut played.bonus;
+        b.irreversible = def.script.irreversible;
+        if matches!(kind, CardKind::Maneuver(_)) {
+            for bonus in &def.script.bonuses {
+                if !self.holds(state, &bonus.when, player) {
+                    continue;
+                }
+                let times = match &bonus.per {
+                    Some(f) => self.count_in_ring_matching(state, player, f) as i16,
+                    None => 1,
+                };
+                b.damage += bonus.damage * times;
+                b.fortitude += bonus.fortitude * times;
+                b.reversal_damage += bonus.reversal_damage * times;
+                b.reversal_fortitude += bonus.reversal_fortitude * times;
+            }
+        }
+        for ability in self.abilities(state, player) {
+            if let Ability::CardFortitude { title, delta } = ability
+                && title.eq_ignore_ascii_case(&def.title)
+            {
+                b.fortitude += delta;
+            }
+        }
+        let auras: Vec<&Boost> =
+            state.player(player).ring.iter().flat_map(|&c| &self.def(state, c).script.while_in_ring).collect();
+        for boost in auras {
+            if self.matches(state, &boost.applies_to, played) {
+                add_boost(&mut played.bonus, boost);
+            }
+        }
+        let mut used = Vec::new();
+        for (i, (owner, boost)) in state.boosts.iter().enumerate() {
+            if *owner != player {
+                continue;
+            }
+            let applies = self.matches(state, &boost.applies_to, played);
+            match boost.duration {
+                Duration::NextTurn | Duration::NextTurnFirstCard => continue,
+                Duration::NextCard => used.push(i),
+                Duration::NextMatching if applies => used.push(i),
+                _ => {}
+            }
+            if applies {
+                add_boost(&mut played.bonus, boost);
+            }
+        }
+        (played.bonus, used)
+    }
+
+    /// Is `cond` true for `player`?
+    fn holds(&self, state: &GameState, cond: &Condition, player: PlayerId) -> bool {
+        match cond {
+            Condition::Always => true,
+            Condition::Never => false,
+            Condition::After(f) => state.last_played.is_some_and(|last| self.matches(state, f, last)),
+            Condition::InYourRing(f) => self.count_in_ring_matching(state, player, f) > 0,
+            Condition::FortitudeBelowOpponent => {
+                self.fortitude(state, player) < self.fortitude(state, player.opponent())
+            }
+            Condition::HandAtLeast(n) => state.player(player).hand.len() >= *n as usize,
+            Condition::OpponentFemale => self.db.superstar(state.player(player.opponent()).superstar).female,
+            Condition::Not(c) => !self.holds(state, c, player),
+            Condition::AnyOf(cs) => cs.iter().any(|c| self.holds(state, c, player)),
+        }
+    }
+
+    fn count_in_ring_matching(&self, state: &GameState, p: PlayerId, f: &CardFilter) -> usize {
+        state.player(p).ring.iter().filter(|&&c| self.matches_def(state, f, c, p)).count()
     }
 
     fn count_in_ring(&self, state: &GameState, p: PlayerId, f: impl Fn(&CardDef) -> bool) -> usize {
@@ -885,7 +1332,7 @@ impl Engine {
                 if step_ok
                     && !(t == PreMatchType::Venue && venue_in_play)
                     && !(def.has_trait(Trait::PayPerView) && ppv_in_ring)
-                    && self.ring_allows(state, p, def)
+                    && self.ring_allows(state, p, def, def.fortitude as i32)
                 {
                     out.push((card, kind));
                 }
@@ -916,8 +1363,8 @@ impl Engine {
                 Effect::Discard { who: Who::You, n, .. } | Effect::HandToArsenalBottom { who: Who::You, n } => {
                     from_hand += *n as usize
                 }
-                Effect::RingsideToHand { who: Who::You, n }
-                | Effect::RingsideToArsenal { who: Who::You, n }
+                Effect::RingsideToHand { who: Who::You, n, .. }
+                | Effect::RingsideToArsenal { who: Who::You, n, .. }
                 | Effect::RingsideToArsenalBottom { who: Who::You, n } => from_ringside += *n as usize,
                 _ => {}
             }
@@ -930,25 +1377,76 @@ impl Engine {
     pub fn can_reverse(&self, state: &GameState, player: PlayerId, reversal: CardId, played: Played) -> bool {
         let rdef = self.def(state, reversal);
         let Some(spec) = &rdef.script.reverses else { return false };
+        let needed = spec.fortitude.unwrap_or(rdef.fortitude) as i32 + played.bonus.reversal_fortitude as i32;
         played.player != player
             && rdef.is_reversal()
             && !self.def(state, played.card).has_trait(Trait::Irreversible)
-            && self.fortitude(state, player) >= rdef.fortitude as u16
+            && !played.bonus.irreversible
+            && !self.banned_by_opponent(state, player, rdef)
+            && self.fortitude(state, player) as i32 >= needed
             && self.matches(state, &spec.targets, played)
     }
 
+    /// Does the card being played match `filter`?
     fn matches(&self, state: &GameState, filter: &CardFilter, played: Played) -> bool {
+        let def = self.def(state, played.card);
         match filter {
             CardFilter::Any => true,
             CardFilter::Maneuver => matches!(played.kind, CardKind::Maneuver(_)),
             CardFilter::ManeuverType(t) => played.kind == CardKind::Maneuver(*t),
             CardFilter::Action => played.kind == CardKind::Action,
-            CardFilter::Title(title) => self.def(state, played.card).title.eq_ignore_ascii_case(title),
-            CardFilter::DamageAtMost(n) => self.card_damage(state, played.card) <= *n as u16,
-            CardFilter::DamageAtLeast(n) => self.card_damage(state, played.card) >= *n as u16,
+            CardFilter::Reversal => played.kind == CardKind::Reversal,
+            CardFilter::DamageAtMost(n) => self.card_damage(state, played) <= *n as u16,
+            CardFilter::DamageAtLeast(n) => self.card_damage(state, played) >= *n as u16,
+            CardFilter::After(f) => played.after.is_some_and(|a| self.matches_def(state, f, a, played.player)),
+            CardFilter::PlayerRingHas { filter, n } => {
+                self.count_in_ring_matching(state, played.player, filter) >= *n as usize
+            }
             CardFilter::All(fs) => fs.iter().all(|f| self.matches(state, f, played)),
             CardFilter::AnyOf(fs) => fs.iter().any(|f| self.matches(state, f, played)),
             CardFilter::Not(f) => !self.matches(state, f, played),
+            CardFilter::Title(_)
+            | CardFilter::TitleContains(_)
+            | CardFilter::Trait(_)
+            | CardFilter::DamageAtMostYourFortitude => {
+                self.matches_printed(def, filter, || self.fortitude(state, played.player))
+            }
+        }
+    }
+
+    /// Does the printed card `card` match `filter`? Filters about how a card is
+    /// played never match.
+    fn matches_def(&self, state: &GameState, filter: &CardFilter, card: CardId, controller: PlayerId) -> bool {
+        let def = self.def(state, card);
+        let is_maneuver = |k: &CardKind| matches!(k, CardKind::Maneuver(_));
+        match filter {
+            CardFilter::Any => true,
+            CardFilter::Maneuver => def.kinds.iter().any(is_maneuver),
+            CardFilter::ManeuverType(t) => def.kinds.contains(&CardKind::Maneuver(*t)),
+            CardFilter::Action => def.kinds.contains(&CardKind::Action),
+            CardFilter::Reversal => def.is_reversal(),
+            CardFilter::DamageAtMost(n) => def.damage <= *n,
+            CardFilter::DamageAtLeast(n) => def.damage >= *n,
+            CardFilter::After(_) | CardFilter::PlayerRingHas { .. } => false,
+            CardFilter::All(fs) => fs.iter().all(|f| self.matches_def(state, f, card, controller)),
+            CardFilter::AnyOf(fs) => fs.iter().any(|f| self.matches_def(state, f, card, controller)),
+            CardFilter::Not(f) => !self.matches_def(state, f, card, controller),
+            CardFilter::Title(_)
+            | CardFilter::TitleContains(_)
+            | CardFilter::Trait(_)
+            | CardFilter::DamageAtMostYourFortitude => {
+                self.matches_printed(def, filter, || self.fortitude(state, controller))
+            }
+        }
+    }
+
+    fn matches_printed(&self, def: &CardDef, filter: &CardFilter, fortitude: impl Fn() -> u16) -> bool {
+        match filter {
+            CardFilter::Title(title) => def.title.eq_ignore_ascii_case(title),
+            CardFilter::TitleContains(word) => def.title.to_lowercase().contains(&word.to_lowercase()),
+            CardFilter::Trait(t) => def.has_trait(*t),
+            CardFilter::DamageAtMostYourFortitude => def.damage as u16 <= fortitude(),
+            _ => unreachable!("only printed filters"),
         }
     }
 
@@ -1046,4 +1544,34 @@ fn combinations(items: &[CardId], k: usize, f: &mut impl FnMut(&[CardId])) {
         }
     }
     go(items, k, 0, &mut Vec::with_capacity(k), f);
+}
+
+/// Asks `decider` to choose `n` of `options` (fewer if there are not enough;
+/// any number up to that if `up_to`). Choices with too many combinations are
+/// asked one card at a time.
+fn ask(state: &mut GameState, decider: PlayerId, options: Vec<CardId>, n: u8, up_to: bool, purpose: ChoicePurpose) {
+    let k = n.min(options.len().min(u8::MAX as usize) as u8);
+    if k == 0 {
+        return;
+    }
+    if k > 1 && binomial(options.len(), k as usize) > 200 {
+        state.pending.push(Step::AskMore { decider, options, remaining: k, up_to, purpose });
+        return;
+    }
+    let min = if up_to { 0 } else { k };
+    state.decision =
+        Some(Decision { player: decider, kind: DecisionKind::ChooseCards { options, min, max: k, purpose } });
+}
+
+fn binomial(n: usize, k: usize) -> usize {
+    (0..k).fold(1usize, |acc, i| acc.saturating_mul(n - i) / (i + 1))
+}
+
+fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
+    bonus.damage += boost.damage;
+    bonus.fortitude += boost.fortitude;
+    bonus.reversal_damage += boost.reversal_damage;
+    bonus.reversal_fortitude += boost.reversal_fortitude;
+    bonus.irreversible |= boost.irreversible;
+    bonus.no_arsenal_reversal |= boost.no_arsenal_reversal;
 }

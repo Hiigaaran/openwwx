@@ -41,3 +41,63 @@ fn user_sets_play_random_matches() {
     }
     eprintln!("{games} matches finished");
 }
+
+/// Random 60-card piles (deck rules off) so that every scripted card gets
+/// played, in both Quick Start and Advanced matches.
+#[test]
+fn user_sets_every_card_in_random_piles() {
+    use rand::SeedableRng;
+    use rand::seq::IndexedRandom;
+    use rawdeal_core::{DeckList, Event, Mode};
+
+    let Some(dir) = std::env::var_os("OPENWWX_CARDS").map(PathBuf::from) else {
+        eprintln!("OPENWWX_CARDS not set; skipping");
+        return;
+    };
+    let db = rawdeal_cards::build_db(rawdeal_cards::load_dir(&dir).unwrap()).unwrap();
+    let stars: Vec<String> = db.superstars().iter().map(|s| s.id.clone()).collect();
+    let engine = Engine::new(Arc::new(db));
+    let db = engine.db();
+    let pile = |star: &str, rng: &mut rand_chacha::ChaCha8Rng| {
+        let pool: Vec<String> = db
+            .cards()
+            .iter()
+            .filter(|c| c.superstar.as_deref().is_none_or(|s| s == star) && !c.is_backlash())
+            .map(|c| c.id.clone())
+            .collect();
+        let arsenal = (0..60).map(|_| pool.choose(rng).unwrap().clone()).collect();
+        DeckList { superstar: star.to_string(), arsenal, backlash: vec![] }
+    };
+    let mut played = std::collections::BTreeSet::new();
+    for seed in 0..400u64 {
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+        let a = stars.choose(&mut rng).unwrap().clone();
+        let b = stars.choose(&mut rng).unwrap().clone();
+        let mode = if seed % 2 == 0 { Mode::QuickStart } else { Mode::Advanced };
+        let setup = GameSetup {
+            decks: [pile(&a, &mut rng), pile(&b, &mut rng)],
+            enforce_deck_rules: false,
+            shuffle_arsenals: true,
+            mode,
+        };
+        let (mut state, _) = engine.new_game(&setup, seed).unwrap();
+        let mut bots = [RandomBot::new(seed), RandomBot::new(seed + 1)];
+        let mut actions = 0;
+        while state.outcome.is_none() {
+            let p = state.decision.as_ref().unwrap().player;
+            let legal = engine.legal_actions(&state, p);
+            assert!(legal.len() < 5_000, "{} legal actions", legal.len());
+            let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
+            for ev in engine.apply(&mut state, p, action).unwrap() {
+                if let Event::CardPlayed { card, .. } | Event::Reversed { reversal: card, .. } = ev {
+                    played.insert(db.card(state.card(card).def).title.clone());
+                }
+            }
+            state.check_invariants().unwrap();
+            actions += 1;
+            assert!(actions < 20_000, "{a} vs {b} seed {seed} did not finish");
+        }
+    }
+    let never: Vec<&str> = db.cards().iter().map(|c| c.title.as_str()).filter(|t| !played.contains(*t)).collect();
+    eprintln!("{} card titles played; never played: {never:?}", played.len());
+}

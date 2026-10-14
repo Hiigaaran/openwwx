@@ -68,6 +68,15 @@ pub enum Event {
     ArsenalShuffled {
         player: PlayerId,
     },
+    /// `viewer` looked at `player`'s hand.
+    HandShown {
+        player: PlayerId,
+        viewer: PlayerId,
+        cards: Vec<CardId>,
+    },
+    TurnSkipped {
+        player: PlayerId,
+    },
     CountOutRefused {
         player: PlayerId,
     },
@@ -88,6 +97,9 @@ impl Event {
                 if player != viewer && !is_public(from) && !is_public(to) =>
             {
                 Event::CardMoved { player, card: None, from, to }
+            }
+            Event::HandShown { player, viewer: v, .. } if viewer != player && viewer != v => {
+                Event::HandShown { player, viewer: v, cards: vec![] }
             }
             _ => self.clone(),
         }

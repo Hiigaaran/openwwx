@@ -251,11 +251,13 @@ fn deck_rules() {
     let db = rawdeal_cards::test_db();
     let mut deck = rawdeal_cards::test_deck(TECH);
     assert!(validate_deck(&db, &deck).is_empty());
-    deck.arsenal[58] = "test/jab".into();
-    deck.arsenal[59] = "test/jab".into();
+    for i in 57..60 {
+        deck.arsenal[i] = "test/jab".into();
+    }
+    let jabs = deck.arsenal.iter().filter(|c| *c == "test/jab").count();
     assert!(validate_deck(&db, &deck).contains(&DeckProblem::TooManyCopies {
         card: "test/jab".into(),
-        copies: 4,
+        copies: jabs,
         max: 3
     }));
     deck.arsenal.pop();

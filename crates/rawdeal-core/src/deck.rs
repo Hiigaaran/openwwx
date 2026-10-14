@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::card::Trait;
+use crate::card::{Ability, Trait};
 use crate::db::CardDb;
 
 pub const ARSENAL_SIZE: usize = 60;
@@ -50,6 +50,10 @@ pub enum DeckProblem {
     BacklashTooLarge(usize),
     TooManyPreMatch(usize),
     TooManyMidMatch(usize),
+    /// The Superstar cannot pack this card.
+    Forbidden {
+        card: String,
+    },
 }
 
 const CONFLICTS: [(Trait, Trait); 3] =
@@ -58,7 +62,8 @@ const CONFLICTS: [(Trait, Trait); 3] =
 /// Returns every rule the deck breaks; empty means legal.
 pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
     let mut problems = Vec::new();
-    if db.superstar_by_id(&deck.superstar).is_none() {
+    let superstar = db.superstar_by_id(&deck.superstar).map(|i| db.superstar(i));
+    if superstar.is_none() {
         problems.push(DeckProblem::UnknownSuperstar(deck.superstar.clone()));
     }
     if deck.arsenal.len() != ARSENAL_SIZE {
@@ -104,6 +109,12 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
             continue;
         };
         let def = db.card(idx);
+        let forbidden = superstar.is_some_and(|s| {
+            s.abilities.iter().any(|a| matches!(a, Ability::CannotPack(t) if t.eq_ignore_ascii_case(&def.title)))
+        });
+        if forbidden {
+            problems.push(DeckProblem::Forbidden { card: id.to_string() });
+        }
         let copies = counts[id];
         let max = if def.has_trait(Trait::SetUp) {
             usize::MAX

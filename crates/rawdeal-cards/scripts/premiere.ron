@@ -10,13 +10,389 @@
             Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)]),
         ],
         "Mankind": [DrawSegment(2), ReduceDamage(1)],
-        // Only the start-of-turn part; the card-specific bonuses come later.
-        "The Rock": [StartOfTurn([RingsideToArsenalBottom(who: You, n: 1)])],
+        "The Rock": [
+            CannotPack("Iron Will"),
+            StartOfTurn([RingsideToArsenalBottom(who: You, n: 1)]),
+            OnPlay(title: "Just Bring It!", effects: [Optional([Draw(who: You, n: 1)])]),
+            OnPlay(
+                title: "Spine Buster",
+                effects: [Search(filter: Title("The People's Elbow"), ringside: true)],
+            ),
+            CardFortitude(title: "Sharpshooter", delta: -2),
+            OnPlay(title: "Sharpshooter", effects: [Optional([Draw(who: You, n: 1)])]),
+        ],
         "Kane": [StartOfTurn([Damage(who: Opponent, n: 1)])],
         "Chris Jericho": [
             Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Discard(who: Opponent, n: 1, pick: Chosen)]),
         ],
-        // Triple H's ability only changes specific cards; not scripted yet.
+        "Triple H": [
+            CardFortitude(title: "A Beating You'll Never Forget", delta: -10),
+            OpponentCannotPlay("The Game Interferes!"),
+        ],
     },
-    scripts: {},
+    // Card scripts. Tag Team cards (Cheap Shot From the Corner, Tag in Partner,
+    // Double Team, Trip, Partner Interference) cannot be played yet.
+    scripts: {
+        // Strikes
+        "Chop": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+        "Head Butt": (on_play: [Discard(who: You, n: 1, pick: Chosen)]),
+        "Haymaker": (on_play: [Boost((applies_to: ManeuverType(Strike), duration: ThisTurn, damage: 1))]),
+        "Back Body Drop": (
+            play_after: Some(Title("Irish Whip")),
+            on_play: [Choice([[Draw(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]])],
+        ),
+        "Shoulder Block": (
+            reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]))),
+        ),
+        "Kick": (on_play: [Damage(who: Opponent, n: 1)]),
+        "Cross Body Block": (
+            play_after: Some(Title("Irish Whip")),
+            reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]))),
+        ),
+        "Cheap Shot From the Corner": (requires: Some(Never)),
+        "Running Elbow Smash": (on_play: [Mill(who: You, n: 1)]),
+        "Discus Punch": (bonuses: [(reversal_damage: 2)]),
+        "Superkick": (bonuses: [(when: After(All([Maneuver, DamageAtLeast(5)])), damage: 5)]),
+        "Spinning Heel Kick": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Spear": (reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))])))),
+        "Clothesline": (on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 2))]),
+
+        // Grapples
+        "Arm Bar Takedown": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+        "Arm Drag": (on_play: [Discard(who: You, n: 1, pick: Chosen)]),
+        "Snap Mare": (on_play: [Boost((applies_to: ManeuverType(Strike), duration: NextCard, damage: 2))]),
+        "Double Leg Takedown": (on_play: [Optional([Draw(who: You, n: 1)])]),
+        "Fireman's Carry": (on_play: [Optional([LookAtHand(who: Opponent)])]),
+        "Headlock Takedown": (on_play: [Draw(who: Opponent, n: 1)]),
+        "Atomic Drop": (on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 2))]),
+        "Pump Handle Slam": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
+        "Reverse DDT": (on_play: [Optional([Draw(who: You, n: 1)])]),
+        "Samoan Drop": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Bulldog": (
+            on_play: [
+                Discard(who: You, n: 1, pick: Chosen),
+                LookAtHand(who: Opponent),
+                Discard(who: Opponent, n: 1, pick: Controller),
+            ],
+        ),
+        "Fisherman's Suplex": (on_play: [Damage(who: Opponent, n: 1), Optional([Draw(who: You, n: 1)])]),
+        "DDT": (on_play: [Damage(who: Opponent, n: 1), Discard(who: Opponent, n: 2, pick: Chosen)]),
+        "Power Slam": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Powerbomb": (
+            on_play: [Optional([Draw(who: You, n: 1)])],
+            bonuses: [(per: Some(All([Maneuver, TitleContains("slam")])), damage: 1)],
+        ),
+        "Press Slam": (on_play: [Mill(who: You, n: 1), Discard(who: Opponent, n: 2, pick: Chosen)]),
+
+        // Submissions
+        "Collar and Elbow Lockup": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+        "Arm Bar": (on_play: [Discard(who: You, n: 1, pick: Chosen)]),
+        "Bear Hug": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Full Nelson": (on_play: [Search(filter: Title("Maintain Hold"))]),
+        "Choke Hold": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Ankle Lock": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Standing Side Headlock": (on_play: [Draw(who: Opponent, n: 1)]),
+        "Cobra Clutch": (on_play: [Search(filter: Title("Maintain Hold"))]),
+        "Chicken Wing": (on_play: [RingsideToArsenal(who: You, n: 2)]),
+        "Sleeper": (on_play: [Search(filter: Title("Maintain Hold"))]),
+        "Camel Clutch": (on_play: [Search(filter: Title("Maintain Hold"))]),
+        "Boston Crab": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Guillotine Stretch": (
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen), Optional([Draw(who: You, n: 1)])],
+        ),
+        "Abdominal Stretch": (on_play: [Optional([Discard(who: You, n: 3, pick: Chosen), Search(filter: Any)])]),
+        "Torture Rack": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        "Figure Four Leg Lock": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+
+        // High Risk. The inactive partner part of Combination Attack needs Tag Team rules.
+        "Combination Attack": (play_after: Some(All([Maneuver, DamageAtLeast(4)]))),
+
+        // Reversals
+        "Clean Break": (
+            reverses: Some((
+                targets: AnyOf([
+                    Title("Jockeying for Position"),
+                    Title("Clutch onto Opponent"),
+                    Title("Half Hour Suplex"),
+                    Title("Gut Wrench"),
+                    Title("Indian Deathlock"),
+                ]),
+                from_hand_only: true,
+                on_reverse: [Draw(who: You, n: 1), Discard(who: Opponent, n: 4, pick: Chosen)],
+            )),
+        ),
+        "Manager Interferes": (reverses: Some((targets: Maneuver, effects: [Draw(who: You, n: 1)]))),
+        // Reversing a Reversal is not supported yet, so only HEEL maneuvers.
+        "Disqualification!": (
+            reverses: Some((
+                targets: All([Maneuver, Trait(Heel), PlayerRingHas(filter: Trait(Heel), n: 5)]),
+                effects: [WinGame],
+            )),
+        ),
+        "No Chance in Hell": (reverses: Some((targets: Action))),
+
+        // Actions
+        "Hmmm": (on_play: [Choice([[Arrange(who: You, n: 5)], [Shuffle(who: You)]])]),
+        "Don't Think Too Hard": (on_play: [Choice([[Arrange(who: Opponent, n: 5)], [Shuffle(who: Opponent)]])]),
+        "Tag in Partner": (requires: Some(Never)),
+        "Whaddya Got?": (on_play: [LookAtHand(who: Opponent)]),
+        "Not Yet": (on_play: [HandToArsenal(who: You, n: 1), Draw(who: You, n: 2)]),
+        "Jockeying for Position": (
+            on_play: [
+                Choice([
+                    [Boost((applies_to: ManeuverType(Grapple), duration: NextCard, damage: 4))],
+                    [Boost((applies_to: ManeuverType(Grapple), duration: NextCard, reversal_fortitude: 8))],
+                ]),
+            ],
+            reverses: Some((
+                targets: Title("Jockeying for Position"),
+                effects: [
+                    NextTurnAfterThis,
+                    Choice([
+                        [Boost((applies_to: ManeuverType(Grapple), duration: NextTurnFirstCard, damage: 4))],
+                        [
+                            Boost((
+                                applies_to: ManeuverType(Grapple),
+                                duration: NextTurnFirstCard,
+                                reversal_fortitude: 8,
+                            )),
+                        ],
+                    ]),
+                ],
+            )),
+        ),
+        "Irish Whip": (
+            on_play: [Boost((applies_to: ManeuverType(Strike), duration: NextCard, damage: 5))],
+            reverses: Some((
+                targets: Title("Irish Whip"),
+                effects: [
+                    NextTurnAfterThis,
+                    Boost((applies_to: ManeuverType(Strike), duration: NextTurnFirstCard, damage: 5)),
+                ],
+            )),
+        ),
+        "Flash in the Pan": (
+            on_play: [Draw(who: You, n: 1), LookAtHand(who: Opponent), DiscardAll(who: Opponent, filter: Trait(Heel))],
+        ),
+        "View of Villainy": (
+            on_play: [Draw(who: You, n: 1), LookAtHand(who: Opponent), DiscardAll(who: Opponent, filter: Trait(Face))],
+        ),
+        "Shake It Off": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: DamageAtMostYourFortitude)],
+        ),
+        "Offer Handshake": (on_play: [DrawUpTo(who: You, n: 3), Discard(who: You, n: 1, pick: Chosen)]),
+        "Roll Out of the Ring": (
+            on_play: [
+                Choice([
+                    [],
+                    [Discard(who: You, n: 1, pick: Chosen), RingsideToHand(who: You, n: 1)],
+                    [Discard(who: You, n: 2, pick: Chosen), RingsideToHand(who: You, n: 2)],
+                ]),
+            ],
+        ),
+        "Distract the Ref": (
+            on_play: [
+                Draw(who: You, n: 1),
+                LookAtHand(who: Opponent),
+                DiscardAll(who: Opponent, filter: Title("Disqualification!")),
+            ],
+        ),
+        "Recovery": (on_play: [RingsideToArsenal(who: You, n: 2), Draw(who: You, n: 1)]),
+        "Spit At Opponent": (
+            requires: Some(HandAtLeast(2)),
+            on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 4, pick: Chosen)],
+        ),
+        "Double Team": (requires: Some(Never)),
+        "Get Crowd Support": (
+            on_play: [
+                Draw(who: You, n: 1),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 4, reversal_fortitude: 12)),
+            ],
+        ),
+        "Comeback!": (on_play: [Discard(who: You, n: 3, pick: Chosen), LevelFortitude]),
+        "Ego Boost": (
+            on_play: [Boost((duration: NextCard, fortitude: -5))],
+            on_forced_discard: [DrawUpTo(who: You, n: 2)],
+        ),
+        "Deluding Yourself": (
+            on_play: [Draw(who: You, n: 4), AtEndOfTurn([DiscardAll(who: You, filter: Any)])],
+        ),
+        "Stagger": (
+            play_after: Some(Maneuver),
+            on_play: [Boost((applies_to: All([Maneuver, DamageAtMost(7)]), duration: NextCard, irreversible: true))],
+        ),
+        "Diversion": (on_play: [Boost((applies_to: Maneuver, duration: NextCard, irreversible: true))]),
+        "Marking Out": (
+            on_play: [Choice([[Search(filter: Any), EndTurn], [MillChosen(who: Opponent, n: 3)]])],
+        ),
+        "Puppies! Puppies!": (
+            requires: Some(Not(OpponentFemale)),
+            on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), Draw(who: You, n: 2)],
+        ),
+        "Shane O'Mac": (in_ring_start_of_turn: [Mill(who: Opponent, n: 1)]),
+        "Maintain Hold": (
+            play_after: Some(
+                AnyOf([ManeuverType(Submission), Title("Mandible Claw"), Title("Walls of Jericho")]),
+            ),
+            on_play: [OverturnUntilReversal(who: Opponent), EndTurn],
+        ),
+        "Pat and Gerry": (on_play: [SkipNextTurn(who: Opponent)]),
+
+        // Stone Cold Steve Austin
+        "Stone Cold Stunner": (bonuses: [(when: After(TitleContains("kick")), fortitude: -6)]),
+        "Open Up a Can of Whoop-Ass": (
+            on_play: [
+                Draw(who: You, n: 1),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 6, reversal_fortitude: 20)),
+            ],
+        ),
+        "Austin Elbow Smash": (play_after: Some(All([Maneuver, DamageAtLeast(5)])), irreversible: true),
+        "Lou Thesz Press": (
+            reverses: Some((
+                targets: All([Maneuver, After(Title("Irish Whip"))]),
+                from_hand_only: true,
+                on_reverse: [Optional([Draw(who: You, n: 1)])],
+            )),
+        ),
+
+        // Undertaker
+        "Undertaker's Tombstone Piledriver": (
+            as_action: Some((fortitude: Some(0), on_play: [DiscardThis, Draw(who: You, n: 1)])),
+        ),
+        "Power of Darkness": (
+            on_play: [
+                Boost((applies_to: Maneuver, duration: ThisTurn, damage: 5)),
+                Boost((applies_to: Any, duration: ThisTurn, reversal_fortitude: 20)),
+            ],
+        ),
+        "Undertaker's Flying Clothesline": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            bonuses: [(reversal_damage: 6)],
+        ),
+        "Undertaker Sits Up!": (
+            reverses: Some((
+                targets: Maneuver,
+                on_reverse: [
+                    Mill(who: You, n: 4),
+                    Discard(who: Opponent, n: 1, pick: Chosen),
+                    Boost((applies_to: Maneuver, duration: NextTurn, damage: 2)),
+                    Boost((applies_to: Any, duration: NextTurn, reversal_fortitude: 25)),
+                ],
+            )),
+        ),
+
+        // Mankind
+        "Mandible Claw": (bonuses: [(when: InYourRing(Title("Mr. Socko")), fortitude: -6)]),
+        "Mr. Socko": (
+            on_play: [Choice([[Search(filter: Any)], [RingsideToHand(who: You, n: 1), Shuffle(who: You)]])],
+            while_in_ring: [(applies_to: Maneuver, damage: 1)],
+        ),
+        "Double Digits": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [Discard(who: Opponent, n: 2, pick: Chosen), Damage(who: Opponent, n: 2)],
+            )),
+        ),
+        "Have a Nice Day!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                on_reverse: [DiscardAll(who: Opponent, filter: Any)],
+            )),
+        ),
+        "Tree of Woe": (irreversible: true, on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
+
+        // Triple H
+        "Pedigree": (
+            bonuses: [(when: After(ManeuverType(Strike)), damage: 2)],
+            reverses: Some((targets: Title("Back Body Drop"))),
+        ),
+        "Chyna Interferes": (reverses: Some((targets: Maneuver, on_reverse: [Draw(who: You, n: 2)]))),
+        "Leaping Knee to the Face": (
+            play_after: Some(Title("Irish Whip")),
+            irreversible: true,
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        "Facebuster": (
+            reverses: Some((
+                targets: All([Maneuver, AnyOf([After(Title("Irish Whip")), After(Trait(SetUp))])]),
+                fortitude: Some(0),
+            )),
+        ),
+        "I Am the Game": (
+            on_play: [
+                Choice([[Draw(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]]),
+                Boost((applies_to: Maneuver, duration: ThisTurn, damage: 3)),
+            ],
+        ),
+
+        // The Rock
+        "Smackdown Hotel": (
+            on_play: [
+                Draw(who: You, n: 1),
+                LookAtHand(who: Opponent),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 6)),
+            ],
+        ),
+        "The People's Eyebrow": (
+            on_play: [RingsideToHand(who: You, n: 2, up_to: true), RingsideToArsenal(who: You, n: 2, up_to: true)],
+        ),
+        "The People's Elbow": (
+            requires: Some(InYourRing(AnyOf([Title("Rock Bottom"), Title("Spine Buster")]))),
+            as_action: Some((on_play: [ShuffleThisIntoArsenal, Draw(who: You, n: 2)])),
+        ),
+        "Take That Move, Shine It Up Real Nice, Turn That Sumbitch Sideways, and Stick It Straight Up Your Roody Poo Candy Ass!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [RingsideToArsenal(who: You, n: 5, up_to: true)],
+            )),
+        ),
+        "Rock Bottom": (
+            on_play: [Search(filter: Title("The People's Elbow"), ringside: true)],
+            reverses: Some((targets: ManeuverType(Grapple), effects: [Discard(who: You, n: 1, pick: Chosen)])),
+        ),
+
+        // Kane
+        "Kane's Tombstone Piledriver": (bonuses: [(when: After(Title("Kane's Chokeslam")), fortitude: -6)]),
+        "Hellfire and Brimstone": (
+            on_play: [
+                DiscardAll(who: You, filter: Any),
+                DiscardAll(who: Opponent, filter: Any),
+                Damage(who: Opponent, n: 5),
+            ],
+        ),
+        "Kane's Flying Clothesline": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            bonuses: [(reversal_damage: 6)],
+        ),
+        "Kane's Return!": (
+            reverses: Some((
+                targets: Maneuver,
+                effects: [
+                    Damage(who: Opponent, n: 4),
+                    Boost((applies_to: Maneuver, duration: NextTurn, damage: 2)),
+                    Boost((applies_to: Any, duration: NextTurn, reversal_fortitude: 15)),
+                ],
+            )),
+        ),
+
+        // Chris Jericho
+        "Ayatollah of Rock 'n' Roll-a": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                Boost((applies_to: Maneuver, duration: ThisTurn, no_arsenal_reversal: true)),
+            ],
+        ),
+        "Lionsault": (play_after: Some(All([Maneuver, DamageAtLeast(4)]))),
+        "Y2J": (on_play: [Choice([[DrawUpTo(who: You, n: 5)], [Discard(who: Opponent, n: 5, pick: Chosen)]])]),
+        "Don't You Never ... EVER!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [
+                    Discard(who: Opponent, n: 2, pick: Chosen),
+                    Boost((applies_to: Maneuver, duration: NextTurn, damage: 2)),
+                ],
+            )),
+        ),
+    },
 )

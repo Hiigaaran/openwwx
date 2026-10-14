@@ -2,7 +2,8 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: paso 1 del roadmap, el motor de reglas (reglas Quick Start). El diseño completo está en
+Estado: motor de reglas (Quick Start y Advanced) y set Premiere con sus efectos programados. Lo siguiente es la
+interfaz de escritorio. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -30,8 +31,18 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Reversals desde la mano y al voltearlos durante el daño, con Stun Value.
 - Cartas híbridas, cartas Irreversible.
 - Victoria por Pinfall y Count Out (se puede rechazar), y empate.
-- Efectos: robar, descartar (elegido o al azar), recuperar del Ringside, poner cartas en el fondo del Arsenal,
-  daño extra, efectos opcionales.
+- Efectos: robar (o robar hasta N), descartar (elegido, al azar, elegido por el rival tras mirar la mano, o
+  todas las cartas de un tipo), recuperar del Ringside, barajar cartas en el Arsenal, poner cartas en el fondo
+  del Arsenal, daño extra, mandar cartas del Arsenal al Ringside, buscar en el Arsenal, mirar la mano rival,
+  ordenar las cartas de arriba del Arsenal, quitar cartas del Ring, terminar el turno, saltarse el turno
+  rival, efectos al final del turno, ganar por descalificación, efectos opcionales y "elige una".
+- Bonos: +D/-F a la próxima carta, a la próxima maniobra, a las cartas del resto del turno o del turno
+  siguiente; +D a los Reversals contra una carta y +F para poder revertirla; cartas que no se pueden revertir
+  (o no desde el Arsenal); bonos impresos según la carta anterior o las cartas de tu Ring; cartas que
+  mientras están en tu Ring dan bonos o efectos al inicio del turno.
+- Requisitos para jugar una carta (Fortitude menor que el rival, cartas en mano, carta en tu Ring, Superstar
+  rival no femenina), cartas híbridas jugadas como Acción con su propio texto, y cartas que "cuentan como
+  jugadas después de" otra en tu siguiente turno (Irish Whip, Jockeying for Position).
 - Habilidades de Superstar: al inicio del turno (antes de robar), activadas una vez por turno con costo,
   robo extra en el Draw Segment y reducción del daño recibido.
 - Palabras clave: follow-up (la carta anterior debe cumplir una condición; usar la habilidad no rompe la
@@ -59,9 +70,19 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Reversal durante el daño.
 - Las cartas Backlash que llegan al Ringside nunca vuelven a la mano ni al Arsenal.
 
+## Interpretaciones de reglas por confirmar
+
+- El texto de un Reversal que no dice "If played from your hand" también se aplica cuando se voltea durante
+  el daño (por ejemplo, Manager Interferes roba 1 en los dos casos).
+- Una carta híbrida jugada como Acción no hace daño (Chop, Undertaker's Tombstone Piledriver).
+- Jockeying for Position: el +4D o el +8F se elige al jugar la carta.
+- Disqualification! solo revierte maniobras HEEL; revertir un Reversal todavía no existe en el motor.
+
 ## Pendiente
 
-Volley, Enforcers, Tag Team y modificadores de Superstar Value durante el Pre-match.
+Volley, Enforcers, Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team,
+Trip, Partner Interference y la parte de compañero de Combination Attack), revertir Reversals, y modificadores
+de Superstar Value durante el Pre-match.
 
 ## Cartas y arte
 
@@ -97,7 +118,8 @@ cargo run -p rawdeal-cards --bin octgn-import -- <set.xml> Premiere premiere ~/r
 ```
 
 El importador copia tipo, F, D, SV, rasgos, logo de Superstar y texto. Deduce qué revierte cada Reversal a
-partir del tipo y de frases comunes del texto. Las habilidades de Superstar vienen del archivo de scripts
-(`crates/rawdeal-cards/scripts/`). El resto del texto de cada carta todavía es solo informativo.
+partir del tipo y de frases comunes del texto. Las habilidades de Superstar y los efectos de cada carta vienen
+del archivo de scripts (`crates/rawdeal-cards/scripts/premiere.ron` para Premiere), escrito a mano a partir del
+texto de las cartas. En otros sets, el texto sin script es solo informativo.
 
 Para probar partidas aleatorias con tus sets: `OPENWWX_CARDS=~/raw-deal/sets cargo test -p rawdeal-cards --test user_sets`.

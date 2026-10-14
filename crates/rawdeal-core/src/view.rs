@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::db::{DefIdx, SuperstarIdx};
-use crate::decision::Decision;
+use crate::decision::{Decision, DecisionKind};
 use crate::engine::Engine;
 use crate::state::{CardId, GameState, Outcome, Played, PlayerId};
 
@@ -61,7 +61,15 @@ impl PlayerView {
             .chain(&hand)
             .chain(&backlash)
             .chain(state.in_play.as_ref().map(|p| &p.card));
-        for &c in visible {
+        // Cards you are asked to choose from (an opponent's hand, the top of an
+        // Arsenal) are shown to you.
+        let choosing = match &state.decision {
+            Some(Decision { player, kind: DecisionKind::ChooseCards { options, .. } }) if *player == me => {
+                options.as_slice()
+            }
+            _ => &[],
+        };
+        for &c in visible.chain(choosing) {
             known[c.0 as usize] = Some(state.card(c).def);
         }
 

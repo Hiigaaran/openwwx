@@ -176,6 +176,13 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
         Action::No => "No".into(),
         Action::DrawCards(n) => format!("Draw {n}"),
         Action::Pass => "Pass".into(),
+        Action::ChooseOption(i) => match &state.decision {
+            Some(Decision { kind: DecisionKind::ChooseOption { options, .. }, .. }) => {
+                let parts: Vec<String> = options[*i as usize].iter().map(|e| format!("{e:?}")).collect();
+                format!("Choose: {}", parts.join(", "))
+            }
+            _ => format!("Option {i}"),
+        },
     }
 }
 
@@ -206,6 +213,13 @@ fn print_events(engine: &Engine, state: &GameState, events: &[Event], viewer: Pl
             Event::Overturned { player, card } => format!("  {player} takes 1 damage: {}.", name(engine, state, card)),
             Event::CountOutRefused { player } => format!("{player} refuses the count out and goes for the pin."),
             Event::TurnEnded { player } => format!("{player} ends the turn."),
+            Event::TurnSkipped { player } => format!("{player} skips the turn."),
+            Event::HandShown { player, viewer: v, cards } if v == viewer => {
+                format!("{player}'s hand: {}", names(engine, state, &cards))
+            }
+            Event::CardMoved { player, card: Some(c), to: Zone::Ringside, from: Zone::Arsenal } => {
+                format!("{player} puts {} from the Arsenal into Ringside.", name(engine, state, c))
+            }
             Event::GameOver(Outcome::Win { winner, method }) => format!("\n*** {winner} wins by {method:?}! ***"),
             Event::GameOver(Outcome::Draw) => "\n*** Draw! ***".into(),
             Event::CardMoved { player, card: Some(c), to: Zone::Ringside, from: Zone::Hand } => {

@@ -22,8 +22,11 @@ pub enum DecisionKind {
     ChooseCards { options: Vec<CardId>, min: u8, max: u8, purpose: ChoicePurpose },
     /// Answer yes or no.
     YesNo { purpose: YesNoPurpose },
-    /// Your card was reversed during damage: draw up to `max` cards.
+    /// Draw up to `max` cards (Stun Value after your card was reversed during
+    /// damage, or a "draw up to" effect).
     StunDraw { max: u8 },
+    /// Choose one of a card's options.
+    ChooseOption { options: Vec<Vec<Effect>>, source: Source },
     /// Pre-match phase: play a Pre-match card from your Backlash deck or pass.
     /// Steps 0-3 are Venue, Feud, Stipulation and Manager; step 4 is open.
     PreMatch { step: u8, passes: u8, starter: PlayerId },
@@ -32,6 +35,14 @@ pub enum DecisionKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChoicePurpose {
     Discard,
+    /// Discard caused by the opponent (it can trigger the card).
+    ForcedDiscard,
+    HandToArsenal,
+    /// Cards picked from an Arsenal go to its owner's Ringside pile.
+    ArsenalToRingside,
+    RingToRingside,
+    /// Pick the next card, from the top down, to put back on the Arsenal.
+    Arrange,
     RingsideToHand,
     RingsideToArsenal,
     HandToArsenalBottom,
@@ -66,6 +77,7 @@ pub enum Action {
     Yes,
     No,
     DrawCards(u8),
+    ChooseOption(u8),
     /// Pre-match phase: play nothing this step.
     Pass,
 }

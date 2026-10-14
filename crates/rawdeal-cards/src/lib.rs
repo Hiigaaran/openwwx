@@ -133,16 +133,12 @@ pub fn test_db() -> CardDb {
 /// with the unlimited Set-Up card, and one of every Backlash card.
 pub fn test_deck(superstar: &str) -> DeckList {
     let set = test_set();
-    let mut arsenal = Vec::new();
-    let mut backlash = Vec::new();
-    for card in set.cards.iter().filter(|c| c.id != "test/lock-up") {
-        if card.is_backlash() {
-            backlash.push(card.id.clone());
-        } else {
-            arsenal.extend([card.id.clone(), card.id.clone()]);
-        }
-    }
-    assert!(arsenal.len() <= 60, "test set has too many Arsenal cards for two copies each");
+    let cards: Vec<_> = set.cards.iter().filter(|c| c.id != "test/lock-up").collect();
+    let (backlash, main): (Vec<_>, Vec<_>) = cards.into_iter().partition(|c| c.is_backlash());
+    let copies = if main.len() * 2 <= 60 { 2 } else { 1 };
+    let mut arsenal: Vec<String> = main.iter().flat_map(|c| std::iter::repeat_n(c.id.clone(), copies)).collect();
+    let backlash = backlash.iter().map(|c| c.id.clone()).collect();
+    assert!(arsenal.len() <= 60, "test set has too many Arsenal cards");
     arsenal.resize(60, "test/lock-up".to_string());
     DeckList { superstar: superstar.to_string(), arsenal, backlash }
 }

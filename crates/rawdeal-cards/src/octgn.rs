@@ -222,7 +222,7 @@ fn parse_traits(traits: &str) -> (Vec<Trait>, Vec<String>) {
 /// the engine cannot express yet (e.g. "played after Irish Whip", tag
 /// partners), so such cards never reverse by mistake.
 fn infer_reversal(rev: Option<ReversalType>, text: &str) -> Option<ReverseSpec> {
-    let spec = |targets| Some(ReverseSpec { targets, damage: ReversalDamage::Printed, on_reverse: vec![] });
+    let spec = |targets| Some(ReverseSpec::new(targets, ReversalDamage::Printed));
     match rev? {
         ReversalType::Maneuver(t) => return spec(CardFilter::ManeuverType(t)),
         ReversalType::Action => return spec(CardFilter::Action),
@@ -282,7 +282,7 @@ fn infer_reversal(rev: Option<ReversalType>, text: &str) -> Option<ReverseSpec> 
     } else {
         ReversalDamage::Printed
     };
-    Some(ReverseSpec { targets, damage, on_reverse: vec![] })
+    Some(ReverseSpec::new(targets, damage))
 }
 
 #[cfg(test)]

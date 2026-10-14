@@ -311,6 +311,8 @@ dependencies = [
 name = "rawdeal-cards"
 version = "0.1.0"
 dependencies = [
+ "rand",
+ "rand_chacha",
  "rawdeal-ai",
  "rawdeal-core",
  "ron",

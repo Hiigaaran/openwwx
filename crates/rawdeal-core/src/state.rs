@@ -4,7 +4,7 @@
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::card::CardKind;
+use crate::card::{Boost, CardKind, Effect};
 use crate::db::{DefIdx, SuperstarIdx};
 use crate::decision::Decision;
 use crate::engine::Step;
@@ -104,6 +104,7 @@ impl PlayerState {
 pub enum WinMethod {
     Pinfall,
     CountOut,
+    Disqualification,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,6 +121,27 @@ pub struct Played {
     pub kind: CardKind,
     /// Reversals that already hit it (a Multi card needs two).
     pub reversals: u8,
+    /// The card successfully played right before it this turn, if any.
+    pub after: Option<CardId>,
+    /// Boosts and bonuses applied to it when it was played.
+    pub bonus: PlayBonus,
+}
+
+impl Played {
+    pub fn new(card: CardId, player: PlayerId, kind: CardKind) -> Self {
+        Played { card, player, kind, reversals: 0, after: None, bonus: PlayBonus::default() }
+    }
+}
+
+/// Changes to a card being played, from its own bonuses and from boosts.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayBonus {
+    pub damage: i16,
+    pub fortitude: i16,
+    pub reversal_damage: i16,
+    pub reversal_fortitude: i16,
+    pub irreversible: bool,
+    pub no_arsenal_reversal: bool,
 }
 
 /// Which rulebook the match uses.
@@ -146,6 +168,18 @@ pub struct GameState {
     /// Players who refused a Count Out win and want to go for the pin.
     pub refused_count_out: [bool; 2],
     pub decision: Option<Decision>,
+    /// Active boosts and the player whose cards they change.
+    pub boosts: Vec<(PlayerId, Boost)>,
+    /// Effects waiting for the end of the turn, with their controller.
+    pub end_of_turn: Vec<(PlayerId, Effect)>,
+    /// Players who skip their next turn.
+    pub skip_turn: [bool; 2],
+    /// Card each player's first card next turn counts as played after.
+    pub start_after: [Option<CardId>; 2],
+    /// The active player's turn ends once the card in play is done.
+    pub end_turn_after_play: bool,
+    /// Where the card in play goes instead of the Ring.
+    pub in_play_to: Option<Zone>,
     pub(crate) pending: Vec<Step>,
     pub(crate) rng: ChaCha8Rng,
 }

@@ -13,3 +13,5 @@ serde.workspace = true
 
 [dev-dependencies]
 rawdeal-ai.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
