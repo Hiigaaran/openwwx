@@ -42,6 +42,10 @@ pub enum Trait {
     Unique,
     /// Cannot be reversed.
     Irreversible,
+    /// You cannot play it while a card with the same title is in your Ring.
+    Active,
+    /// Only one card with this title may be in all Ring areas at once.
+    UniversallyUnique,
 }
 
 /// A printed card that can go in an Arsenal.
@@ -86,6 +90,23 @@ pub struct SuperstarDef {
     pub superstar_value: u8,
     #[serde(default)]
     pub text: String,
+    #[serde(default)]
+    pub abilities: Vec<Ability>,
+}
+
+/// Superstar abilities. Optional abilities wrap their effects in
+/// [`Effect::Optional`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Ability {
+    /// Resolved at the start of your turn, before the Draw Segment.
+    StartOfTurn(Vec<Effect>),
+    /// Once during your turn, in your Main Segment: pay `cost`, then apply
+    /// `effects`. Using it does not break a follow-up chain.
+    Activated { cost: Vec<Effect>, effects: Vec<Effect> },
+    /// Draw this many cards in your Draw Segment instead of 1.
+    DrawSegment(u8),
+    /// Damage from cards your opponent plays is reduced by this much.
+    ReduceDamage(u8),
 }
 
 /// Interpretable description of a card's text.
@@ -97,6 +118,10 @@ pub struct CardScript {
     /// What this card can reverse, for cards that can be played as a Reversal.
     #[serde(default)]
     pub reverses: Option<ReverseSpec>,
+    /// Follow-up: may only be played right after you successfully played a
+    /// card matching this filter, with no other card played in between.
+    #[serde(default)]
+    pub play_after: Option<CardFilter>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -172,6 +197,16 @@ pub enum Effect {
     },
     /// Shuffle cards of the player's choice from Ringside into their Arsenal.
     RingsideToArsenal {
+        who: Who,
+        n: u8,
+    },
+    /// Put cards of the player's choice from their hand on the bottom of their Arsenal.
+    HandToArsenalBottom {
+        who: Who,
+        n: u8,
+    },
+    /// Put cards of the player's choice from their Ringside pile on the bottom of their Arsenal.
+    RingsideToArsenalBottom {
         who: Who,
         n: u8,
     },

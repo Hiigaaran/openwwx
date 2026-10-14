@@ -8,12 +8,12 @@ use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::card::{CardFilter, CardKind, Effect, Pick, ReversalDamage, Trait, Who};
+use crate::card::{Ability, CardFilter, CardKind, Effect, Pick, ReversalDamage, Trait, Who};
 use crate::db::CardDb;
 use crate::decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
 use crate::deck::{DeckList, DeckProblem, validate_deck};
 use crate::event::Event;
-use crate::state::{CardId, CardInstance, GameState, Outcome, Played, PlayerId, PlayerState, WinMethod, Zone};
+use crate::state::{CardId, CardInstance, GameState, Outcome, Played, PlayerId, PlayerState, Source, WinMethod, Zone};
 use crate::view::PlayerView;
 
 /// Everything needed to start a match.
@@ -89,7 +89,7 @@ pub(crate) enum Step {
     Effect {
         effect: Effect,
         controller: PlayerId,
-        source: CardId,
+        source: Source,
     },
     /// `player` overturns `remaining` cards. `source` is the played card
     /// causing the damage, if overturned Reversals can stop it.
@@ -150,7 +150,14 @@ impl Engine {
             } else {
                 arsenal.reverse();
             }
-            players.push(PlayerState { superstar, arsenal, hand: vec![], ring: vec![], ringside: vec![] });
+            players.push(PlayerState {
+                superstar,
+                arsenal,
+                hand: vec![],
+                ring: vec![],
+                ringside: vec![],
+                ability_used: false,
+            });
         }
         let players: [PlayerState; 2] = players.try_into().expect("two decks");
 
@@ -168,6 +175,7 @@ impl Engine {
             turn: 0,
             outcome: None,
             in_play: None,
+            last_played: None,
             refused_count_out: [false; 2],
             decision: None,
             pending: vec![Step::StartTurn],
@@ -221,6 +229,9 @@ impl Engine {
                             .map(move |&kind| Action::PlayCard { card, kind })
                     })
                     .collect();
+                if self.can_use_ability(state, player) {
+                    actions.push(Action::UseAbility);
+                }
                 actions.push(Action::EndTurn);
                 actions
             }
@@ -262,6 +273,7 @@ impl Engine {
         let p = decision.player;
         let ok = match (&decision.kind, action) {
             (DecisionKind::Main, Action::EndTurn) => true,
+            (DecisionKind::Main, Action::UseAbility) => self.can_use_ability(state, p),
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 if !state.player(p).hand.contains(card) {
                     return Err(RuleError::Illegal("card is not in your hand"));
@@ -295,6 +307,13 @@ impl Engine {
         let p = decision.player;
         match (decision.kind, action) {
             (DecisionKind::Main, Action::EndTurn) => state.pending.push(Step::EndTurn),
+            (DecisionKind::Main, Action::UseAbility) => {
+                let (cost, effects) = self.activated_ability(state, p).expect("validated");
+                let all: Vec<Effect> = cost.iter().chain(effects).cloned().collect();
+                state.player_mut(p).ability_used = true;
+                state.pending.push(Step::Main);
+                schedule_effects(state, &all, p, Source::Superstar(p));
+            }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 self.move_card(state, card, Zone::InPlay, events);
                 state.in_play = Some(Played { card, player: p, kind });
@@ -315,6 +334,11 @@ impl Engine {
                 ChoicePurpose::RingsideToHand => {
                     for c in chosen {
                         self.move_card(state, c, Zone::Hand, events);
+                    }
+                }
+                ChoicePurpose::HandToArsenalBottom | ChoicePurpose::RingsideToArsenalBottom => {
+                    for c in chosen {
+                        self.move_card_to_bottom(state, c, events);
                     }
                 }
                 ChoicePurpose::RingsideToArsenal => {
@@ -362,10 +386,27 @@ impl Engine {
         match step {
             Step::StartTurn => {
                 state.turn += 1;
-                events.push(Event::TurnStarted { player: state.active, turn: state.turn });
+                let p = state.active;
+                events.push(Event::TurnStarted { player: p, turn: state.turn });
+                state.player_mut(p).ability_used = false;
+                state.last_played = None;
                 schedule(state, [Step::DrawSegment, Step::Main]);
+                for ability in self.abilities(state, p).iter().rev() {
+                    if let Ability::StartOfTurn(effects) = ability {
+                        schedule_effects(state, effects, p, Source::Superstar(p));
+                    }
+                }
             }
-            Step::DrawSegment => self.draw(state, state.active, 1, events),
+            Step::DrawSegment => {
+                let p = state.active;
+                let n = self
+                    .abilities(state, p)
+                    .iter()
+                    .filter_map(|a| if let Ability::DrawSegment(n) = a { Some(*n) } else { None })
+                    .max()
+                    .unwrap_or(1);
+                self.draw(state, p, n, events);
+            }
             Step::Main => state.decision = Some(Decision { player: state.active, kind: DecisionKind::Main }),
             Step::ReversalWindow => {
                 let played = state.in_play.expect("card in play");
@@ -388,11 +429,17 @@ impl Engine {
                 let played = state.in_play.expect("card in play");
                 events.push(Event::EffectsResolved { card: played.card });
                 let effects = self.def(state, played.card).script.on_play.clone();
-                schedule_effects(state, &effects, played.player, played.card);
+                schedule_effects(state, &effects, played.player, Source::Card(played.card));
             }
             Step::DealCardDamage => {
                 let played = state.in_play.expect("card in play");
-                let damage = self.card_damage(state, played.card);
+                let defender = played.player.opponent();
+                let reduction: u16 = self
+                    .abilities(state, defender)
+                    .iter()
+                    .map(|a| if let Ability::ReduceDamage(n) = a { *n as u16 } else { 0 })
+                    .sum();
+                let damage = self.card_damage(state, played.card).saturating_sub(reduction);
                 if damage > 0 {
                     state.pending.push(Step::Overturn {
                         player: played.player.opponent(),
@@ -406,6 +453,7 @@ impl Engine {
             Step::ToRing => {
                 let played = state.in_play.take().expect("card in play");
                 self.move_card(state, played.card, Zone::Ring, events);
+                state.last_played = Some(played);
             }
             Step::StunDraw { player, max } => {
                 let max = max.min(state.player(player).arsenal.len().min(u8::MAX as usize) as u8);
@@ -488,7 +536,7 @@ impl Engine {
         if damage > 0 {
             state.pending.push(Step::Overturn { player: played.player, remaining: damage, source: None });
         }
-        schedule_effects(state, &spec.on_reverse, defender, reversal);
+        schedule_effects(state, &spec.on_reverse, defender, Source::Card(reversal));
     }
 
     fn effect(
@@ -496,7 +544,7 @@ impl Engine {
         state: &mut GameState,
         effect: Effect,
         controller: PlayerId,
-        source: CardId,
+        source: Source,
         events: &mut Vec<Event>,
     ) {
         let target = |who: Who| match who {
@@ -529,6 +577,16 @@ impl Engine {
                 let k = (n as usize).min(state.player(p).ringside.len());
                 self.ask_cards(state, p, Zone::Ringside, k, ChoicePurpose::RingsideToArsenal);
             }
+            Effect::HandToArsenalBottom { who, n } => {
+                let p = target(who);
+                let k = (n as usize).min(state.player(p).hand.len());
+                self.ask_cards(state, p, Zone::Hand, k, ChoicePurpose::HandToArsenalBottom);
+            }
+            Effect::RingsideToArsenalBottom { who, n } => {
+                let p = target(who);
+                let k = (n as usize).min(state.player(p).ringside.len());
+                self.ask_cards(state, p, Zone::Ringside, k, ChoicePurpose::RingsideToArsenalBottom);
+            }
             Effect::Damage { who, n } => {
                 if n > 0 {
                     state.pending.push(Step::Overturn { player: target(who), remaining: n as u16, source: None });
@@ -556,10 +614,49 @@ impl Engine {
     /// Can `player` play `card` as `kind` in their Main Segment right now?
     pub fn can_play(&self, state: &GameState, player: PlayerId, card: CardId, kind: CardKind) -> bool {
         let def = self.def(state, card);
+        let in_ring = |p: PlayerId| state.player(p).ring.iter().any(|&c| self.def(state, c).title == def.title);
+        let follows_up = match &def.script.play_after {
+            None => true,
+            Some(filter) => state.last_played.is_some_and(|last| self.matches(state, filter, last)),
+        };
         state.active == player
             && kind.playable_on_own_turn()
             && def.kinds.contains(&kind)
             && self.fortitude(state, player) >= def.fortitude as u16
+            && follows_up
+            && !(def.has_trait(Trait::Active) && in_ring(player))
+            && !(def.has_trait(Trait::UniversallyUnique) && (in_ring(player) || in_ring(player.opponent())))
+    }
+
+    fn abilities<'a>(&'a self, state: &GameState, p: PlayerId) -> &'a [Ability] {
+        &self.db.superstar(state.player(p).superstar).abilities
+    }
+
+    fn activated_ability<'a>(&'a self, state: &GameState, p: PlayerId) -> Option<(&'a [Effect], &'a [Effect])> {
+        self.abilities(state, p).iter().find_map(|a| match a {
+            Ability::Activated { cost, effects } => Some((cost.as_slice(), effects.as_slice())),
+            _ => None,
+        })
+    }
+
+    /// Can `p` use their Superstar's activated ability now? Its cost must be
+    /// payable in full.
+    pub fn can_use_ability(&self, state: &GameState, p: PlayerId) -> bool {
+        let Some((cost, _)) = self.activated_ability(state, p) else { return false };
+        let me = state.player(p);
+        let (mut from_hand, mut from_ringside) = (0usize, 0usize);
+        for c in cost {
+            match c {
+                Effect::Discard { who: Who::You, n, .. } | Effect::HandToArsenalBottom { who: Who::You, n } => {
+                    from_hand += *n as usize
+                }
+                Effect::RingsideToHand { who: Who::You, n }
+                | Effect::RingsideToArsenal { who: Who::You, n }
+                | Effect::RingsideToArsenalBottom { who: Who::You, n } => from_ringside += *n as usize,
+                _ => {}
+            }
+        }
+        state.active == p && !me.ability_used && me.hand.len() >= from_hand && me.ringside.len() >= from_ringside
     }
 
     /// Can `player` use `reversal` to stop `played` (from hand or overturned)?
@@ -620,6 +717,14 @@ impl Engine {
         }
     }
 
+    /// Moves `card` from its owner's hand or Ringside to the bottom of their Arsenal.
+    fn move_card_to_bottom(&self, state: &mut GameState, card: CardId, events: &mut Vec<Event>) {
+        self.move_card(state, card, Zone::Arsenal, events);
+        let arsenal = &mut state.player_mut(state.card(card).owner).arsenal;
+        let top = arsenal.pop().expect("just added");
+        arsenal.insert(0, top);
+    }
+
     fn finish(&self, state: &mut GameState, outcome: Outcome, events: &mut Vec<Event>) {
         state.outcome = Some(outcome);
         state.decision = None;
@@ -637,7 +742,7 @@ fn schedule<const N: usize>(state: &mut GameState, steps: [Step; N]) {
     state.pending.extend(steps.into_iter().rev());
 }
 
-fn schedule_effects(state: &mut GameState, effects: &[Effect], controller: PlayerId, source: CardId) {
+fn schedule_effects(state: &mut GameState, effects: &[Effect], controller: PlayerId, source: Source) {
     state.pending.extend(effects.iter().rev().map(|e| Step::Effect { effect: e.clone(), controller, source }));
 }
 

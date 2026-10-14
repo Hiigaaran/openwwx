@@ -76,8 +76,8 @@ mod tests {
     #[test]
     fn test_set_loads_and_decks_are_legal() {
         let db = test_db();
-        for s in ["test/brawler", "test/technician"] {
-            assert_eq!(rawdeal_core::validate_deck(&db, &test_deck(s)), vec![]);
+        for s in db.superstars() {
+            assert_eq!(rawdeal_core::validate_deck(&db, &test_deck(&s.id)), vec![]);
         }
     }
 }

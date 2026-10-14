@@ -35,6 +35,13 @@ impl std::fmt::Display for PlayerId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CardId(pub u16);
 
+/// Where an effect comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Source {
+    Card(CardId),
+    Superstar(PlayerId),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Zone {
     Arsenal,
@@ -62,6 +69,8 @@ pub struct PlayerState {
     pub ring: Vec<CardId>,
     /// `last()` is the most recent card.
     pub ringside: Vec<CardId>,
+    /// The Superstar's activated ability was used this turn.
+    pub ability_used: bool,
 }
 
 impl PlayerState {
@@ -115,6 +124,8 @@ pub struct GameState {
     pub outcome: Option<Outcome>,
     /// Card on the "stack", between being played and landing in the Ring.
     pub in_play: Option<Played>,
+    /// Last card successfully played this turn, for follow-ups.
+    pub last_played: Option<Played>,
     /// Players who refused a Count Out win and want to go for the pin.
     pub refused_count_out: [bool; 2],
     pub decision: Option<Decision>,

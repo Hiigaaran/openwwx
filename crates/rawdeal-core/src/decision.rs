@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::card::{CardKind, Effect};
-use crate::state::{CardId, PlayerId};
+use crate::state::{CardId, PlayerId, Source};
 
 /// The engine is paused until `player` answers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -31,12 +31,14 @@ pub enum ChoicePurpose {
     Discard,
     RingsideToHand,
     RingsideToArsenal,
+    HandToArsenalBottom,
+    RingsideToArsenalBottom,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum YesNoPurpose {
     /// "You may …" effect of a card.
-    OptionalEffect { effects: Vec<Effect>, source: CardId },
+    OptionalEffect { effects: Vec<Effect>, source: Source },
     /// Your opponent ended a turn with an empty Arsenal: take the Count Out win?
     ClaimCountOut,
 }
@@ -44,6 +46,7 @@ pub enum YesNoPurpose {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
     PlayCard { card: CardId, kind: CardKind },
+    UseAbility,
     EndTurn,
     Reverse { card: CardId },
     DeclineReversal,

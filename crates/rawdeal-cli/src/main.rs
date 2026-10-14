@@ -89,6 +89,10 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
     match action {
         Action::PlayCard { card, kind } => format!("Play {} as {kind:?}", name(engine, state, *card)),
         Action::EndTurn => "End your turn".into(),
+        Action::UseAbility => {
+            let superstar = engine.db().superstar(state.player(state.active).superstar);
+            format!("Use {}'s ability: {}", superstar.name, superstar.text)
+        }
         Action::Reverse { card } => format!("Reverse with {}", name(engine, state, *card)),
         Action::DeclineReversal => "Don't reverse".into(),
         Action::ChooseCards(cards) => format!("Choose {}", names(engine, state, cards)),

@@ -6,7 +6,15 @@
         (id: "test/brawler", name: "The Brawler", hand_size: 6, superstar_value: 3,
          text: "No ability yet."),
         (id: "test/technician", name: "The Technician", hand_size: 5, superstar_value: 4,
-         text: "No ability yet."),
+         text: "Once during your turn, you may discard 1 card to make your opponent discard 1 card at random.",
+         abilities: [Activated(cost: [Discard(who: You, n: 1, pick: Chosen)],
+                               effects: [Discard(who: Opponent, n: 1, pick: Random)])]),
+        (id: "test/veteran", name: "The Veteran", hand_size: 5, superstar_value: 2,
+         text: "At the start of your turn, before you draw, you may put 1 card from your Ringside pile on the bottom of your Arsenal.",
+         abilities: [StartOfTurn([Optional([RingsideToArsenalBottom(who: You, n: 1)])])]),
+        (id: "test/hardcore", name: "The Hardcore Legend", hand_size: 4, superstar_value: 1,
+         text: "Draw 2 cards in your Draw Segment. Damage from your opponent's cards is reduced by 1.",
+         abilities: [DrawSegment(2), ReduceDamage(1)]),
     ],
     cards: [
         // Maneuvers
@@ -31,6 +39,15 @@
         (id: "test/regroup", title: "Regroup", kinds: [Action], fortitude: 0, damage: 0,
          text: "You may shuffle 2 cards from your Ringside pile into your Arsenal.",
          script: (on_play: [Optional([RingsideToArsenal(who: You, n: 2)])])),
+
+        (id: "test/follow-through", title: "Follow Through", kinds: [Maneuver(Strike)], fortitude: 0, damage: 3, stun_value: 1,
+         text: "May only be played right after a Grapple maneuver that did 3D or more.",
+         script: (play_after: Some(All([ManeuverType(Grapple), DamageAtLeast(3)])))),
+        (id: "test/crowd-support", title: "Crowd Support", kinds: [Action], fortitude: 0, damage: 1, traits: [Active],
+         text: "Active. Draw 1 card.",
+         script: (on_play: [Draw(who: You, n: 1)])),
+        (id: "test/title-belt", title: "Test Championship", kinds: [Action], fortitude: 4, damage: 2, traits: [UniversallyUnique],
+         text: "Universally Unique."),
 
         // Reversals
         (id: "test/block", title: "Block", kinds: [Reversal], fortitude: 0, damage: 0,

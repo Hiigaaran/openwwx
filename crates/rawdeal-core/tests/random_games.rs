@@ -11,8 +11,13 @@ const MAX_ACTIONS: usize = 20_000;
 /// Plays a whole match and returns the outcome and every event.
 fn play_out(seed: u64) -> (Outcome, Vec<Event>) {
     let engine = Engine::new(Arc::new(rawdeal_cards::test_db()));
-    let setup =
-        GameSetup::standard([rawdeal_cards::test_deck("test/technician"), rawdeal_cards::test_deck("test/brawler")]);
+    // Rotate through every Superstar pairing so all abilities get exercised.
+    let ids: Vec<String> = engine.db().superstars().iter().map(|s| s.id.clone()).collect();
+    let n = ids.len() as u64;
+    let setup = GameSetup::standard([
+        rawdeal_cards::test_deck(&ids[(seed % n) as usize]),
+        rawdeal_cards::test_deck(&ids[(seed / n % n) as usize]),
+    ]);
     let (mut state, mut log) = engine.new_game(&setup, seed).unwrap();
     let mut bots = [RandomBot::new(seed ^ 1), RandomBot::new(seed ^ 2)];
     for _ in 0..MAX_ACTIONS {

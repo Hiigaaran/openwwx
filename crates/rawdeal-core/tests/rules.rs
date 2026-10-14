@@ -259,3 +259,108 @@ fn deck_rules() {
     deck.arsenal.pop();
     assert!(validate_deck(&db, &deck).contains(&DeckProblem::WrongSize(59)));
 }
+
+const VETERAN: &str = "test/veteran";
+const HARDCORE: &str = "test/hardcore";
+
+fn playable(e: &Engine, s: &GameState, p: PlayerId, id: &str) -> bool {
+    let card = in_hand(e, s, p, id);
+    e.db()
+        .card(s.card(card).def)
+        .kinds
+        .iter()
+        .any(|&kind| e.legal_actions(s, p).contains(&Action::PlayCard { card, kind }))
+}
+
+#[test]
+fn activated_ability_is_once_per_turn() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &[], 20), stack(BRAWLER, &[], 20));
+    assert!(e.legal_actions(&s, P1).contains(&Action::UseAbility));
+    e.apply(&mut s, P1, Action::UseAbility).unwrap();
+    let discard = s.player(P1).hand[0];
+    assert!(matches!(waiting(&s), (P1, DecisionKind::ChooseCards { purpose: ChoicePurpose::Discard, .. })));
+    e.apply(&mut s, P1, Action::ChooseCards(vec![discard])).unwrap();
+    assert_eq!(s.player(P1).ringside, vec![discard]);
+    assert_eq!(s.player(P2).hand.len(), 5, "the opponent discarded at random");
+    assert_eq!(s.player(P2).ringside.len(), 1);
+    assert_eq!(waiting(&s), (P1, &DecisionKind::Main));
+    assert!(!e.legal_actions(&s, P1).contains(&Action::UseAbility));
+    assert_eq!(
+        e.apply(&mut s, P1, Action::UseAbility),
+        Err(RuleError::Illegal("action does not answer the pending decision"))
+    );
+
+    e.apply(&mut s, P1, Action::EndTurn).unwrap();
+    assert!(!e.legal_actions(&s, P2).contains(&Action::UseAbility), "the Brawler has no ability");
+    e.apply(&mut s, P2, Action::EndTurn).unwrap();
+    assert!(e.legal_actions(&s, P1).contains(&Action::UseAbility), "usable again next turn");
+}
+
+#[test]
+fn start_of_turn_ability_happens_before_the_draw() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["jab"], 20), stack(VETERAN, &[], 20));
+    play(&e, &mut s, P1, "jab");
+    e.apply(&mut s, P1, Action::EndTurn).unwrap();
+    let hand = s.player(P2).hand.len();
+    assert!(matches!(waiting(&s), (P2, DecisionKind::YesNo { purpose: YesNoPurpose::OptionalEffect { .. } })));
+    assert_eq!(s.player(P2).hand.len(), hand, "not drawn yet");
+
+    e.apply(&mut s, P2, Action::Yes).unwrap();
+    let back = s.player(P2).ringside[0];
+    e.apply(&mut s, P2, Action::ChooseCards(vec![back])).unwrap();
+    assert_eq!(s.player(P2).arsenal[0], back, "on the bottom of the Arsenal");
+    assert_eq!(s.player(P2).hand.len(), hand + 1);
+    assert_eq!(waiting(&s), (P2, &DecisionKind::Main));
+    s.check_invariants().unwrap();
+}
+
+#[test]
+fn draw_segment_and_damage_reduction_abilities() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["jab"], 20), stack(HARDCORE, &[], 20));
+    play(&e, &mut s, P1, "jab");
+    assert_eq!(s.player(P2).ringside.len(), 1, "2 damage reduced by 1");
+    e.apply(&mut s, P1, Action::EndTurn).unwrap();
+    assert_eq!(s.player(P2).hand.len(), 4 + 2);
+}
+
+#[test]
+fn follow_ups_need_the_right_previous_card() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["follow-through", "jab", "body-slam"], 20), stack(BRAWLER, &[], 30));
+    assert!(!playable(&e, &s, P1, "follow-through"));
+    play(&e, &mut s, P1, "jab");
+    assert!(!playable(&e, &s, P1, "follow-through"), "a Strike is not a Grapple");
+    play(&e, &mut s, P1, "body-slam");
+    assert!(playable(&e, &s, P1, "follow-through"));
+
+    // Using the Superstar ability does not break the chain.
+    e.apply(&mut s, P1, Action::UseAbility).unwrap();
+    let discard = *s.player(P1).hand.iter().find(|&&c| e.db().card(s.card(c).def).title == "Lock Up").unwrap();
+    e.apply(&mut s, P1, Action::ChooseCards(vec![discard])).unwrap();
+    assert!(playable(&e, &s, P1, "follow-through"));
+
+    play(&e, &mut s, P1, "lock-up");
+    assert!(!playable(&e, &s, P1, "follow-through"), "another card broke the chain");
+}
+
+#[test]
+fn active_cards_cannot_stack_in_your_ring() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["crowd-support", "crowd-support"], 20), stack(BRAWLER, &[], 20));
+    play(&e, &mut s, P1, "crowd-support");
+    assert!(!playable(&e, &s, P1, "crowd-support"));
+}
+
+#[test]
+fn universally_unique_cards() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["jab", "jab", "title-belt", "title-belt"], 20), stack(BRAWLER, &[], 30));
+    play(&e, &mut s, P1, "jab");
+    play(&e, &mut s, P1, "jab");
+    assert!(playable(&e, &s, P1, "title-belt"));
+    play(&e, &mut s, P1, "title-belt");
+    assert!(!playable(&e, &s, P1, "title-belt"));
+}
