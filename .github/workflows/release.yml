@@ -39,15 +39,16 @@ jobs:
           cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" "$dir/"
           cp docs/LEEME-release.txt "$dir/LEEME.txt"
           echo "Pon aquí tus sets en formato .ron (por ejemplo 01-premiere.ron)." > "$dir/cards/LEEME.txt"
+          mkdir dist
           if [ "${{ runner.os }}" = "Windows" ]; then
-            7z a "$dir.zip" "$dir" > /dev/null
+            7z a "dist/$dir.zip" "$dir" > /dev/null
           else
-            tar czf "$dir.tar.gz" "$dir"
+            tar czf "dist/$dir.tar.gz" "$dir"
           fi
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: openwwx-*.*
+          path: dist/*
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -61,4 +62,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="Versión de escritorio de OpenWWX. Descarga el archivo de tu sistema, descomprímelo y abre openwwx. Las cartas no vienen incluidas; pon tus sets .ron en la carpeta cards."
-          gh release create "$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "OpenWWX $VERSION" --notes "$notes"
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "OpenWWX $VERSION" --notes "$notes"
+          fi
