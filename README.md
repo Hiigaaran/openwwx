@@ -70,3 +70,16 @@ Volley, Enforcers, Tag Team y modificadores de Superstar Value durante el Pre-ma
 
 El texto y el arte de las cartas de Raw Deal pertenecen a sus dueños. Este repositorio solo trae
 cartas de prueba inventadas; la base de cartas real se carga desde archivos del usuario.
+
+Para jugar con tus propias cartas, pon un archivo `.ron` por set en una carpeta (mismo formato que
+[`crates/rawdeal-cards/data/test-set.ron`](crates/rawdeal-cards/data/test-set.ron)) y tus mazos en
+archivos `.ron` como este:
+
+```ron
+(superstar: "premiere/stone-cold", arsenal: ["premiere/001", ...], backlash: [])
+```
+
+```sh
+cargo run -p rawdeal-cli -- --cards ~/raw-deal/sets --deck1 mazo1.ron --deck2 mazo2.ron --check  # validar
+cargo run -p rawdeal-cli -- --cards ~/raw-deal/sets --deck1 mazo1.ron --deck2 mazo2.ron          # jugar
+```

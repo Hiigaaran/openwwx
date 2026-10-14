@@ -1,16 +1,31 @@
-//! Text-mode client: play the test set against the random bot.
+//! Text-mode client: play against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced]`. With `--advanced`
-//! the match has a Pre-match phase and Backlash decks. With `--watch` two bots play
-//! each other and the match log is printed.
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced] [--cards DIR --deck1 FILE --deck2 FILE] [--check]`.
+//!
+//! - `--advanced`: Pre-match phase and Backlash decks.
+//! - `--watch`: two bots play each other and the match log is printed.
+//! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
+//!   of the bundled test set; `--deck1`/`--deck2` are deck list files.
+//! - `--check`: load the cards and decks, report problems, and exit.
 
 use std::io::{self, BufRead, Write};
+use std::path::Path;
+use std::process::ExitCode;
 use std::sync::Arc;
 
 use rawdeal_ai::{Bot, RandomBot};
 use rawdeal_core::*;
 
-fn main() {
+fn arg<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+    args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).map(String::as_str)
+}
+
+fn fail(msg: impl std::fmt::Display) -> ExitCode {
+    eprintln!("error: {msg}");
+    ExitCode::FAILURE
+}
+
+fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     let seed = args
         .iter()
@@ -20,12 +35,60 @@ fn main() {
         .unwrap_or_else(|| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
     let watch = args.iter().any(|a| a == "--watch");
 
-    let engine = Engine::new(Arc::new(rawdeal_cards::test_db()));
-    let decks = [rawdeal_cards::test_deck("test/technician"), rawdeal_cards::test_deck("test/brawler")];
-    let setup =
-        if args.iter().any(|a| a == "--advanced") { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
-    let (mut state, events) = engine.new_game(&setup, seed).expect("test decks are legal");
-    println!("OpenWWX, seed {seed}. You are P1 (The Technician) against P2 (The Brawler).");
+    let (db, decks) = match arg(&args, "--cards") {
+        None => (
+            rawdeal_cards::test_db(),
+            [rawdeal_cards::test_deck("test/technician"), rawdeal_cards::test_deck("test/brawler")],
+        ),
+        Some(dir) => {
+            let db = match rawdeal_cards::load_dir(Path::new(dir)).and_then(rawdeal_cards::build_db) {
+                Ok(db) => db,
+                Err(e) => return fail(e),
+            };
+            println!("Loaded {} cards and {} Superstars from {dir}.", db.cards().len(), db.superstars().len());
+            let mut decks = Vec::new();
+            for flag in ["--deck1", "--deck2"] {
+                let Some(file) = arg(&args, flag) else {
+                    if args.iter().any(|a| a == "--check") {
+                        return ExitCode::SUCCESS;
+                    }
+                    return fail(format!("{flag} is required with --cards"));
+                };
+                match rawdeal_cards::load_deck(Path::new(file)) {
+                    Ok(d) => decks.push(d),
+                    Err(e) => return fail(e),
+                }
+            }
+            (db, decks.try_into().expect("two decks"))
+        }
+    };
+    let advanced = args.iter().any(|a| a == "--advanced");
+    if args.iter().any(|a| a == "--check") {
+        let mut ok = true;
+        for (i, deck) in decks.iter().enumerate() {
+            let mut problems = validate_deck(&db, deck);
+            if !advanced {
+                problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
+            }
+            ok &= problems.is_empty();
+            println!(
+                "Deck {}: {}",
+                i + 1,
+                if problems.is_empty() { "legal".to_string() } else { format!("{problems:?}") }
+            );
+        }
+        return if ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
+    }
+
+    let engine = Engine::new(Arc::new(db));
+    let setup = if advanced { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
+    let (mut state, events) = match engine.new_game(&setup, seed) {
+        Ok(started) => started,
+        Err(e) => return fail(e),
+    };
+    let name = |i: usize| engine.db().superstar(state.player(PlayerId(i as u8)).superstar).name.clone();
+    println!("OpenWWX, seed {seed}. You are P1 ({}) against P2 ({}).", name(0), name(1));
+
     let human = if watch { None } else { Some(PlayerId::ONE) };
     print_events(&engine, &state, &events, human.unwrap_or(PlayerId::ONE));
 
@@ -43,7 +106,7 @@ fn main() {
             loop {
                 print!("> ");
                 io::stdout().flush().ok();
-                let Some(Ok(line)) = lines.next() else { return };
+                let Some(Ok(line)) = lines.next() else { return ExitCode::SUCCESS };
                 match line.trim().parse::<usize>().ok().and_then(|i| legal.get(i)) {
                     Some(a) => break a.clone(),
                     None => println!("Pick a number from 0 to {}.", legal.len() - 1),
@@ -55,6 +118,7 @@ fn main() {
         let events = engine.apply(&mut state, player, action).expect("only legal actions are offered");
         print_events(&engine, &state, &events, human.unwrap_or(PlayerId::ONE));
     }
+    ExitCode::SUCCESS
 }
 
 fn name(engine: &Engine, state: &GameState, card: CardId) -> String {
