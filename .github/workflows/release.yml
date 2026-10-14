@@ -51,4 +51,6 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "OpenWWX $GITHUB_REF_NAME" --notes "Versión de escritorio de OpenWWX. Descarga el archivo de tu sistema, descomprímelo y abre openwwx. Las cartas no vienen incluidas: pon tus sets .ron en la carpeta cards."
+        run: |
+          notes="Versión de escritorio de OpenWWX. Descarga el archivo de tu sistema, descomprímelo y abre openwwx. Las cartas no vienen incluidas; pon tus sets .ron en la carpeta cards."
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "OpenWWX $GITHUB_REF_NAME" --notes "$notes"
