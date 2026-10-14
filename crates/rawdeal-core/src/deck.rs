@@ -9,12 +9,17 @@ use crate::db::CardDb;
 
 pub const ARSENAL_SIZE: usize = 60;
 pub const MAX_COPIES: usize = 3;
+pub const BACKLASH_MAX: usize = 20;
+pub const BACKLASH_MAX_PER_KIND: usize = 10;
 
 /// A player's deck: Superstar plus Arsenal, by card id.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeckList {
     pub superstar: String,
     pub arsenal: Vec<String>,
+    /// Optional Backlash deck for Advanced matches.
+    #[serde(default)]
+    pub backlash: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +39,17 @@ pub enum DeckProblem {
     WrongSuperstar {
         card: String,
     },
+    /// Pre-match and Mid-match cards go in the Backlash deck, not the Arsenal.
+    BacklashCardInArsenal {
+        card: String,
+    },
+    /// Only Pre-match and Mid-match cards may go in the Backlash deck.
+    NotABacklashCard {
+        card: String,
+    },
+    BacklashTooLarge(usize),
+    TooManyPreMatch(usize),
+    TooManyMidMatch(usize),
 }
 
 const CONFLICTS: [(Trait, Trait); 3] =
@@ -49,8 +65,33 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         problems.push(DeckProblem::WrongSize(deck.arsenal.len()));
     }
 
-    let mut counts: HashMap<&str, usize> = HashMap::new();
+    if deck.backlash.len() > BACKLASH_MAX {
+        problems.push(DeckProblem::BacklashTooLarge(deck.backlash.len()));
+    }
+    let (mut pre, mut mid) = (0, 0);
+    for id in &deck.backlash {
+        match db.card_by_id(id).map(|i| db.card(i)) {
+            Some(def) if def.is_pre_match() => pre += 1,
+            Some(def) if def.is_backlash() => mid += 1,
+            Some(_) => problems.push(DeckProblem::NotABacklashCard { card: id.clone() }),
+            None => {}
+        }
+    }
+    if pre > BACKLASH_MAX_PER_KIND {
+        problems.push(DeckProblem::TooManyPreMatch(pre));
+    }
+    if mid > BACKLASH_MAX_PER_KIND {
+        problems.push(DeckProblem::TooManyMidMatch(mid));
+    }
     for id in &deck.arsenal {
+        if db.card_by_id(id).is_some_and(|i| db.card(i).is_backlash()) {
+            problems.push(DeckProblem::BacklashCardInArsenal { card: id.clone() });
+        }
+    }
+
+    // Copy limits and trait conflicts cover both decks.
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for id in deck.arsenal.iter().chain(&deck.backlash) {
         *counts.entry(id).or_default() += 1;
     }
     let mut ids: Vec<&str> = counts.keys().copied().collect();

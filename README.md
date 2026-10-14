@@ -36,6 +36,14 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   robo extra en el Draw Segment y reducción del daño recibido.
 - Palabras clave: follow-up (la carta anterior debe cumplir una condición; usar la habilidad no rompe la
   cadena), Active, Universally Unique, Irreversible.
+- Multi (hay que revertirla dos veces, desde la mano o al voltear daño; las Superstars femeninas no pueden
+  jugar maniobras Multi) y Chain (revertirla desde la mano o el Backlash cuesta descartar 2; si tiene éxito,
+  puedes descartar 2 y buscar otra Chain en el Arsenal).
+- Modo avanzado (`GameSetup::advanced`, o `--advanced` en la CLI): mazo Backlash de hasta 20 cartas
+  (10 Pre-match y 10 Mid-match), fase Pre-match completa (Venue, Feud, Stipulation y Manager por turnos,
+  luego Events y Objects hasta dos pases seguidos, robo de Hand Size y efectos de fin de Pre-match),
+  límite de 5 cartas Pre-match y 5 Mid-match en el Ring, una sola Venue y un solo Pay-Per-View, cartas
+  Mid-match jugadas y revertidas desde el Backlash, y count out avanzado.
 - Validación de mazos: 60 cartas, máx. 3 copias, Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -45,6 +53,18 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Las Acciones hacen su D impreso como daño (casi todas tienen D 0).
 - Rechazar un Count Out vale para el resto de la partida.
 - El primer jugador también roba en su primer turno.
+
+## Interpretaciones de reglas por confirmar
+
+- Multi: el primer Reversal jugado desde la mano queda en el Ring sin efectos ni daño, y el rival puede
+  jugar otro. Un Reversal volteado durante el daño también cuenta como uno de los dos.
+- Chain: el costo de descartar 2 solo aplica al revertir desde la mano o el Backlash, no al voltear un
+  Reversal durante el daño.
+- Las cartas Backlash que llegan al Ringside nunca vuelven a la mano ni al Arsenal.
+
+## Pendiente
+
+Volley, Enforcers, Tag Team y modificadores de Superstar Value durante el Pre-match.
 
 ## Cartas y arte
 

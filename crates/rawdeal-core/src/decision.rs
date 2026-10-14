@@ -24,6 +24,9 @@ pub enum DecisionKind {
     YesNo { purpose: YesNoPurpose },
     /// Your card was reversed during damage: draw up to `max` cards.
     StunDraw { max: u8 },
+    /// Pre-match phase: play a Pre-match card from your Backlash deck or pass.
+    /// Steps 0-3 are Venue, Feud, Stipulation and Manager; step 4 is open.
+    PreMatch { step: u8, passes: u8, starter: PlayerId },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +36,8 @@ pub enum ChoicePurpose {
     RingsideToArsenal,
     HandToArsenalBottom,
     RingsideToArsenalBottom,
+    /// Search your Arsenal: the card is revealed and goes to your hand.
+    SearchToHand,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -41,17 +46,26 @@ pub enum YesNoPurpose {
     OptionalEffect { effects: Vec<Effect>, source: Source },
     /// Your opponent ended a turn with an empty Arsenal: take the Count Out win?
     ClaimCountOut,
+    /// Your Chain card succeeded: discard 2 cards to search for another Chain?
+    ChainSearch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Action {
-    PlayCard { card: CardId, kind: CardKind },
+    PlayCard {
+        card: CardId,
+        kind: CardKind,
+    },
     UseAbility,
     EndTurn,
-    Reverse { card: CardId },
+    Reverse {
+        card: CardId,
+    },
     DeclineReversal,
     ChooseCards(Vec<CardId>),
     Yes,
     No,
     DrawCards(u8),
+    /// Pre-match phase: play nothing this step.
+    Pass,
 }

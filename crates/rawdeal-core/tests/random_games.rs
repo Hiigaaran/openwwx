@@ -14,10 +14,10 @@ fn play_out(seed: u64) -> (Outcome, Vec<Event>) {
     // Rotate through every Superstar pairing so all abilities get exercised.
     let ids: Vec<String> = engine.db().superstars().iter().map(|s| s.id.clone()).collect();
     let n = ids.len() as u64;
-    let setup = GameSetup::standard([
-        rawdeal_cards::test_deck(&ids[(seed % n) as usize]),
-        rawdeal_cards::test_deck(&ids[(seed / n % n) as usize]),
-    ]);
+    let decks =
+        [rawdeal_cards::test_deck(&ids[(seed % n) as usize]), rawdeal_cards::test_deck(&ids[(seed / n % n) as usize])];
+    // Odd seeds play Advanced matches with Pre-match and Backlash decks.
+    let setup = if seed % 2 == 1 { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
     let (mut state, mut log) = engine.new_game(&setup, seed).unwrap();
     let mut bots = [RandomBot::new(seed ^ 1), RandomBot::new(seed ^ 2)];
     for _ in 0..MAX_ACTIONS {
@@ -31,7 +31,7 @@ fn play_out(seed: u64) -> (Outcome, Vec<Event>) {
         let action = bots[player.index()].choose(&engine, &view, &legal);
         log.extend(engine.apply(&mut state, player, action).expect("bots only pick legal actions"));
         state.check_invariants().unwrap();
-        assert_eq!(state.cards.len(), 120);
+        assert!(state.cards.len() == 120 || state.cards.len() == 120 + 18);
     }
     panic!("match did not finish in {MAX_ACTIONS} actions");
 }

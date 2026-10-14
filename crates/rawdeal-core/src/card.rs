@@ -19,12 +19,26 @@ pub enum CardKind {
     Maneuver(ManeuverType),
     Action,
     Reversal,
+    /// Backlash card played only during the Pre-match phase.
+    PreMatch(PreMatchType),
+}
+
+/// Pre-match cards. The first four are played in their own step, one each per
+/// player; Events and Objects are played afterwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PreMatchType {
+    Venue,
+    Feud,
+    Stipulation,
+    Manager,
+    Event,
+    Object,
 }
 
 impl CardKind {
     /// Kinds that can be played from hand during your own Main Segment.
     pub fn playable_on_own_turn(self) -> bool {
-        !matches!(self, CardKind::Reversal)
+        !matches!(self, CardKind::Reversal | CardKind::PreMatch(_))
     }
 }
 
@@ -46,6 +60,16 @@ pub enum Trait {
     Active,
     /// Only one card with this title may be in all Ring areas at once.
     UniversallyUnique,
+    /// Backlash card played during the match like a normal card.
+    MidMatch,
+    /// Must be reversed by two Reversals to be stopped. Female Superstars
+    /// cannot play Multi maneuvers.
+    Multi,
+    /// Can only be reversed from hand or Backlash if the opponent discards 2
+    /// cards; after it succeeds you may discard 2 to search for another Chain.
+    Chain,
+    /// Pay-Per-View Event: only one in your Ring.
+    PayPerView,
 }
 
 /// A printed card that can go in an Arsenal.
@@ -79,6 +103,15 @@ impl CardDef {
     pub fn is_reversal(&self) -> bool {
         self.kinds.contains(&CardKind::Reversal)
     }
+
+    /// Belongs in the Backlash deck rather than the Arsenal.
+    pub fn is_backlash(&self) -> bool {
+        self.is_pre_match() || self.has_trait(Trait::MidMatch)
+    }
+
+    pub fn is_pre_match(&self) -> bool {
+        self.kinds.iter().any(|k| matches!(k, CardKind::PreMatch(_)))
+    }
 }
 
 /// The Superstar card that sits in a player's Backstage area.
@@ -88,6 +121,8 @@ pub struct SuperstarDef {
     pub name: String,
     pub hand_size: u8,
     pub superstar_value: u8,
+    #[serde(default)]
+    pub female: bool,
     #[serde(default)]
     pub text: String,
     #[serde(default)]
@@ -122,6 +157,9 @@ pub struct CardScript {
     /// card matching this filter, with no other card played in between.
     #[serde(default)]
     pub play_after: Option<CardFilter>,
+    /// Pre-match cards: effects resolved at the end of the Pre-match phase.
+    #[serde(default)]
+    pub end_of_prematch: Vec<Effect>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

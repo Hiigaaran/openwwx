@@ -1,6 +1,7 @@
 //! Text-mode client: play the test set against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch]`. With `--watch` two bots play
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced]`. With `--advanced`
+//! the match has a Pre-match phase and Backlash decks. With `--watch` two bots play
 //! each other and the match log is printed.
 
 use std::io::{self, BufRead, Write};
@@ -20,8 +21,9 @@ fn main() {
     let watch = args.iter().any(|a| a == "--watch");
 
     let engine = Engine::new(Arc::new(rawdeal_cards::test_db()));
+    let decks = [rawdeal_cards::test_deck("test/technician"), rawdeal_cards::test_deck("test/brawler")];
     let setup =
-        GameSetup::standard([rawdeal_cards::test_deck("test/technician"), rawdeal_cards::test_deck("test/brawler")]);
+        if args.iter().any(|a| a == "--advanced") { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
     let (mut state, events) = engine.new_game(&setup, seed).expect("test decks are legal");
     println!("OpenWWX, seed {seed}. You are P1 (The Technician) against P2 (The Brawler).");
     let human = if watch { None } else { Some(PlayerId::ONE) };
@@ -99,13 +101,24 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
         Action::Yes => "Yes".into(),
         Action::No => "No".into(),
         Action::DrawCards(n) => format!("Draw {n}"),
+        Action::Pass => "Pass".into(),
     }
 }
 
 fn print_events(engine: &Engine, state: &GameState, events: &[Event], viewer: PlayerId) {
     for event in events {
         let line = match event.redacted_for(viewer) {
+            Event::PreMatchStarted { first } => format!("Pre-match phase. {first} plays first."),
+            Event::PreMatchEnded => "Pre-match phase over.".into(),
             Event::GameStarted { first } => format!("{first} goes first."),
+            Event::PartialReversal { player, reversal, card } => format!(
+                "{player} hits {} with {}, but it is Multi: it needs another Reversal!",
+                name(engine, state, card),
+                name(engine, state, reversal)
+            ),
+            Event::Revealed { player, card } => {
+                format!("{player} reveals {} and puts it in hand.", name(engine, state, card))
+            }
             Event::TurnStarted { player, turn } => format!("\n=== Turn {turn}: {player} ==="),
             Event::CardDrawn { player, card: Some(c) } => format!("{player} draws {}.", name(engine, state, c)),
             Event::CardDrawn { player, card: None } => format!("{player} draws a card."),

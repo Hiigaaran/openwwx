@@ -48,6 +48,7 @@ pub enum Zone {
     Hand,
     Ring,
     Ringside,
+    Backlash,
     /// Being played: waiting for reversals and resolution.
     InPlay,
 }
@@ -69,6 +70,8 @@ pub struct PlayerState {
     pub ring: Vec<CardId>,
     /// `last()` is the most recent card.
     pub ringside: Vec<CardId>,
+    /// Backlash deck (Advanced matches). Hidden from the opponent.
+    pub backlash: Vec<CardId>,
     /// The Superstar's activated ability was used this turn.
     pub ability_used: bool,
 }
@@ -80,6 +83,7 @@ impl PlayerState {
             Zone::Hand => &self.hand,
             Zone::Ring => &self.ring,
             Zone::Ringside => &self.ringside,
+            Zone::Backlash => &self.backlash,
             Zone::InPlay => &[],
         }
     }
@@ -90,6 +94,7 @@ impl PlayerState {
             Zone::Hand => Some(&mut self.hand),
             Zone::Ring => Some(&mut self.ring),
             Zone::Ringside => Some(&mut self.ringside),
+            Zone::Backlash => Some(&mut self.backlash),
             Zone::InPlay => None,
         }
     }
@@ -113,6 +118,17 @@ pub struct Played {
     pub card: CardId,
     pub player: PlayerId,
     pub kind: CardKind,
+    /// Reversals that already hit it (a Multi card needs two).
+    pub reversals: u8,
+}
+
+/// Which rulebook the match uses.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Mode {
+    #[default]
+    QuickStart,
+    /// Pre-match phase, Backlash decks and the Advanced count out.
+    Advanced,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +137,7 @@ pub struct GameState {
     pub players: [PlayerState; 2],
     pub active: PlayerId,
     pub turn: u32,
+    pub mode: Mode,
     pub outcome: Option<Outcome>,
     /// Card on the "stack", between being played and landing in the Ring.
     pub in_play: Option<Played>,
@@ -155,7 +172,7 @@ impl GameState {
     pub fn check_invariants(&self) -> Result<(), String> {
         let mut seen = vec![0u8; self.cards.len()];
         for (pi, p) in self.players.iter().enumerate() {
-            for zone in [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside] {
+            for zone in [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside, Zone::Backlash] {
                 for &c in p.zone(zone) {
                     let inst = self.card(c);
                     if inst.zone != zone {

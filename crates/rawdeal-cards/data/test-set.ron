@@ -15,6 +15,8 @@
         (id: "test/hardcore", name: "The Hardcore Legend", hand_size: 4, superstar_value: 1,
          text: "Draw 2 cards in your Draw Segment. Damage from your opponent's cards is reduced by 1.",
          abilities: [DrawSegment(2), ReduceDamage(1)]),
+        (id: "test/high-flyer", name: "The High Flyer", hand_size: 6, superstar_value: 2, female: true,
+         text: "No ability. Cannot play Multi maneuvers."),
     ],
     cards: [
         // Maneuvers
@@ -49,6 +51,13 @@
         (id: "test/title-belt", title: "Test Championship", kinds: [Action], fortitude: 4, damage: 2, traits: [UniversallyUnique],
          text: "Universally Unique."),
 
+        (id: "test/double-team", title: "Double Team", kinds: [Maneuver(Grapple)], fortitude: 2, damage: 4, stun_value: 2,
+         traits: [Multi], text: "Multi."),
+        (id: "test/chain-punch", title: "Chain Punch", kinds: [Maneuver(Strike)], fortitude: 0, damage: 2, stun_value: 1,
+         traits: [Chain], text: "Chain."),
+        (id: "test/chain-kick", title: "Chain Kick", kinds: [Maneuver(Strike)], fortitude: 2, damage: 3, stun_value: 1,
+         traits: [Chain], text: "Chain."),
+
         // Reversals
         (id: "test/block", title: "Block", kinds: [Reversal], fortitude: 0, damage: 0,
          text: "Reverse any Strike maneuver.",
@@ -66,9 +75,40 @@
          text: "Reverse any action.",
          script: (reverses: Some((targets: Action)))),
 
+        (id: "test/sprawl", title: "Sprawl", kinds: [Reversal], fortitude: 0, damage: 0,
+         text: "Reverse any Grapple maneuver.",
+         script: (reverses: Some((targets: ManeuverType(Grapple))))),
+
         // Hybrid: Strike maneuver or a Reversal against Strikes.
         (id: "test/shove", title: "Shove", kinds: [Maneuver(Strike), Reversal], fortitude: 1, damage: 2, stun_value: 1,
          text: "Reverse any Strike maneuver.",
          script: (reverses: Some((targets: ManeuverType(Strike))))),
+
+        // Backlash: Pre-match cards
+        (id: "test/arena", title: "Test Arena", kinds: [PreMatch(Venue)], fortitude: 0, damage: 0,
+         text: "Venue. At the end of Pre-match, draw 1 card.",
+         script: (end_of_prematch: [Draw(who: You, n: 1)])),
+        (id: "test/bad-blood", title: "Bad Blood", kinds: [PreMatch(Feud)], fortitude: 0, damage: 0,
+         text: "Feud. At the end of Pre-match, your opponent takes 1 damage.",
+         script: (end_of_prematch: [Damage(who: Opponent, n: 1)])),
+        (id: "test/no-dq", title: "No Disqualification", kinds: [PreMatch(Stipulation)], fortitude: 0, damage: 0,
+         text: "Stipulation."),
+        (id: "test/manager", title: "Loudmouth Manager", kinds: [PreMatch(Manager)], fortitude: 0, damage: 0,
+         text: "Manager. When played, your opponent discards 1 card at random.",
+         script: (on_play: [Discard(who: Opponent, n: 1, pick: Random)])),
+        (id: "test/ppv", title: "Pay-Per-View Main Event", kinds: [PreMatch(Event)], fortitude: 0, damage: 0,
+         traits: [PayPerView], text: "Pay-Per-View Event."),
+        (id: "test/pyro", title: "Pyro", kinds: [PreMatch(Event)], fortitude: 0, damage: 0,
+         text: "Event. At the end of Pre-match, draw 1 card.",
+         script: (end_of_prematch: [Draw(who: You, n: 1)])),
+        (id: "test/chair", title: "Steel Chair", kinds: [PreMatch(Object)], fortitude: 0, damage: 0,
+         text: "Object."),
+
+        // Backlash: Mid-match cards
+        (id: "test/ladder-spot", title: "Ladder Spot", kinds: [Maneuver(HighRisk)], fortitude: 0, damage: 3, stun_value: 1,
+         traits: [MidMatch], text: "Mid-match."),
+        (id: "test/ref-distraction", title: "Ref Distraction", kinds: [Reversal], fortitude: 0, damage: 0,
+         traits: [MidMatch], text: "Mid-match. Reverse any maneuver.",
+         script: (reverses: Some((targets: Maneuver)))),
     ],
 )

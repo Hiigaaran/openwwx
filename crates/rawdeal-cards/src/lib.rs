@@ -53,20 +53,22 @@ pub fn test_db() -> CardDb {
     build_db([test_set()]).expect("bundled test set is consistent")
 }
 
-/// A legal 60-card Arsenal from the test set: three of every card, filled up
-/// with the unlimited Set-Up card.
+/// A legal deck from the test set: two of every Arsenal card filled up to 60
+/// with the unlimited Set-Up card, and one of every Backlash card.
 pub fn test_deck(superstar: &str) -> DeckList {
     let set = test_set();
     let mut arsenal = Vec::new();
+    let mut backlash = Vec::new();
     for card in set.cards.iter().filter(|c| c.id != "test/lock-up") {
-        for _ in 0..3 {
-            arsenal.push(card.id.clone());
+        if card.is_backlash() {
+            backlash.push(card.id.clone());
+        } else {
+            arsenal.extend([card.id.clone(), card.id.clone()]);
         }
     }
-    while arsenal.len() < 60 {
-        arsenal.push("test/lock-up".to_string());
-    }
-    DeckList { superstar: superstar.to_string(), arsenal }
+    assert!(arsenal.len() <= 60, "test set has too many Arsenal cards for two copies each");
+    arsenal.resize(60, "test/lock-up".to_string());
+    DeckList { superstar: superstar.to_string(), arsenal, backlash }
 }
 
 #[cfg(test)]

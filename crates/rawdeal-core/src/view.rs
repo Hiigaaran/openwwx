@@ -13,6 +13,7 @@ pub struct PublicPlayer {
     pub superstar: SuperstarIdx,
     pub arsenal_count: usize,
     pub hand_count: usize,
+    pub backlash_count: usize,
     pub ring: Vec<CardId>,
     pub ringside: Vec<CardId>,
     pub fortitude: u16,
@@ -26,6 +27,7 @@ pub struct PlayerView {
     pub outcome: Option<Outcome>,
     pub players: [PublicPlayer; 2],
     pub hand: Vec<CardId>,
+    pub backlash: Vec<CardId>,
     pub in_play: Option<Played>,
     /// The pending decision, if it is mine.
     pub decision: Option<Decision>,
@@ -43,18 +45,21 @@ impl PlayerView {
                 superstar: ps.superstar,
                 arsenal_count: ps.arsenal.len(),
                 hand_count: ps.hand.len(),
+                backlash_count: ps.backlash.len(),
                 ring: ps.ring.clone(),
                 ringside: ps.ringside.clone(),
                 fortitude: engine.fortitude(state, p),
             }
         });
         let hand = state.player(me).hand.clone();
+        let backlash = state.player(me).backlash.clone();
 
         let mut known = vec![None; state.cards.len()];
         let visible = players
             .iter()
             .flat_map(|p| p.ring.iter().chain(&p.ringside))
             .chain(&hand)
+            .chain(&backlash)
             .chain(state.in_play.as_ref().map(|p| &p.card));
         for &c in visible {
             known[c.0 as usize] = Some(state.card(c).def);
@@ -67,6 +72,7 @@ impl PlayerView {
             outcome: state.outcome,
             players,
             hand,
+            backlash,
             in_play: state.in_play,
             decision: state.decision.clone().filter(|d| d.player == me),
             waiting_on: state.decision.as_ref().map(|d| d.player),

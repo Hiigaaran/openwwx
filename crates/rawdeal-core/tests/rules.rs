@@ -17,11 +17,12 @@ fn engine() -> Engine {
 fn stack(superstar: &str, cards: &[&str], len: usize) -> DeckList {
     let mut arsenal: Vec<String> = cards.iter().map(|c| format!("test/{c}")).collect();
     arsenal.resize(len.max(cards.len()), "test/lock-up".to_string());
-    DeckList { superstar: superstar.to_string(), arsenal }
+    DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![] }
 }
 
 fn start(e: &Engine, p1: DeckList, p2: DeckList) -> GameState {
-    let setup = GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false };
+    let setup =
+        GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode: Mode::QuickStart };
     e.new_game(&setup, 1).expect("valid setup").0
 }
 
@@ -250,6 +251,7 @@ fn deck_rules() {
     let db = rawdeal_cards::test_db();
     let mut deck = rawdeal_cards::test_deck(TECH);
     assert!(validate_deck(&db, &deck).is_empty());
+    deck.arsenal[58] = "test/jab".into();
     deck.arsenal[59] = "test/jab".into();
     assert!(validate_deck(&db, &deck).contains(&DeckProblem::TooManyCopies {
         card: "test/jab".into(),
@@ -363,4 +365,270 @@ fn universally_unique_cards() {
     assert!(playable(&e, &s, P1, "title-belt"));
     play(&e, &mut s, P1, "title-belt");
     assert!(!playable(&e, &s, P1, "title-belt"));
+}
+
+// --- Multi and Chain ---
+
+#[test]
+fn multi_needs_two_reversals_from_hand() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["jab", "double-team"], 20), stack(BRAWLER, &["sprawl", "sprawl"], 20));
+    play(&e, &mut s, P1, "jab");
+    let events = play(&e, &mut s, P1, "double-team");
+    let first = in_hand(&e, &s, P2, "sprawl");
+    assert!(events.iter().any(|ev| matches!(ev, Event::CardPlayed { .. })));
+    e.apply(&mut s, P2, Action::Reverse { card: first }).unwrap();
+    assert!(s.player(P2).ring.contains(&first), "the first Reversal stays in the Ring");
+    let second = in_hand(&e, &s, P2, "sprawl");
+    assert!(matches!(waiting(&s), (P2, DecisionKind::Reversal { options, .. }) if options == &vec![second]));
+    e.apply(&mut s, P2, Action::Reverse { card: second }).unwrap();
+    assert_eq!((s.active, s.turn), (P2, 2), "two Reversals stop a Multi card");
+    s.check_invariants().unwrap();
+}
+
+#[test]
+fn multi_with_one_reversal_still_hits() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["jab", "double-team"], 20), stack(BRAWLER, &["sprawl"], 20));
+    play(&e, &mut s, P1, "jab");
+    play(&e, &mut s, P1, "double-team");
+    let sprawl = in_hand(&e, &s, P2, "sprawl");
+    e.apply(&mut s, P2, Action::Reverse { card: sprawl }).unwrap();
+    assert_eq!(waiting(&s), (P1, &DecisionKind::Main), "one Reversal is not enough");
+    assert_eq!(s.player(P2).ringside.len(), 2 + 4);
+    assert_eq!(s.player(P1).ring.len(), 2);
+}
+
+#[test]
+fn multi_second_reversal_can_be_overturned() {
+    let e = engine();
+    // P2: six cards in hand (one Sprawl), two Lock Ups for the Jab, then Lock Up, Sprawl.
+    let p2 =
+        ["sprawl", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "sprawl"];
+    let mut s = start(&e, stack(TECH, &["jab", "double-team"], 20), stack(BRAWLER, &p2, 20));
+    play(&e, &mut s, P1, "jab");
+    play(&e, &mut s, P1, "double-team");
+    let sprawl = in_hand(&e, &s, P2, "sprawl");
+    e.apply(&mut s, P2, Action::Reverse { card: sprawl }).unwrap();
+    assert_eq!(waiting(&s), (P1, &DecisionKind::StunDraw { max: 2 }), "the overturned Sprawl was the second");
+    assert_eq!(s.player(P2).ringside.len(), 2 + 2);
+}
+
+#[test]
+fn female_superstars_cannot_play_multi_maneuvers() {
+    let e = engine();
+    let mut s = start(&e, stack("test/high-flyer", &["jab", "double-team"], 20), stack(BRAWLER, &[], 20));
+    if s.active == P2 {
+        e.apply(&mut s, P2, Action::EndTurn).unwrap();
+    }
+    play(&e, &mut s, P1, "jab");
+    assert!(!playable(&e, &s, P1, "double-team"));
+}
+
+#[test]
+fn reversing_a_chain_costs_two_discards() {
+    let e = engine();
+    let mut s = start(&e, stack(TECH, &["chain-punch"], 20), stack(BRAWLER, &["block"], 20));
+    play(&e, &mut s, P1, "chain-punch");
+    let block = in_hand(&e, &s, P2, "block");
+    e.apply(&mut s, P2, Action::Reverse { card: block }).unwrap();
+    let (who, DecisionKind::ChooseCards { options, min: 2, max: 2, .. }) = waiting(&s) else { panic!("discard 2") };
+    assert_eq!(who, P2);
+    assert!(!options.contains(&block));
+    let pay = options[..2].to_vec();
+    e.apply(&mut s, P2, Action::ChooseCards(pay.clone())).unwrap();
+    assert!(pay.iter().all(|c| s.player(P2).ringside.contains(c)));
+    assert_eq!(s.player(P2).ring, vec![block]);
+    assert_eq!((s.active, s.turn), (P2, 2));
+    s.check_invariants().unwrap();
+}
+
+#[test]
+fn successful_chain_searches_for_another() {
+    let e = engine();
+    let p1 = ["chain-punch", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "lock-up", "chain-kick"];
+    let mut s = start(&e, stack(TECH, &p1, 20), stack(BRAWLER, &[], 20));
+    play(&e, &mut s, P1, "chain-punch");
+    assert_eq!(s.player(P2).ringside.len(), 2, "damage comes first");
+    assert!(matches!(waiting(&s), (P1, DecisionKind::YesNo { purpose: YesNoPurpose::ChainSearch })));
+    e.apply(&mut s, P1, Action::Yes).unwrap();
+    let pay = s.player(P1).hand[..2].to_vec();
+    e.apply(&mut s, P1, Action::ChooseCards(pay)).unwrap();
+    let (_, DecisionKind::ChooseCards { options, .. }) = waiting(&s) else { panic!("search") };
+    let kick = options[0];
+    let events = e.apply(&mut s, P1, Action::ChooseCards(vec![kick])).unwrap();
+    assert!(s.player(P1).hand.contains(&kick));
+    assert!(events.contains(&Event::Revealed { player: P1, card: kick }));
+    assert_eq!(waiting(&s), (P1, &DecisionKind::Main));
+    s.check_invariants().unwrap();
+}
+
+// --- Advanced matches ---
+
+fn advanced(e: &Engine, p1: DeckList, p2: DeckList) -> (GameState, Vec<Event>) {
+    let setup = GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode: Mode::Advanced };
+    e.new_game(&setup, 1).expect("valid setup")
+}
+
+fn with_backlash(mut deck: DeckList, cards: &[&str]) -> DeckList {
+    deck.backlash = cards.iter().map(|c| format!("test/{c}")).collect();
+    deck
+}
+
+fn pre_match(e: &Engine, s: &mut GameState, p: PlayerId, id: &str) {
+    let id = format!("test/{id}");
+    let (card, kind) = e
+        .legal_actions(s, p)
+        .iter()
+        .find_map(|a| match a {
+            Action::PlayCard { card, kind } if e.db().card(s.card(*card).def).id == id => Some((*card, *kind)),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("{p} cannot play {id}"));
+    e.apply(s, p, Action::PlayCard { card, kind }).unwrap();
+    s.check_invariants().unwrap();
+}
+
+#[test]
+fn pre_match_phase_in_order() {
+    let e = engine();
+    let all = ["arena", "bad-blood", "no-dq", "manager", "ppv", "pyro", "chair"];
+    let (mut s, events) = advanced(
+        &e,
+        with_backlash(stack(TECH, &[], 30), &all),
+        with_backlash(stack(BRAWLER, &[], 30), &["arena", "bad-blood", "manager", "pyro"]),
+    );
+    assert!(events.contains(&Event::PreMatchStarted { first: P1 }));
+    assert!(s.player(P1).hand.is_empty(), "hands are drawn after Pre-match");
+
+    // Venue: P1 plays one, so P2 cannot (one Venue in all Rings) and is skipped.
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 0, .. })));
+    pre_match(&e, &mut s, P1, "arena");
+    // Feud: both play.
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 1, .. })));
+    pre_match(&e, &mut s, P1, "bad-blood");
+    pre_match(&e, &mut s, P2, "bad-blood");
+    // Stipulation: P1 passes; P2 has none.
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 2, .. })));
+    e.apply(&mut s, P1, Action::Pass).unwrap();
+    // Manager: P1 passes, P2 plays one and P1 discards at random (empty hand: nothing).
+    e.apply(&mut s, P1, Action::Pass).unwrap();
+    pre_match(&e, &mut s, P2, "manager");
+    // Open step: Stipulations and Managers are no longer playable.
+    let (_, DecisionKind::PreMatch { step: 4, .. }) = waiting(&s) else { panic!("open step") };
+    let legal = e.legal_actions(&s, P1);
+    let titles: Vec<&str> = legal
+        .iter()
+        .filter_map(|a| {
+            if let Action::PlayCard { card, .. } = a { Some(e.db().card(s.card(*card).def).id.as_str()) } else { None }
+        })
+        .collect();
+    assert_eq!(titles, vec!["test/ppv", "test/pyro", "test/chair"]);
+    pre_match(&e, &mut s, P1, "ppv");
+    pre_match(&e, &mut s, P2, "pyro");
+    pre_match(&e, &mut s, P1, "pyro");
+    // P2 has nothing left, so the engine passes for them.
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 4, passes: 1, .. })));
+    let events = e.apply(&mut s, P1, Action::Pass).unwrap();
+
+    // Two passes in a row end the phase: hands, then end-of-Pre-match effects.
+    assert!(events.contains(&Event::PreMatchEnded));
+    assert!(events.contains(&Event::GameStarted { first: P1 }));
+    assert_eq!(s.player(P1).ring.len(), 4);
+    assert_eq!(s.player(P2).ring.len(), 3);
+    assert_eq!(s.player(P1).hand.len(), 5 + 1 + 1 + 1, "Hand Size, Arena, Pyro, turn draw");
+    assert_eq!(s.player(P2).hand.len(), 6 + 1, "Hand Size, Pyro");
+    assert_eq!(s.player(P1).ringside.len(), 1, "P2's Bad Blood");
+    assert_eq!(s.player(P2).ringside.len(), 1, "P1's Bad Blood");
+    assert_eq!((s.active, s.turn), (P1, 1));
+}
+
+#[test]
+fn pre_match_cards_respect_ring_limits() {
+    let e = engine();
+    let (mut s, _) = advanced(
+        &e,
+        with_backlash(stack(TECH, &[], 30), &["ppv", "ppv", "pyro", "pyro", "chair", "chair", "pyro"]),
+        stack(BRAWLER, &[], 30),
+    );
+    pre_match(&e, &mut s, P1, "ppv");
+    assert!(
+        e.legal_actions(&s, P1).iter().all(|a| match a {
+            Action::PlayCard { card, .. } => e.db().card(s.card(*card).def).id != "test/ppv",
+            _ => true,
+        }),
+        "only one Pay-Per-View"
+    );
+    for id in ["pyro", "pyro", "chair", "chair"] {
+        pre_match(&e, &mut s, P1, id);
+    }
+    assert_eq!(s.player(P1).ring.len(), 5);
+    assert!(matches!(waiting(&s), (P1, DecisionKind::Main)), "the sixth Pre-match card cannot be played");
+}
+
+#[test]
+fn mid_match_cards_play_from_backlash() {
+    let e = engine();
+    let (mut s, _) = advanced(
+        &e,
+        with_backlash(stack(TECH, &[], 30), &["ladder-spot"]),
+        with_backlash(stack(BRAWLER, &[], 30), &["ref-distraction"]),
+    );
+    assert_eq!(waiting(&s), (P1, &DecisionKind::Main), "no Pre-match cards: straight to the match");
+    let ladder = s.player(P1).backlash[0];
+    let legal = e.legal_actions(&s, P1);
+    assert!(legal.contains(&Action::PlayCard { card: ladder, kind: CardKind::Maneuver(ManeuverType::HighRisk) }));
+    e.apply(&mut s, P1, Action::PlayCard { card: ladder, kind: CardKind::Maneuver(ManeuverType::HighRisk) }).unwrap();
+    let ref_d = s.player(P2).backlash[0];
+    assert!(matches!(waiting(&s), (P2, DecisionKind::Reversal { options, .. }) if options == &vec![ref_d]));
+    e.apply(&mut s, P2, Action::Reverse { card: ref_d }).unwrap();
+    assert_eq!(s.player(P2).ring, vec![ref_d]);
+    assert!(s.player(P1).ringside.contains(&ladder));
+    s.check_invariants().unwrap();
+}
+
+#[test]
+fn backlash_cards_never_return_to_hand() {
+    let e = engine();
+    let (mut s, _) = advanced(
+        &e,
+        with_backlash(stack(TECH, &["jab", "second-wind"], 30), &["ladder-spot"]),
+        with_backlash(stack(BRAWLER, &[], 30), &["ref-distraction"]),
+    );
+    let ladder = s.player(P1).backlash[0];
+    e.apply(&mut s, P1, Action::PlayCard { card: ladder, kind: CardKind::Maneuver(ManeuverType::HighRisk) }).unwrap();
+    let ref_d = s.player(P2).backlash[0];
+    e.apply(&mut s, P2, Action::Reverse { card: ref_d }).unwrap();
+    e.apply(&mut s, P2, Action::EndTurn).unwrap();
+    play(&e, &mut s, P1, "jab");
+    play(&e, &mut s, P1, "second-wind");
+    let discard = in_hand(&e, &s, P1, "lock-up");
+    e.apply(&mut s, P1, Action::ChooseCards(vec![discard])).unwrap();
+    let (_, DecisionKind::ChooseCards { options, .. }) = waiting(&s) else { panic!("recover") };
+    assert_eq!(options, &vec![discard], "the Ladder Spot in Ringside is not an option");
+}
+
+#[test]
+fn advanced_count_out_only_after_your_own_turn() {
+    let e = engine();
+    let (mut s, _) = advanced(&e, stack(TECH, &[], 20), stack(BRAWLER, &[], 6));
+    e.apply(&mut s, P1, Action::EndTurn).unwrap();
+    assert_eq!(waiting(&s), (P2, &DecisionKind::Main), "P2 has not ended a turn yet");
+    e.apply(&mut s, P2, Action::EndTurn).unwrap();
+    assert!(matches!(waiting(&s), (P1, DecisionKind::YesNo { purpose: YesNoPurpose::ClaimCountOut })));
+}
+
+#[test]
+fn backlash_deck_rules() {
+    let db = rawdeal_cards::test_db();
+    let mut deck = rawdeal_cards::test_deck(TECH);
+    assert!(validate_deck(&db, &deck).is_empty());
+    deck.backlash.push("test/jab".into());
+    assert!(validate_deck(&db, &deck).contains(&DeckProblem::NotABacklashCard { card: "test/jab".into() }));
+    deck.backlash.pop();
+    deck.arsenal[59] = "test/pyro".into();
+    assert!(validate_deck(&db, &deck).contains(&DeckProblem::BacklashCardInArsenal { card: "test/pyro".into() }));
+    deck.arsenal[59] = "test/lock-up".into();
+    deck.backlash.extend(["test/pyro", "test/pyro", "test/chair", "test/chair"].map(String::from));
+    assert!(validate_deck(&db, &deck).contains(&DeckProblem::TooManyPreMatch(11)));
 }

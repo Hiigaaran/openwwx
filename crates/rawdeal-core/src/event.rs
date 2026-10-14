@@ -8,6 +8,12 @@ use crate::state::{CardId, Outcome, PlayerId, Zone};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Event {
+    /// Advanced match: the Pre-match phase begins with `first`.
+    PreMatchStarted {
+        first: PlayerId,
+    },
+    PreMatchEnded,
+    /// The match proper begins.
     GameStarted {
         first: PlayerId,
     },
@@ -32,6 +38,17 @@ pub enum Event {
         reversal: CardId,
         reversed: CardId,
         from_hand: bool,
+    },
+    /// A Reversal hit a Multi card that still needs another one.
+    PartialReversal {
+        player: PlayerId,
+        reversal: CardId,
+        card: CardId,
+    },
+    /// `card` is shown to both players (e.g. found by a search).
+    Revealed {
+        player: PlayerId,
+        card: CardId,
     },
     EffectsResolved {
         card: CardId,
