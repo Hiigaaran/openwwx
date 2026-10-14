@@ -14,6 +14,19 @@ interfaz de escritorio. El diseño completo está en
 | `rawdeal-cards` | Carga de cartas desde archivos RON. Incluye un set de prueba con cartas y Superstars inventados. |
 | `rawdeal-ai` | Oponentes por computadora. Por ahora, un bot aleatorio. |
 | `rawdeal-cli` | Cliente de texto para jugar contra el bot y depurar el motor. |
+| `openwwx` | App de escritorio (egui): menú, tablero, mano, decisiones y relato de la lucha. |
+
+## Jugar
+
+Descarga la versión para tu sistema desde [Releases](https://github.com/Hiigaaran/openwwx/releases), descomprímela,
+pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`. Para compilarla tú mismo:
+
+```sh
+cargo run --release -p openwwx
+```
+
+Para publicar una versión nueva, sube un tag (`git tag v0.1.0 && git push origin v0.1.0`): GitHub Actions compila
+Windows, macOS (Apple Silicon e Intel) y Linux y crea el release con los archivos.
 
 ## Probarlo
 

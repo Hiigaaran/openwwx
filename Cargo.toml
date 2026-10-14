@@ -16,3 +16,6 @@ rand_chacha = { version = "0.10.0", features = ["serde"] }
 ron = "0.12.2"
 serde = { version = "1.0.229", features = ["derive"] }
 proptest = "1.12.0"
+
+[profile.release]
+strip = true

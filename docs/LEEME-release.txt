@@ -1,0 +1,17 @@
+OpenWWX: Raw Deal contra la computadora
+=======================================
+
+1. Pon tus sets de cartas (.ron) en la carpeta "cards", junto al programa.
+   Por ejemplo: cards/01-premiere.ron. También puedes elegir otra carpeta desde el menú.
+   Sin cartas, el juego usa un set de prueba con cartas inventadas.
+2. Abre openwwx (openwwx.exe en Windows).
+3. Elige tu Superstar y la del rival, y pulsa "Empezar lucha".
+
+En la partida, las cartas marcadas en verde son las que puedes jugar. Pasa el mouse
+sobre una carta para leer su texto completo.
+
+macOS: el programa no está firmado. La primera vez, haz clic derecho sobre openwwx y
+elige "Abrir", o ejecuta en la Terminal: xattr -d com.apple.quarantine openwwx
+
+El texto y el arte de Raw Deal pertenecen a sus dueños; OpenWWX no los incluye.
+Código: https://github.com/Hiigaaran/openwwx

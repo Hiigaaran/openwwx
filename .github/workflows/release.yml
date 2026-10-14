@@ -1,0 +1,54 @@
+name: Release
+# Builds the desktop app for Windows, macOS and Linux when a tag like v0.1.0 is
+# pushed, and attaches the archives to a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, name: windows-x86_64, exe: openwwx.exe }
+          - { os: macos-latest, target: aarch64-apple-darwin, name: macos-arm64, exe: openwwx }
+          - { os: macos-latest, target: x86_64-apple-darwin, name: macos-x86_64, exe: openwwx }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, name: linux-x86_64, exe: openwwx }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release -p openwwx --target ${{ matrix.target }}
+      - name: Package
+        shell: bash
+        run: |
+          dir="openwwx-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          mkdir -p "$dir/cards"
+          cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" "$dir/"
+          cp docs/LEEME-release.txt "$dir/LEEME.txt"
+          echo "Pon aquí tus sets en formato .ron (por ejemplo 01-premiere.ron)." > "$dir/cards/LEEME.txt"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "$dir.zip" "$dir" > /dev/null
+          else
+            tar czf "$dir.tar.gz" "$dir"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: openwwx-*.*
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "OpenWWX $GITHUB_REF_NAME" --notes "Versión de escritorio de OpenWWX. Descarga el archivo de tu sistema, descomprímelo y abre openwwx. Las cartas no vienen incluidas: pon tus sets .ron en la carpeta cards."
