@@ -64,6 +64,8 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::All(fs) => fs.iter().map(filter).collect::<Vec<_>>().join(" "),
         CardFilter::AnyOf(fs) => fs.iter().map(filter).collect::<Vec<_>>().join(" o "),
         CardFilter::Not(f) => format!("no {}", filter(f)),
+        CardFilter::Keyword(k) => k.clone(),
+        CardFilter::EarlierThisTurn { filter: f, n } => format!("si ya jugó {n} {} este turno", filter(f)),
     }
 }
 
@@ -87,12 +89,25 @@ fn boost(b: &Boost) -> String {
     if b.no_arsenal_reversal {
         parts.push("no se puede revertir desde el Arsenal".into());
     }
+    if b.stun_value != 0 {
+        parts.push(format!("{:+} Stun Value", b.stun_value));
+    }
+    if b.ignore_play_after {
+        parts.push("ignora \"solo después de…\"".into());
+    }
+    if b.use_opponent_fortitude {
+        parts.push("se juega con la Fortitude del rival".into());
+    }
+    if b.double_fortitude {
+        parts.push("F doble".into());
+    }
     let when = match b.duration {
         Duration::NextCard => "tu próxima carta, si es",
         Duration::NextMatching => "tu próxima",
         Duration::ThisTurn => "este turno, cada",
         Duration::NextTurn => "el próximo turno, cada",
         Duration::NextTurnFirstCard => "tu primera carta del próximo turno, si es",
+        Duration::Turns(_) => "durante varios turnos, cada",
     };
     format!("{when} {}: {}", filter(&b.applies_to), parts.join(", "))
 }
@@ -139,6 +154,27 @@ pub fn effect(e: &Effect) -> String {
         Effect::WinGame => "ganas por descalificación".into(),
         Effect::Optional(es) => format!("puedes: {}", effects(es)),
         Effect::Choice(os) => os.iter().map(|o| effects(o)).collect::<Vec<_>>().join(" / "),
+        Effect::If { effects: es, .. } => format!("si se cumple: {}", effects(es)),
+        Effect::RevealHand { who: w } => format!("muestra la mano ({})", who(*w)),
+        Effect::DiscardMatching { who: w, n, filter: f, .. } => {
+            format!("descarta {} ({}) ({})", cards(*n), filter(f), who(*w))
+        }
+        Effect::DiscardPerRingCard { who: w, filter: f } => {
+            format!("descarta 1 carta por cada {} en su Ring ({})", filter(f), who(*w))
+        }
+        Effect::DiscardMirror { max } => format!("descarta hasta {}; el rival descarta las mismas", cards(*max)),
+        Effect::HandToArsenalTop { who: w, n } => format!("{} de la mano arriba del Arsenal ({})", cards(*n), who(*w)),
+        Effect::ShuffleHandAndRedraw { who: w } => format!("baraja la mano en el Arsenal y roba igual ({})", who(*w)),
+        Effect::Dig { n, take } => format!("mira {} del Arsenal y quédate {}", cards(*n), take),
+        Effect::DamageSuperstarValue { who: w } => format!("{} voltea tantas cartas como su Superstar Value", who(*w)),
+        Effect::RingToHand { n, .. } => format!("devuelve {} del Ring rival a su mano", cards(*n)),
+        Effect::ClearRing { who: w } => format!("todo el Ring al Ringside ({})", who(*w)),
+        Effect::RevealUntil { filter: f } => format!("revela del Arsenal hasta encontrar {}", filter(f)),
+        Effect::CannotPlay { who: w, filter: f, turns } => {
+            format!("{} no puede jugar {} durante {turns} turno(s)", who(*w), filter(f))
+        }
+        Effect::BoostOpponent(b) => format!("al rival: {}", boost(b)),
+        Effect::WinByPin => "ganas por Pinfall".into(),
     }
 }
 
@@ -161,6 +197,10 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::ArsenalToRingside => "del Arsenal para mandar al Ringside",
         ChoicePurpose::RingToRingside => "del Ring para mandar al Ringside",
         ChoicePurpose::Arrange => "para poner arriba del Arsenal (la siguiente de arriba hacia abajo)",
+        ChoicePurpose::DiscardMirror => "para descartar (el rival descartará las mismas)",
+        ChoicePurpose::HandToArsenalTop => "para poner arriba del Arsenal",
+        ChoicePurpose::RingToHand => "del Ring para devolver a la mano",
+        ChoicePurpose::DigToHand => "de arriba del Arsenal para tu mano",
     }
 }
 

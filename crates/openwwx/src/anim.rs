@@ -33,7 +33,11 @@ impl Display {
             let mine = p == view.me;
             Side {
                 arsenal: info.arsenal_count,
-                hand: if mine { view.hand.iter().map(|&c| Some(c)).collect() } else { vec![None; info.hand_count] },
+                hand: match (mine, &view.opponent_hand) {
+                    (true, _) => view.hand.iter().map(|&c| Some(c)).collect(),
+                    (false, Some(cards)) => cards.iter().map(|&c| Some(c)).collect(),
+                    (false, None) => vec![None; info.hand_count],
+                },
                 backlash: if mine {
                     view.backlash.iter().map(|&c| Some(c)).collect()
                 } else {

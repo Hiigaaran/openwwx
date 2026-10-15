@@ -21,7 +21,7 @@ pub use card::{
 };
 pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
-pub use deck::{DeckList, DeckProblem, validate_deck};
+pub use deck::{DeckList, DeckProblem, same_superstar, validate_deck};
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
 pub use state::{CardId, GameState, Mode, Outcome, PlayBonus, Played, PlayerId, Source, WinMethod, Zone};

@@ -146,7 +146,13 @@ pub enum Ability {
     StartOfTurn(Vec<Effect>),
     /// Once during your turn, in your Main Segment: pay `cost`, then apply
     /// `effects`. Using it does not break a follow-up chain.
-    Activated { cost: Vec<Effect>, effects: Vec<Effect> },
+    Activated {
+        cost: Vec<Effect>,
+        effects: Vec<Effect>,
+        /// Must hold for the ability to be used.
+        #[serde(default)]
+        requires: Option<Condition>,
+    },
     /// Draw this many cards in your Draw Segment instead of 1.
     DrawSegment(u8),
     /// Damage from cards your opponent plays is reduced by this much.
@@ -159,6 +165,21 @@ pub enum Ability {
     OpponentCannotPlay(String),
     /// You cannot put cards with this title in your decks.
     CannotPack(String),
+    /// Your cards matching `filter` need `delta` more (or less) Fortitude.
+    FortitudeFor { filter: CardFilter, delta: i16 },
+    /// Your first maneuver each turn is +1D, the second +2D, and so on.
+    EscalatingManeuverDamage,
+    /// The first card matching this you play each turn cannot be reversed.
+    FirstOfTurnIrreversible(CardFilter),
+    /// Your cards matching `played` cannot be reversed by cards matching `reversal`.
+    CannotBeReversedBy { played: CardFilter, reversal: CardFilter },
+    /// You may reverse a maneuver from hand by discarding a maneuver of the
+    /// same type; it deals no damage.
+    ReverseByDiscardingSameType,
+    /// After drawing in your Draw Segment, discard this many cards.
+    DrawSegmentDiscard(u8),
+    /// You may pack both Face and Heel cards.
+    PackBothAlignments,
 }
 
 /// Interpretable description of a card's text.
@@ -199,6 +220,74 @@ pub struct CardScript {
     /// When your opponent makes you discard this card.
     #[serde(default)]
     pub on_forced_discard: Vec<Effect>,
+    /// Cannot be reversed while this holds for the player playing it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub irreversible_when: Option<Condition>,
+    /// Cannot be reversed from the opponent's hand.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_hand_reversal: bool,
+    /// Can only be reversed by Reversals that name this card's title.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub only_reversed_by_title: bool,
+    /// Effects for the player of this card when it is reversed from the
+    /// opponent's hand.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on_reversed_from_hand: Vec<Effect>,
+    /// While this holds, `play_after` does not apply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub play_after_unless: Option<Condition>,
+    /// Something you may do with this card while it is in your Ring.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ring_ability: Option<RingAbility>,
+    /// While in your Ring: draw this many more cards in your Draw Segment.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub extra_draw: u8,
+    /// While in your Ring: your opponent plays with their hand revealed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reveals_opponent_hand: bool,
+    /// While in your Ring: boosts to every player's cards.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub while_in_ring_all: Vec<Boost>,
+    /// While in your Ring: boosts to your opponent's cards.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub while_in_ring_opponent: Vec<Boost>,
+    /// While in your Ring: your opponent cannot play cards matching this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricts_opponent: Option<Restriction>,
+    /// The card's Ring effects stop once you successfully play a maneuver.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub lapses_after_own_maneuver: bool,
+    /// While in your Ring: effects at the start of your opponent's turn,
+    /// before their Draw Segment, controlled by that opponent.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub in_ring_opponent_start_of_turn: Vec<Effect>,
+}
+
+fn is_zero(n: &u8) -> bool {
+    *n == 0
+}
+
+/// Something a player may do with a card in their Ring, in their Main Segment.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct RingAbility {
+    #[serde(default)]
+    pub requires: Option<Condition>,
+    #[serde(default)]
+    pub cost: Vec<Effect>,
+    #[serde(default)]
+    pub effects: Vec<Effect>,
+    /// The card goes to its owner's Ringside pile when used.
+    #[serde(default)]
+    pub sacrifice: bool,
+}
+
+/// What a card in the Ring keeps the opponent from playing, and when.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Restriction {
+    /// Judged for the owner of the restricting card.
+    #[serde(default)]
+    pub when: Condition,
+    pub filter: CardFilter,
 }
 
 /// How a hybrid card works when played as an Action.
@@ -251,6 +340,28 @@ pub enum Condition {
     OpponentFemale,
     Not(Box<Condition>),
     AnyOf(Vec<Condition>),
+    All(Vec<Condition>),
+    /// Your Fortitude is at most your opponent's.
+    FortitudeAtMostOpponent,
+    /// Your Fortitude is at least your opponent's.
+    FortitudeAtLeastOpponent,
+    /// Your Superstar has this name.
+    Superstar(String),
+    /// Your opponent has at least `n` cards matching `filter` in their Ring.
+    OpponentRingHas {
+        filter: CardFilter,
+        n: u8,
+    },
+    /// A card in your hand matches.
+    HandHas(CardFilter),
+    /// Your opponent has more cards in hand than you.
+    OpponentHandLarger,
+    /// Your opponent has at least this many cards in hand.
+    OpponentHandAtLeast(u8),
+    /// You have not played a card yet this turn.
+    FirstCardThisTurn,
+    /// You ended your opponent's last turn by reversing a card matching this.
+    ReversedLastTurn(CardFilter),
 }
 
 /// When a [`Boost`] applies and when it runs out.
@@ -266,6 +377,9 @@ pub enum Duration {
     NextTurn,
     /// Your first card played next turn.
     NextTurnFirstCard,
+    /// Every matching card until the end of the owner's `n`th turn from now
+    /// (counting the current one if it is theirs).
+    Turns(u8),
 }
 
 /// Temporary change to the cards a player plays.
@@ -288,6 +402,17 @@ pub struct Boost {
     /// The card cannot be reversed by cards overturned from the Arsenal.
     #[serde(default)]
     pub no_arsenal_reversal: bool,
+    #[serde(default)]
+    pub stun_value: i16,
+    /// The card may ignore its "can only be played after …" text.
+    #[serde(default)]
+    pub ignore_play_after: bool,
+    /// The card may be played as if you had your opponent's Fortitude.
+    #[serde(default)]
+    pub use_opponent_fortitude: bool,
+    /// The card's printed F is doubled (for the card and for Reversals).
+    #[serde(default)]
+    pub double_fortitude: bool,
 }
 
 fn any_card() -> CardFilter {
@@ -317,11 +442,38 @@ pub struct ReverseSpec {
     /// Fortitude needed instead of the printed F.
     #[serde(default)]
     pub fortitude: Option<u8>,
+    /// More cards it can reverse when played from hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hand_targets: Option<CardFilter>,
+    /// Only works when overturned while taking damage.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub overturned_only: bool,
+    /// Must hold for the reversing player.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requires: Option<Condition>,
+    /// Cards to discard (chosen) to reverse from hand.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub discard_cost: u8,
+    /// The Fortitude needed is the damage of the reversed card.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fortitude_is_damage: bool,
 }
 
 impl ReverseSpec {
     pub fn new(targets: CardFilter, damage: ReversalDamage) -> Self {
-        ReverseSpec { targets, damage, on_reverse: vec![], effects: vec![], from_hand_only: false, fortitude: None }
+        ReverseSpec {
+            targets,
+            damage,
+            on_reverse: vec![],
+            effects: vec![],
+            from_hand_only: false,
+            fortitude: None,
+            hand_targets: None,
+            overturned_only: false,
+            requires: None,
+            discard_cost: 0,
+            fortitude_is_damage: false,
+        }
     }
 }
 
@@ -364,6 +516,14 @@ pub enum CardFilter {
     All(Vec<CardFilter>),
     AnyOf(Vec<CardFilter>),
     Not(Box<CardFilter>),
+    /// A printed trait the engine has no rules for, such as "Run-in" or
+    /// "Foreign Object", ignoring case.
+    Keyword(String),
+    /// The player already played at least `n` cards matching `filter` earlier this turn.
+    EarlierThisTurn {
+        filter: Box<CardFilter>,
+        n: u8,
+    },
 }
 
 /// Who an effect applies to, relative to the card's controller.
@@ -412,6 +572,8 @@ pub enum Effect {
         n: u8,
         #[serde(default)]
         up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
     },
     /// Shuffle cards of the player's choice from Ringside into their Arsenal.
     RingsideToArsenal {
@@ -419,6 +581,8 @@ pub enum Effect {
         n: u8,
         #[serde(default)]
         up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
     },
     /// Shuffle cards of the player's choice from their hand into their Arsenal.
     HandToArsenal {
@@ -459,6 +623,15 @@ pub enum Effect {
         filter: CardFilter,
         #[serde(default)]
         ringside: bool,
+        /// How many cards (default 1).
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        /// Afterwards, this many of the found cards, picked at random, are
+        /// shuffled back into the Arsenal.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        random_back: u8,
     },
     /// The controller looks at the player's hand.
     LookAtHand {
@@ -510,4 +683,83 @@ pub enum Effect {
     Optional(Vec<Effect>),
     /// "Choose one": the controller picks one of the lists.
     Choice(Vec<Vec<Effect>>),
+    /// Effects that only happen if `condition` holds for the controller.
+    If {
+        condition: Condition,
+        effects: Vec<Effect>,
+    },
+    /// The player shows their hand to the other player.
+    RevealHand {
+        who: Who,
+    },
+    /// Discard cards matching `filter`.
+    DiscardMatching {
+        who: Who,
+        n: u8,
+        filter: CardFilter,
+        pick: Pick,
+    },
+    /// The player discards one card for each card in their Ring matching `filter`.
+    DiscardPerRingCard {
+        who: Who,
+        filter: CardFilter,
+    },
+    /// The controller discards up to `max` cards; the opponent then discards as many.
+    DiscardMirror {
+        max: u8,
+    },
+    /// The player puts cards of their choice from hand on top of their Arsenal.
+    HandToArsenalTop {
+        who: Who,
+        n: u8,
+    },
+    /// The player shuffles their hand into their Arsenal and draws as many cards.
+    ShuffleHandAndRedraw {
+        who: Who,
+    },
+    /// Look at the top `n` cards of your Arsenal, put `take` of them in your
+    /// hand and the rest on the bottom.
+    Dig {
+        n: u8,
+        take: u8,
+    },
+    /// The player overturns as many cards as their Superstar Value.
+    DamageSuperstarValue {
+        who: Who,
+    },
+    /// The controller moves cards matching `filter` from the player's Ring to their hand.
+    RingToHand {
+        who: Who,
+        n: u8,
+        filter: CardFilter,
+        #[serde(default)]
+        up_to: bool,
+    },
+    /// Every card in the player's Ring goes to their Ringside pile.
+    ClearRing {
+        who: Who,
+    },
+    /// Reveal cards from the top of your Arsenal until one matches; it goes to
+    /// your hand and the rest are shuffled back.
+    RevealUntil {
+        filter: CardFilter,
+    },
+    /// The player cannot play cards matching `filter` during their next `turns` turns.
+    CannotPlay {
+        who: Who,
+        filter: CardFilter,
+        turns: u8,
+    },
+    /// A boost to your opponent's cards (it belongs to them).
+    BoostOpponent(Boost),
+    /// The controller wins by pinfall.
+    WinByPin,
+}
+
+fn one() -> u8 {
+    1
+}
+
+fn is_one(n: &u8) -> bool {
+    *n == 1
 }

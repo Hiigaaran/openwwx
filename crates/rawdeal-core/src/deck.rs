@@ -94,10 +94,15 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
     }
 
-    // Copy limits and trait conflicts cover both decks.
+    // Copy limits and trait conflicts cover both decks. Reprints of a card in
+    // other sets share its limit.
     let mut counts: HashMap<&str, usize> = HashMap::new();
+    let mut per_title: HashMap<String, usize> = HashMap::new();
     for id in deck.arsenal.iter().chain(&deck.backlash) {
         *counts.entry(id).or_default() += 1;
+        if let Some(i) = db.card_by_id(id) {
+            *per_title.entry(db.card(i).title.to_lowercase()).or_default() += 1;
+        }
     }
     let mut ids: Vec<&str> = counts.keys().copied().collect();
     ids.sort();
@@ -115,7 +120,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         if forbidden {
             problems.push(DeckProblem::Forbidden { card: id.to_string() });
         }
-        let copies = counts[id];
+        let copies = per_title[&def.title.to_lowercase()];
         let max = if def.has_trait(Trait::SetUp) {
             usize::MAX
         } else if def.has_trait(Trait::Unique) {
@@ -128,15 +133,28 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
         match &def.superstar {
             // Superstar-specific cards ignore trait conflicts.
-            Some(s) if *s != deck.superstar => problems.push(DeckProblem::WrongSuperstar { card: id.to_string() }),
+            Some(s) if !same_superstar(s, &deck.superstar) => {
+                problems.push(DeckProblem::WrongSuperstar { card: id.to_string() })
+            }
             Some(_) => {}
             None => present.extend(def.traits.iter().copied()),
         }
     }
+    let both = superstar.is_some_and(|s| s.abilities.contains(&Ability::PackBothAlignments));
     for (a, b) in CONFLICTS {
+        if both && (a, b) == (Trait::Face, Trait::Heel) {
+            continue;
+        }
         if present.contains(&a) && present.contains(&b) {
             problems.push(DeckProblem::Conflict(a, b));
         }
     }
     problems
+}
+
+/// Does a card's Superstar logo (`"set/slug"`) name this Superstar? Logos
+/// printed in one set name Superstars from other sets by the same slug.
+pub fn same_superstar(logo: &str, superstar: &str) -> bool {
+    let slug = |id: &str| id.rsplit('/').next().unwrap_or(id).to_string();
+    logo == superstar || slug(logo) == slug(superstar)
 }

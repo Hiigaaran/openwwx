@@ -106,6 +106,8 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                     }
                     reversal_type = reversal_type.or(rev);
                 }
+                // "Reversal: Strike/High Risk: Special": the rest of a Reversal's type.
+                None if kinds.last() == Some(&CardKind::Reversal) => reversal_type = Some(ReversalType::Special),
                 None => unknown = Some(part.to_string()),
             }
         }
@@ -149,6 +151,19 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             script,
         });
         report.cards += 1;
+    }
+
+    // Logos may shorten a Superstar's name ("Billy Gunn" for "B.A. Billy Gunn").
+    let star_ids: Vec<String> = set.superstars.iter().map(|s| s.id.clone()).collect();
+    for card in &mut set.cards {
+        if let Some(logo) = &mut card.superstar
+            && !star_ids.contains(logo)
+        {
+            let short = logo.rsplit('/').next().unwrap_or_default().to_string();
+            if let Some(full) = star_ids.iter().find(|id| id.ends_with(&format!("-{short}"))) {
+                *logo = full.clone();
+            }
+        }
     }
 
     report.unused_overlay = overlay

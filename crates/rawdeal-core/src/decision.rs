@@ -49,6 +49,13 @@ pub enum ChoicePurpose {
     RingsideToArsenalBottom,
     /// Search your Arsenal: the card is revealed and goes to your hand.
     SearchToHand,
+    /// Discard any number up to the limit; your opponent discards as many.
+    DiscardMirror,
+    HandToArsenalTop,
+    /// Cards from a Ring go back to their owner's hand.
+    RingToHand,
+    /// One of the top cards of your Arsenal goes to your hand.
+    DigToHand,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -68,6 +75,10 @@ pub enum Action {
         kind: CardKind,
     },
     UseAbility,
+    /// Use the ability of a card in your Ring.
+    UseRingCard {
+        card: CardId,
+    },
     EndTurn,
     Reverse {
         card: CardId,

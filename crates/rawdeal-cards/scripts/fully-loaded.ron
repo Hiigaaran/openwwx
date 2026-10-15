@@ -1,0 +1,695 @@
+// Hand-written scripts for Fully Loaded cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        "Rikishi": [
+            Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [Search(filter: Maneuver)]),
+        ],
+        "Kurt Angle": [PackBothAlignments],
+        "Chyna": [
+            ReverseByDiscardingSameType,
+            OpponentCannotPlay("Chyna Interferes"),
+            OpponentCannotPlay("Puppies! Puppies!"),
+        ],
+        "Tazz": [
+            Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: TitleContains("suplex"))]),
+            FortitudeFor(filter: All([Maneuver, TitleContains("suplex")]), delta: -4),
+            CannotBeReversedBy(played: TitleContains("suplex"), reversal: TitleContains("suplex")),
+        ],
+        "Chris Benoit": [EscalatingManeuverDamage],
+        "Eddie Guerrero": [FirstOfTurnIrreversible(ManeuverType(HighRisk))],
+        "Road Dogg": [
+            Activated(
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [Mill(who: Opponent, n: 3)],
+                requires: Some(FortitudeAtLeastOpponent),
+            ),
+        ],
+        "X-Pac": [DrawSegment(3), DrawSegmentDiscard(1)],
+        "B.A. Billy Gunn": [
+            Activated(
+                cost: [],
+                effects: [
+                    RevealHand(who: You),
+                    If(condition: Not(HandHas(Maneuver)), effects: [RevealUntil(filter: Maneuver)]),
+                ],
+            ),
+        ],
+    },
+    scripts: {
+        // High Risk
+        "Falling Fist": (play_after: Some(All([Maneuver, DamageAtLeast(4)])), on_play: [RevealHand(who: You)]),
+        "Knee Smash": (play_after: Some(All([Maneuver, DamageAtLeast(4)])), on_play: [Damage(who: Opponent, n: 1)]),
+        "Elbow Drop": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [Optional([Draw(who: You, n: 1)])],
+        ),
+        "Foot Stomp": (play_after: Some(All([Maneuver, DamageAtLeast(4)]))),
+        "Splash": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        "Leg Drop": (play_after: Some(All([Maneuver, DamageAtLeast(5)])), on_play: [EndTurn]),
+        "Double Axe Handle": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            on_play: [Boost((applies_to: Maneuver, duration: NextCard, reversal_fortitude: 6))],
+        ),
+        "Shooting Star Press": (
+            play_after: Some(Title("From the Top Rope")),
+            on_reversed_from_hand: [Mill(who: You, n: 2)],
+        ),
+        "Missile Dropkick": (
+            play_after: Some(Title("From the Top Rope")),
+            bonuses: [(per: Some(Title("Drop Kick")), damage: 2)],
+        ),
+        "Suicide Plancha": (
+            play_after: Some(
+                AnyOf([
+                    All([ManeuverType(Strike), After(Title("Irish Whip"))]),
+                    Title("Throw Opponent Out of the Ring"),
+                    Title("Giant Swing"),
+                ]),
+            ),
+            on_reversed_from_hand: [Mill(who: You, n: 4)],
+            reverses: Some((targets: Title("Roll Out of the Ring"))),
+        ),
+        "Superplex": (
+            only_reversed_by_title: true,
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            reverses: Some((targets: All([ManeuverType(HighRisk), After(Title("From the Top Rope"))]))),
+        ),
+        "Moonsault": (
+            play_after: Some(All([Maneuver, DamageAtLeast(6)])),
+            on_play: [
+                Optional([RingsideToHand(who: You, n: 1)]),
+                CannotPlay(who: Opponent, filter: Maneuver, turns: 1),
+                EndTurn,
+            ],
+        ),
+
+        // Strikes
+        "Backhand Slap": (on_play: [Choice([[Draw(who: You, n: 1)], [LookAtHand(who: Opponent)]])]),
+        "Turnbuckle Smash": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            bonuses: [(per: Some(AnyOf([Title("Punch"), Title("Head Butt"), Title("Turnbuckle Smash")])), damage: 1)],
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        "Eye Rake": (
+            on_play: [
+                Boost((
+                    applies_to: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                    duration: NextCard,
+                    irreversible: true,
+                )),
+            ],
+            reverses: Some((
+                targets: ManeuverType(Grapple),
+                effects: [
+                    Boost((
+                        applies_to: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                        duration: NextTurnFirstCard,
+                        irreversible: true,
+                    )),
+                ],
+            )),
+        ),
+        "Knee Lift": (
+            on_play: [Boost((applies_to: Title("Clothesline"), duration: NextCard, irreversible: true))],
+            reverses: Some((targets: Title("Back Body Drop"))),
+        ),
+        "Baseball Slide": (
+            play_after: Some(
+                AnyOf([
+                    All([ManeuverType(Strike), After(Title("Irish Whip"))]),
+                    Title("Throw Opponent Out of the Ring"),
+                    Title("Giant Swing"),
+                ]),
+            ),
+            on_reversed_from_hand: [
+                BoostOpponent((applies_to: Maneuver, duration: NextTurnFirstCard, reversal_fortitude: 5)),
+            ],
+            reverses: Some((targets: Title("Roll Out of the Ring"))),
+        ),
+        // Needs an 'inactive' (tag team) opponent.
+        "Surprise Hit": (requires: Some(Never)),
+        "European Uppercut": (on_play: [Optional([Draw(who: You, n: 1)])]),
+        // Using the Trash Can again from the Ring is not supported yet: it plays as a normal Strike.
+        "Trash Can": (),
+        "Double Clothesline": (requires: Some(Never)),
+
+        // Grapples
+        "Jaw Jammer": (on_play: [HandToArsenalTop(who: Opponent, n: 1)]),
+        "Japanese Arm Drag": (on_play: [Optional([Search(filter: Title("Japanese Arm Drag"))])]),
+        "Jackhammer": (on_play: [HandToArsenalTop(who: Opponent, n: 1)]),
+        "Drop Toe Hold": (on_play: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)])]),
+        "Shoulder Breaker": (
+            on_play: [
+                Optional([Search(filter: Title("Arm Bar"))]),
+                Boost((applies_to: Title("Arm Bar"), duration: NextCard, damage: 2)),
+            ],
+        ),
+        // The three-in-a-row pin victory is not supported yet.
+        "Small Package": (
+            on_play: [Search(filter: Title("Small Package"))],
+            reverses: Some((
+                targets: AnyOf([Title("DDT"), Title("Body Slam"), Title("Back Body Drop")]),
+                effects: [Optional([Search(filter: Title("Small Package"))])],
+            )),
+        ),
+        "Monkey Flip": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            on_play: [Optional([Draw(who: You, n: 1)]), Discard(who: Opponent, n: 2, pick: Chosen)],
+            on_reversed_from_hand: [Discard(who: You, n: 1, pick: Chosen)],
+        ),
+        "Knee Breaker": (
+            on_play: [
+                Optional([Search(filter: Title("Figure Four Leg Lock"))]),
+                Boost((applies_to: Title("Figure Four Leg Lock"), duration: NextCard, fortitude: -8)),
+            ],
+        ),
+        "Full Nelson Slam": (on_play: [Optional([Search(filter: Title("Elbow Drop"))])]),
+        "German Suplex": (on_play: [Damage(who: Opponent, n: 1)]),
+        "Airplane Spin": (on_play: [DiscardMirror(max: 3)]),
+        "Swinging Neck Breaker": (
+            on_play: [Optional([Search(filter: Title("Piledriver"))])],
+            reverses: Some((targets: Title("Back Body Drop"))),
+        ),
+        "Fall-Away Slam": (
+            play_after: Some(Title("Jockeying for Position")),
+            reverses: Some((
+                targets: AnyOf([Title("Cross Body Block"), All([Maneuver, After(Title("From the Top Rope"))])]),
+            )),
+        ),
+        "Double Underhook Suplex": (bonuses: [(when: Superstar("Tazz"), fortitude: -1)]),
+        "Sidewalk Slam": (
+            on_play: [Optional([Search(filter: ManeuverType(HighRisk))])],
+            reverses: Some((targets: AnyOf([Title("Irish Whip"), Title("Throw Into the Corner Turnbuckle")]))),
+        ),
+        "Giant Swing": (
+            on_play: [
+                Discard(who: You, n: 2, pick: Chosen),
+                Boost((applies_to: Maneuver, duration: NextCard, reversal_fortitude: 20)),
+            ],
+        ),
+        "Northern Lights Suplex": (
+            on_play: [
+                If(
+                    condition: Not(Superstar("Tazz")),
+                    effects: [Optional([RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(Maneuver))])],
+                ),
+                If(
+                    condition: Superstar("Tazz"),
+                    effects: [
+                        Choice([
+                            [],
+                            [RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(Maneuver))],
+                            [Search(filter: TitleContains("plex"))],
+                        ]),
+                    ],
+                ),
+            ],
+            reverses: Some((targets: Title("Piledriver"))),
+        ),
+
+        // Submissions
+        "Hair Pull": (on_play: [Optional([LookAtHand(who: Opponent)])]),
+        "Front Face Lock": (on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 1))]),
+        "Head Vise": (play_after: Some(All([Maneuver, DamageAtLeast(3)]))),
+        "Surfboard": (
+            bonuses: [(per: Some(AnyOf([Title("Arm Bar"), Title("Back Breaker"), Title("Shoulder Breaker")])), damage: 1)],
+        ),
+        "Stump Puller": (play_after: Some(All([Maneuver, DamageAtLeast(5)]))),
+        "Claw": (no_hand_reversal: true, on_play: [MillChosen(who: Opponent, n: 1)]),
+        "STF": (
+            bonuses: [(per: Some(AnyOf([TitleContains("suplex"), TitleContains("neck breaker")])), damage: 1)],
+            on_play: [If(condition: Superstar("Chris Benoit"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
+        ),
+
+        // Reversals and hybrid Actions
+        "Roll Out of the Way": (
+            as_action: Some((on_play: [ShuffleThisIntoArsenal, Draw(who: You, n: 1)])),
+            reverses: Some((targets: ManeuverType(HighRisk), overturned_only: true)),
+        ),
+        "Borrring ... Borrring ...!!!": (
+            as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)])),
+            reverses: Some((
+                targets: All([Action, Not(Trait(SetUp))]),
+                from_hand_only: true,
+                requires: Some(OpponentRingHas(filter: All([Action, Not(Trait(SetUp))]), n: 5)),
+            )),
+        ),
+        "Shove Off the Top Rope": (
+            as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)])),
+            reverses: Some((
+                targets: Title("Superplex"),
+                hand_targets: Some(Title("From the Top Rope")),
+                on_reverse: [
+                    Mill(who: Opponent, n: 3),
+                    Boost((applies_to: Maneuver, duration: NextTurnFirstCard, damage: 3)),
+                ],
+            )),
+        ),
+        "Tornado DDT": (
+            reverses: Some((
+                targets: All([
+                    Maneuver,
+                    After(Title("Throw Into the Corner Turnbuckle")),
+                    Not(Title("Monkey Flip")),
+                ]),
+                effects: [
+                    Boost((applies_to: ManeuverType(HighRisk), duration: NextTurnFirstCard, ignore_play_after: true)),
+                ],
+            )),
+        ),
+        "Just Bring It!": (
+            reverses: Some((
+                targets: All([Action, EarlierThisTurn(filter: Action, n: 1)]),
+                effects: [LookAtHand(who: Opponent), DiscardAll(who: Opponent, filter: Action)],
+            )),
+        ),
+        "Hebner Calls It": (
+            reverses: Some((
+                targets: AnyOf([
+                    All([Action, Keyword("Run-in")]),
+                    All([Action, Trait(Heel)]),
+                    Keyword("Foreign Object"),
+                ]),
+                from_hand_only: true,
+            )),
+        ),
+        "Lift a Boot": (reverses: Some((targets: ManeuverType(HighRisk), from_hand_only: true))),
+        // Needs reversals of reversals.
+        "Ref KO'd!": (),
+        // The "-#F next turn" part is not supported yet.
+        "Attitude Adjustment": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]),
+                requires: Some(FortitudeAtMostOpponent),
+            )),
+        ),
+
+        // Actions
+        "In This Very Ring": (
+            in_ring_opponent_start_of_turn: [RemoveFromRing(who: You, n: 1, filter: Action)],
+        ),
+        "Defensive Cover": (
+            while_in_ring_opponent: [(applies_to: Maneuver, damage: -2)],
+            lapses_after_own_maneuver: true,
+        ),
+        "Ho Train!": (
+            on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent)],
+        ),
+        "Playing With Fire": (
+            on_play: [Mill(who: You, n: 1), RemoveFromRing(who: Opponent, n: 1, filter: Action)],
+        ),
+        "Stare Down Opponent": (requires: Some(Never)),
+        "Moongoose In the House": (
+            on_play: [Dig(n: 5, take: 1)],
+            irreversible_when: Some(Superstar("Chris Jericho")),
+        ),
+        "Commission-er Rules!": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller),
+            ],
+        ),
+        "McMahon-Helmsley Era": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [Draw(who: You, n: 2), If(condition: OpponentHandLarger, effects: [Draw(who: You, n: 1)])],
+        ),
+        "Throw Into the Corner Turnbuckle": (
+            on_play: [
+                Boost((applies_to: ManeuverType(Strike), duration: NextCard, damage: 6)),
+                Boost((applies_to: ManeuverType(Grapple), duration: NextCard, reversal_fortitude: 12)),
+            ],
+            reverses: Some((
+                targets: Title("Throw Into the Corner Turnbuckle"),
+                effects: [
+                    Discard(who: Opponent, n: 1, pick: Chosen),
+                    NextTurnAfterThis,
+                    Boost((applies_to: ManeuverType(Strike), duration: NextTurnFirstCard, damage: 6)),
+                    Boost((applies_to: ManeuverType(Grapple), duration: NextTurnFirstCard, reversal_fortitude: 12)),
+                ],
+            )),
+        ),
+        "From the Top Rope": (
+            play_after: Some(AnyOf([ManeuverType(Strike), ManeuverType(Grapple)])),
+            on_play: [
+                Search(filter: ManeuverType(HighRisk)),
+                Boost((
+                    applies_to: ManeuverType(HighRisk),
+                    duration: NextCard,
+                    damage: 3,
+                    stun_value: 1,
+                    ignore_play_after: true,
+                )),
+            ],
+        ),
+        "Hardyz' Ambush": (
+            on_play: [
+                RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(HighRisk))),
+                Boost((applies_to: ManeuverType(HighRisk), duration: NextMatching, reversal_fortitude: 10)),
+            ],
+        ),
+        "American Bad Ass": (
+            on_play: [
+                BoostOpponent((applies_to: Any, duration: Turns(2), double_fortitude: true)),
+                If(condition: Superstar("Undertaker"), effects: [Optional([Draw(who: You, n: 1)])]),
+                EndTurn,
+            ],
+        ),
+        "Do You Like Pie?": (requires: Some(Never)),
+        "Doing the Job": (requires: Some(Never)),
+        "Go for the Cheap Pop!": (on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
+        "Predictable Opponent": (requires: Some(Never)),
+        "Who Booked This Match?": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [Choice([[Draw(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]])],
+        ),
+        "J.R. Style Slobber-knocker": (
+            restricts_opponent: Some((
+                when: FortitudeBelowOpponent,
+                filter: All([Action, Not(Trait(SetUp)), Not(Keyword("Run-in"))]),
+            )),
+        ),
+        "Bait Opponent": (
+            on_play: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6, reversal_fortitude: 6))],
+        ),
+        "Defensive Posture": (requires: Some(Never)),
+        // The Dudley Boyz bonus needs a Superstar from a later set.
+        "Table! Table! Table!": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Boost((
+                        applies_to: ManeuverType(Grapple),
+                        duration: NextMatching,
+                        damage: 8,
+                        stun_value: 1,
+                        reversal_damage: 4,
+                    )),
+                ],
+            )),
+        ),
+        "Backed by Stephanie McMahon": (
+            on_play: [RingsideToArsenal(who: You, n: 3, up_to: true), DamageSuperstarValue(who: Opponent)],
+        ),
+        "Here Kitty, Kitty!": (on_play: [Search(filter: Any), Discard(who: You, n: 1, pick: Random)]),
+        "Throw Opponent Out of the Ring": (
+            play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(5)]), Title("Irish Whip")])),
+            on_play: [
+                Search(filter: AnyOf([All([Maneuver, Not(Trait(Unique))]), Title("Roll Out of the Ring")])),
+                Boost((applies_to: Title("Roll Out of the Ring"), duration: NextCard, irreversible: true)),
+            ],
+        ),
+        "Quick Count Ref": (play_after: Some(All([Maneuver, DamageAtLeast(8)])), on_play: [WinByPin]),
+        "Turn the Tide": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [
+                Boost((applies_to: Maneuver, duration: NextMatching, irreversible: true, use_opponent_fortitude: true)),
+            ],
+        ),
+        "Time Keeper's Bell": (
+            play_after: Some(Title("Roll Out of the Ring")),
+            ring_ability: Some((
+                requires: Some(After(Maneuver)),
+                sacrifice: true,
+                effects: [Discard(who: Opponent, n: 4, pick: Chosen), Mill(who: Opponent, n: 4)],
+            )),
+        ),
+        // Burning a card for every card that enters a Ring is not supported yet.
+        "Inferno Match": (requires: Some(Never)),
+        "Call to the Crowd": (
+            on_play: [
+                DiscardPerRingCard(who: Opponent, filter: Trait(Heel)),
+                Boost((applies_to: Maneuver, duration: ThisTurn, damage: 1)),
+            ],
+        ),
+        "Dem Damn Dudleyz!": (on_play: [Search(filter: Keyword("Foreign Object"))]),
+        "Reeking of Awesomeness": (
+            on_play: [
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                Boost((applies_to: Maneuver, duration: NextMatching, reversal_fortitude: 15)),
+            ],
+        ),
+        "Enter the Stratus-phere": (
+            on_play: [Damage(who: Opponent, n: 2)],
+            in_ring_start_of_turn: [Optional([Discard(who: You, n: 1, pick: Chosen), Damage(who: Opponent, n: 2)])],
+        ),
+        "Kick Out!": (requires: Some(Never)),
+        "Acolyte Protection Agency": (
+            on_play: [
+                Choice([
+                    [CannotPlay(who: Opponent, filter: Maneuver, turns: 2)],
+                    [
+                        Boost((applies_to: Maneuver, duration: ThisTurn, damage: 2)),
+                        Boost((applies_to: Maneuver, duration: NextTurn, damage: 2)),
+                    ],
+                ]),
+            ],
+        ),
+
+        // Rikishi
+        "Rikishi Driver": (on_play: [Search(filter: Title("Ass Drop"), ringside: true)]),
+        "Ass Drop": (play_after: Some(All([Maneuver, DamageAtLeast(8)]))),
+        "Drive, Rikishi, Drive!": (on_play: [Draw(who: You, n: 6), EndTurn]),
+        "Back That Ass Up": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            on_play: [Search(filter: Title("Stink Face"), ringside: true)],
+        ),
+        "Stink Face": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [DiscardAll(who: Opponent, filter: Any)],
+        ),
+
+        // Kurt Angle
+        "Olympic Slam": (
+            bonuses: [(when: All([FirstCardThisTurn, ReversedLastTurn(Maneuver)]), fortitude: -5)],
+        ),
+        "It's True, It's True!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [
+                    LookAtHand(who: Opponent),
+                    Discard(who: Opponent, n: 1, pick: Controller),
+                    RingsideToHand(who: You, n: 1),
+                ],
+            )),
+        ),
+        "Integrity": (
+            on_play: [
+                If(
+                    condition: All([InYourRing(Title("Intensity")), InYourRing(Title("Intelligence"))]),
+                    effects: [
+                        RingsideToArsenal(who: You, n: 7, up_to: true, filter: Some(AnyOf([Trait(Face), Trait(Heel)]))),
+                    ],
+                ),
+            ],
+            extra_draw: 1,
+        ),
+        "Intelligence": (
+            on_play: [
+                If(
+                    condition: All([InYourRing(Title("Intensity")), InYourRing(Title("Integrity"))]),
+                    effects: [
+                        RingsideToArsenal(who: You, n: 7, up_to: true, filter: Some(AnyOf([Trait(Face), Trait(Heel)]))),
+                    ],
+                ),
+            ],
+            reveals_opponent_hand: true,
+        ),
+        "Intensity": (
+            on_play: [
+                If(
+                    condition: All([InYourRing(Title("Integrity")), InYourRing(Title("Intelligence"))]),
+                    effects: [
+                        RingsideToArsenal(who: You, n: 7, up_to: true, filter: Some(AnyOf([Trait(Face), Trait(Heel)]))),
+                    ],
+                ),
+            ],
+            while_in_ring: [(applies_to: Maneuver, damage: 3)],
+        ),
+
+        // Chyna
+        "Chyna's Pedigree": (as_action: Some((fortitude: Some(0), on_play: [DiscardThis, DrawUpTo(who: You, n: 2)]))),
+        "The 9th Wonder of the World": (
+            on_play: [Draw(who: You, n: 1), RingToHand(who: Opponent, n: 3, filter: Maneuver, up_to: true)],
+        ),
+        "Handspring Elbow": (
+            irreversible: true,
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            on_play: [DrawUpTo(who: You, n: 3)],
+        ),
+        "I'd Rather Be In Chyna!": (on_play: [CannotPlay(who: Opponent, filter: Maneuver, turns: 3)]),
+        "Chyna's Patented Low Blow": (
+            on_play: [If(condition: Not(OpponentFemale), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+
+        // Tazz
+        "Tazzmission": (
+            on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+            )),
+        ),
+        "Thug It - Dead": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 10, up_to: true, filter: Some(TitleContains("suplex"))),
+                Draw(who: You, n: 3),
+                EndTurn,
+            ],
+        ),
+        "T-Bone Tazzplex": (irreversible: true, on_play: [Optional([Draw(who: You, n: 1)])]),
+        "Head-and-Arms Tazzplex": (
+            on_play: [Optional([Draw(who: You, n: 1)])],
+            reverses: Some((targets: ManeuverType(HighRisk))),
+        ),
+        "Northern Lights Tazzplex": (
+            on_play: [Optional([Draw(who: You, n: 1)])],
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+
+        // Chris Benoit. Playing Maintain Hold after Crippler Crossface is not supported yet.
+        "Crippler Crossface": (
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]), discard_cost: 1)),
+        ),
+        "Big Stupid Grin": (reverses: Some((targets: Maneuver, effects: [RingsideToHand(who: You, n: 1)]))),
+        "Kamikaze Headbutt": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            irreversible: true,
+            on_play: [Damage(who: Opponent, n: 2)],
+        ),
+        // Repeating the suplex is not supported yet: it plays as a normal Grapple.
+        "Series of Suplexes": (),
+        "Rabid Wolverine": (requires: Some(Never)),
+
+        // Eddie Guerrero
+        "Guerrero Frog Splash": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(ManeuverType(HighRisk))])),
+        ),
+        "Get Your GED": (
+            requires: Some(InYourRing(Title("Study for Your GED"))),
+            on_play: [RingsideToArsenal(who: You, n: 15, up_to: true), Draw(who: You, n: 3), EndTurn],
+        ),
+        "Snap Senton Splash": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(ManeuverType(HighRisk))])),
+        ),
+        "Study for Your GED": (on_play: [Search(filter: Any, n: 6, up_to: true, random_back: 3)]),
+        "Latino Heeeeeeeat!": (
+            irreversible_when: Some(InYourRing(Title("Get Your GED"))),
+            on_play: [Search(filter: Maneuver, n: 3, up_to: true)],
+        ),
+
+        // Road Dogg
+        "Doggy Pump Handle Slam": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
+        "Kickin' The Shizt-nit Doggy Style": (
+            reverses: Some((
+                targets: All([
+                    AnyOf([
+                        ManeuverType(Strike),
+                        ManeuverType(Grapple),
+                        ManeuverType(Submission),
+                        ManeuverType(HighRisk),
+                    ]),
+                    DamageAtMost(9),
+                ]),
+                fortitude_is_damage: true,
+            )),
+        ),
+        "Juke 'N' Jive": (irreversible: true, on_play: [Mill(who: You, n: 2), Mill(who: Opponent, n: 8)]),
+        "Let's Make Some Noise ...": (requires: Some(Never)),
+
+        // X-Pac
+        "X-Factor": (reverses: Some((targets: ManeuverType(HighRisk)))),
+        "Leaping Spin Kick": (reverses: Some((targets: ManeuverType(Grapple)))),
+        "Bronco Buster": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            on_play: [Discard(who: Opponent, n: 3, pick: Chosen)],
+        ),
+        // Overturning the damage anyway is not supported yet.
+        "Huge Bump Out of the Ring": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), Title("Irish Whip")]),
+                on_reverse: [Search(filter: Any, n: 2)],
+            )),
+        ),
+
+        // B.A. Billy Gunn
+        "Fame-Ass-er": (
+            reverses: Some((
+                targets: ManeuverType(HighRisk),
+                hand_targets: Some(All([ManeuverType(Strike), After(Title("Irish Whip"))])),
+            )),
+        ),
+        "I'm an Ass Man": (
+            on_play: [
+                Choice([
+                    [Search(filter: Any)],
+                    [LookAtHand(who: Opponent), Discard(who: Opponent, n: 2, pick: Controller)],
+                ]),
+            ],
+        ),
+        "B.A.'s Military Press Slam": (on_play: [Optional([Draw(who: You, n: 1)])]),
+        "The Federation's Purest Athlete": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                on_reverse: [Boost((applies_to: Maneuver, duration: NextTurn, damage: 2))],
+            )),
+        ),
+
+        // Logo cards for Premiere Superstars
+        "I've Got Two Words For Ya ...": (
+            on_play: [
+                Choice([
+                    [DiscardAll(who: You, filter: Any), DiscardAll(who: Opponent, filter: Any)],
+                    [ClearRing(who: You), ClearRing(who: Opponent)],
+                ]),
+                DrawUpTo(who: You, n: 2),
+            ],
+        ),
+        "Tori Enters the Fray!": (
+            reverses: Some((
+                targets: AnyOf([
+                    ManeuverType(Strike),
+                    ManeuverType(Grapple),
+                    ManeuverType(Submission),
+                    ManeuverType(HighRisk),
+                ]),
+                on_reverse: [RingsideToArsenal(who: You, n: 3)],
+            )),
+        ),
+        "Patented Rock Footstomp": (
+            on_play: [Choice([[Draw(who: You, n: 1)], [RingsideToArsenal(who: You, n: 1)]])],
+        ),
+        "Patented Austin Kick to the Gut": (
+            bonuses: [(when: InYourRing(Title("The Bionic Redneck")), fortitude: -3, damage: 4)],
+            on_play: [
+                Optional([Draw(who: You, n: 1)]),
+                Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6)),
+            ],
+        ),
+        "Rest In Peace": (on_play: [Search(filter: Any, n: 6, up_to: true), Mill(who: You, n: 255)]),
+        "Get Hardcore": (while_in_ring_all: [(applies_to: Maneuver, damage: 3)]),
+        "Triple H's Reverse Neck Breaker": (
+            on_play: [Optional([Draw(who: You, n: 1)])],
+            reverses: Some((targets: ManeuverType(Strike))),
+        ),
+        // Approximation: the five random discards come from the whole hand.
+        "Masked Vengeance": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [DrawUpTo(who: You, n: 10), Discard(who: You, n: 5, pick: Random)],
+            )),
+        ),
+        "Springboard Drop Kick": (
+            play_after: Some(Title("Throw Opponent Out of the Ring")),
+            reverses: Some((targets: Title("Roll Out of the Ring"))),
+        ),
+        "That's Gonna Cost You!": (),
+    },
+)

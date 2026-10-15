@@ -4,7 +4,7 @@
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::card::{Boost, CardKind, Effect};
+use crate::card::{Boost, CardFilter, CardKind, Effect};
 use crate::db::{DefIdx, SuperstarIdx};
 use crate::decision::Decision;
 use crate::engine::Step;
@@ -142,6 +142,16 @@ pub struct PlayBonus {
     pub reversal_fortitude: i16,
     pub irreversible: bool,
     pub no_arsenal_reversal: bool,
+    #[serde(default)]
+    pub stun_value: i16,
+    #[serde(default)]
+    pub ignore_play_after: bool,
+    #[serde(default)]
+    pub opponent_fortitude: bool,
+    #[serde(default)]
+    pub double_fortitude: bool,
+    #[serde(default)]
+    pub no_hand_reversal: bool,
 }
 
 /// Which rulebook the match uses.
@@ -180,6 +190,24 @@ pub struct GameState {
     pub end_turn_after_play: bool,
     /// Where the card in play goes instead of the Ring.
     pub in_play_to: Option<Zone>,
+    /// Cards the active player played this turn, in order.
+    #[serde(default)]
+    pub played_this_turn: Vec<Played>,
+    /// The card each player reversed to end their opponent's last turn.
+    #[serde(default)]
+    pub reversed_last: [Option<Played>; 2],
+    /// Players who cannot play matching cards, for this many more of their turns.
+    #[serde(default)]
+    pub restrictions: Vec<(PlayerId, CardFilter, u8)>,
+    /// Ring cards whose ability was used this turn.
+    #[serde(default)]
+    pub ring_used: Vec<CardId>,
+    /// Ring cards whose effects have stopped.
+    #[serde(default)]
+    pub lapsed: Vec<CardId>,
+    /// Cards found by the search being resolved.
+    #[serde(default)]
+    pub last_chosen: Vec<CardId>,
     pub(crate) pending: Vec<Step>,
     pub(crate) rng: ChaCha8Rng,
 }

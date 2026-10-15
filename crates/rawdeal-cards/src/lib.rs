@@ -93,13 +93,17 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
     let usable = |c: &&CardDef| {
         !c.is_backlash()
             && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
-            && c.superstar.as_deref().is_none_or(|s| s == superstar)
+            && c.superstar.as_deref().is_none_or(|s| rawdeal_core::same_superstar(s, superstar))
     };
     let own = db.cards().iter().filter(usable).filter(|c| c.superstar.is_some());
     let generic = db.cards().iter().filter(usable).filter(|c| c.superstar.is_none());
     for avoid in [Trait::Heel, Trait::Face] {
         let mut arsenal = Vec::new();
+        let mut titles = std::collections::HashSet::new();
         for card in own.clone().chain(generic.clone().filter(|c| !c.has_trait(avoid) && !c.has_trait(Trait::SetUp))) {
+            if !titles.insert(card.title.to_lowercase()) {
+                continue;
+            }
             let copies = if card.has_trait(Trait::Unique) { 1 } else { 3 };
             for _ in 0..copies {
                 if arsenal.len() < 60 {

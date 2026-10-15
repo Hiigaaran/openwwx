@@ -28,6 +28,9 @@ pub struct PlayerView {
     pub players: [PublicPlayer; 2],
     pub hand: Vec<CardId>,
     pub backlash: Vec<CardId>,
+    /// The opponent's hand, when a card makes them play with it revealed.
+    #[serde(default)]
+    pub opponent_hand: Option<Vec<CardId>>,
     pub in_play: Option<Played>,
     /// The pending decision, if it is mine.
     pub decision: Option<Decision>,
@@ -53,6 +56,7 @@ impl PlayerView {
         });
         let hand = state.player(me).hand.clone();
         let backlash = state.player(me).backlash.clone();
+        let opponent_hand = engine.hand_revealed_to(state, me).then(|| state.player(me.opponent()).hand.clone());
 
         let mut known = vec![None; state.cards.len()];
         let visible = players
@@ -60,6 +64,7 @@ impl PlayerView {
             .flat_map(|p| p.ring.iter().chain(&p.ringside))
             .chain(&hand)
             .chain(&backlash)
+            .chain(opponent_hand.iter().flatten())
             .chain(state.in_play.as_ref().map(|p| &p.card));
         // Cards you are asked to choose from (an opponent's hand, the top of an
         // Arsenal) are shown to you.
@@ -81,6 +86,7 @@ impl PlayerView {
             players,
             hand,
             backlash,
+            opponent_hand,
             in_play: state.in_play,
             decision: state.decision.clone().filter(|d| d.player == me),
             waiting_on: state.decision.as_ref().map(|d| d.player),

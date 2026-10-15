@@ -62,14 +62,16 @@ fn user_sets_every_card_in_random_piles() {
         let pool: Vec<String> = db
             .cards()
             .iter()
-            .filter(|c| c.superstar.as_deref().is_none_or(|s| s == star) && !c.is_backlash())
+            .filter(|c| {
+                c.superstar.as_deref().is_none_or(|s| rawdeal_core::same_superstar(s, star)) && !c.is_backlash()
+            })
             .map(|c| c.id.clone())
             .collect();
         let arsenal = (0..60).map(|_| pool.choose(rng).unwrap().clone()).collect();
         DeckList { superstar: star.to_string(), arsenal, backlash: vec![] }
     };
     let mut played = std::collections::BTreeSet::new();
-    for seed in 0..400u64 {
+    for seed in 0..2000u64 {
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let a = stars.choose(&mut rng).unwrap().clone();
         let b = stars.choose(&mut rng).unwrap().clone();

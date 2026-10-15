@@ -2,8 +2,8 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: motor de reglas (Quick Start y Advanced) y set Premiere con sus efectos programados. Lo siguiente es la
-interfaz de escritorio. El diseño completo está en
+Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere y Fully Loaded con sus
+efectos programados. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -82,7 +82,12 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   luego Events y Objects hasta dos pases seguidos, robo de Hand Size y efectos de fin de Pre-match),
   límite de 5 cartas Pre-match y 5 Mid-match en el Ring, una sola Venue y un solo Pay-Per-View, cartas
   Mid-match jugadas y revertidas desde el Backlash, y count out avanzado.
-- Validación de mazos: 60 cartas, máx. 3 copias, Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
+- Mecánicas de Fully Loaded: cartas del Ring con habilidad propia ("Usar"), auras mientras están en el Ring,
+  cartas que no se pueden revertir según la Fortitude o la primera del turno, Reversals solo desde el Arsenal o
+  solo por una carta, bonos por varios turnos, prohibiciones de jugar cartas al rival, mostrar la mano, buscar
+  varias cartas, devolver cartas del Ring a la mano, y las habilidades de las 9 Superstars nuevas (incluida la de
+  Chyna, que revierte descartando una carta del mismo tipo).
+- Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
 ## Interpretaciones de reglas (confirmadas por Simon, 2026-10-14 y 2026-10-15)
@@ -107,6 +112,13 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 Volley, Enforcers, Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team,
 Trip, Partner Interference y la parte de compañero de Combination Attack), revertir Reversals, y modificadores
 de Superstar Value durante el Pre-match.
+
+Fully Loaded: no se pueden jugar todavía Surprise Hit y Double Clothesline (rival inactivo de Tag Team), Stare Down
+Opponent, Do You Like Pie?, Doing the Job, Predictable Opponent, Defensive Posture, Inferno Match, Kick Out!, Rabid
+Wolverine y Let's Make Some Noise .... Se juegan sin una parte de su texto: Trash Can (volver a usarla desde el
+Ring), Series of Suplexes (repetirla), Small Package (ganar con tres seguidas), Attitude Adjustment (el -#F del turno
+siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Ref KO'd! y That's Gonna Cost You! (revertir Reversals), y
+Masked Vengeance descarta al azar de toda la mano.
 
 ## Cartas y arte
 

@@ -205,9 +205,10 @@ impl Match {
                     self.player_bar(ui, &view, self.me.opponent());
                     let start = ui.cursor().min;
                     ui.horizontal(|ui| {
-                        let n = self.display.sides[self.me.opponent().index()].hand.len();
-                        for _ in 0..n.min(14) {
-                            cards::card(ui, None, cards::SMALL * 0.6, Look::Normal);
+                        let hand = self.display.sides[self.me.opponent().index()].hand.clone();
+                        for c in hand.into_iter().take(14) {
+                            let def = c.map(|c| self.def_of(c).clone());
+                            cards::card(ui, def.as_ref(), cards::SMALL * 0.6, Look::Normal);
                         }
                     });
                     self.layout.hand[self.me.opponent().index()] =
@@ -612,6 +613,14 @@ impl Match {
                     let star = self.db().superstar(view.me_public().superstar);
                     if ui.button("Usar habilidad").on_hover_text(&star.text).clicked() {
                         chosen = Some(Action::UseAbility);
+                    }
+                }
+                for a in legal {
+                    if let Action::UseRingCard { card } = a {
+                        let def = self.def_of(*card);
+                        if ui.button(format!("Usar {}", def.title)).on_hover_text(&def.text).clicked() {
+                            chosen = Some(a.clone());
+                        }
                     }
                 }
                 if ui.button("Terminar turno").clicked() {
