@@ -210,6 +210,19 @@ pub enum Ability {
     ReverseByDiscardingAny(CardFilter),
     /// You cannot put cards with this trait in your decks.
     CannotPackTrait(Trait),
+    /// You cannot put cards matching this (judged on the printed card) in your decks.
+    CannotPackMatching(CardFilter),
+    /// Discard this many cards to play a card matching `filter`.
+    PlayCost { filter: CardFilter, discard: u8 },
+    /// Your opponent's cards matching `filter` deal at most `max` damage.
+    OpponentDamageCap { filter: CardFilter, max: u8 },
+    /// Your cards matching `filter` deal `delta` more (or less) damage.
+    DamageFor { filter: CardFilter, delta: i16 },
+    /// You cannot play cards matching this.
+    CannotPlayMatching(CardFilter),
+    /// Extra effects for you when your opponent successfully plays a card
+    /// matching `filter`.
+    OnOpponentPlayMatching { filter: CardFilter, effects: Vec<Effect> },
 }
 
 /// Interpretable description of a card's text.
@@ -318,6 +331,15 @@ pub struct CardScript {
     /// While in your Ring: your opponent's Superstar ability is blank.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub blanks_opponent_ability: bool,
+    /// `blanks_opponent_ability` only while this holds for you.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blanks_when: Option<Condition>,
+    /// While in your Ring: you cannot play cards matching this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restricts_self: Option<Restriction>,
+    /// While in your Ring: your Hand Size is this much larger.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub hand_size_bonus: u8,
     /// While in your Ring and your opponent's Fortitude is lower than yours:
     /// the text of the maneuvers they play is blank.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -391,6 +413,9 @@ pub struct Bonus {
     /// Multiply the bonus by the number of cards in your Ring matching this.
     #[serde(default)]
     pub per: Option<CardFilter>,
+    /// Multiply the bonus by the number of other cards in your hand.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub per_hand: bool,
     #[serde(default)]
     pub damage: i16,
     #[serde(default)]
@@ -467,6 +492,11 @@ pub enum Condition {
     /// You used the Ring ability of a card matching this this turn.
     UsedRingCardThisTurn(CardFilter),
     FortitudeAboveOpponent,
+    /// Your Fortitude is at least this much greater than your opponent's.
+    FortitudeLeadAtLeast(u8),
+    /// The Stun Value in your Ring is at least this much greater than in your opponent's.
+    RingStunLeadAtLeast(u8),
+    FortitudeAtLeast(u8),
 }
 
 /// When a [`Boost`] applies and when it runs out.
@@ -528,6 +558,12 @@ pub struct Boost {
     /// The player's turn ends after the card.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub end_turn: bool,
+    /// The card cannot be reversed from hand (nor from the Backlash deck).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_hand_reversal: bool,
+    /// The card cannot be reversed from the Backlash deck.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_backlash_reversal: bool,
 }
 
 fn any_card() -> CardFilter {
@@ -660,10 +696,14 @@ pub enum CardFilter {
     ForcesDiscard,
     /// The player already has a card with the same title in their Ring.
     SameTitleInRing,
+    /// The card has a Superstar logo.
+    SuperstarSpecific,
+    /// The condition holds for the card's player (for printed cards: the effect's controller).
+    Holds(Box<Condition>),
 }
 
 /// A number worked out when an effect resolves.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Count {
     /// Cards in your hand plus this many.
     HandPlus(u8),
@@ -673,6 +713,22 @@ pub enum Count {
     HalfOpponentFortitude,
     /// Your Superstar Value.
     SuperstarValue,
+    YourFortitude,
+    /// Cards in your hand.
+    HandSize,
+    /// Total Stun Value in your Ring.
+    YourRingStun,
+    OpponentRingStun,
+    YourRingMatching(CardFilter),
+    OpponentRingMatching(CardFilter),
+    /// Printed D of the top card of your Arsenal, at most 15.
+    TopArsenalDamage,
+    /// How many more cards your opponent has in hand than you.
+    OpponentHandExcess,
+    /// Printed D of the card in play.
+    InPlayDamage,
+    /// Total printed F of the cards you last discarded by choice.
+    LastDiscardedFortitude,
 }
 
 /// What happens after burying a hand.
@@ -878,6 +934,9 @@ pub enum Effect {
     HandToArsenalTop {
         who: Who,
         n: u8,
+        /// The cards are picked at random instead of by the player.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        random: bool,
     },
     /// The player shuffles their hand into their Arsenal and draws as many cards.
     ShuffleHandAndRedraw {
@@ -1003,6 +1062,19 @@ pub enum Effect {
     /// Draw a card for every card in both Rings, less `less`.
     DrawRingCards {
         less: u8,
+    },
+    /// `effect` with its amount (or, for a boost, each of its numbers
+    /// multiplied) set to `count`.
+    Counted {
+        count: Count,
+        effect: Box<Effect>,
+    },
+    /// The card being played cannot be reversed.
+    IrreversibleThis,
+    /// The player overturns cards until one matches `filter`.
+    MillUntil {
+        who: Who,
+        filter: CardFilter,
     },
 }
 

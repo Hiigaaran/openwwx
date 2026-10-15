@@ -154,6 +154,8 @@ pub struct PlayBonus {
     pub no_hand_reversal: bool,
     #[serde(default)]
     pub double_damage: bool,
+    #[serde(default)]
+    pub no_backlash_reversal: bool,
 }
 
 /// What a player's next card this turn has to be.
@@ -227,6 +229,9 @@ pub struct GameState {
     /// Cards found by the search being resolved.
     #[serde(default)]
     pub last_chosen: Vec<CardId>,
+    /// Cards the last chosen discard put in the Ringside pile.
+    #[serde(default)]
+    pub last_discarded: Vec<CardId>,
     /// Players who used a once-per-game Superstar ability.
     #[serde(default)]
     pub ability_spent: [bool; 2],

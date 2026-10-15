@@ -3,7 +3,7 @@
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
 Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded, Backlash,
-Survivor Series e It's All About The Game con sus efectos programados. El diseño completo está en
+Survivor Series, It's All About The Game y Mania con sus efectos programados. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -100,6 +100,11 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Superstar al terminar el Pre-match, cartas del Ring que dejan en blanco la habilidad de la Superstar rival
   (Critical Injury) o el texto de sus maniobras (Debilitating Injury: Arm/Elbow), opciones que elige el rival
   (Backed by Mr. McMahon) y maniobras Strike + Grapple.
+- Mania: las 9 Superstars nuevas (Big Show, Lita, Rob Van Dam, Booker T, APA, Spike Dudley, William Regal y
+  Raven), costo en descartes para jugar maniobras, tope de daño a las maniobras rivales, cartas que no se
+  pueden llevar según tipo y daño, efectos que cuentan cartas (mano, Fortitude, Stun Value, cartas del Ring),
+  habilidades que reaccionan a las maniobras del rival, cartas del Ring que te limitan a ti, Hand Size extra por
+  cartas del Ring y bonos que impiden revertir desde la mano o el Backlash.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -148,6 +153,20 @@ It's All About The Game: no se puede jugar todavía Calling You Out. Se juegan s
 (puede llevar todas las cartas de Stone Cold y Triple H, no solo las Foil), Rollin' - Rollin' - Rollin'! (el +2D va a
 tu próxima maniobra de ese tipo, no solo a la carta buscada), Throttled Within an Inch of Your Life (se juega como
 Strike o como Grapple) y Backed by Mr. McMahon (la mano boca arriba solo se muestra una vez).
+
+Mania: no se pueden jugar todavía Playing by the Rules, Veteran Referee: Tim White, Messing With the Champ (no hay
+Title Belts aún), Keibler's Cookies, Product Endorsements y Snubbed by the Fans (cambian el Superstar Value), Not
+Done with Any Flair, Indian Strap Match, Fortitude Surge, Second Wind, Sustained Damage, Happy You're Here, Happier
+You're Gone, Test of Strength, Foley is Good!, Would You Please ... Shut the Hell Up!, TLC Match y Censorship Match.
+Se juegan sin una parte de su texto: Rob Van Dam (Chair Shot sigue siendo Heel, sin espacios extra de Mid-match),
+Spike Dudley (sin cambio del límite de Mid-match), APA (las "Hand cards" son las maniobras), Pump Kick, Indian
+Deathlock, X-treme Measures, Trailer Park Trash!, Torrie Wilson, On It!, Five Star Frog Splash, Cerebral Assassin,
+Gettin' Cheeky with It!, Superior Training, Slandered Online, No Disqualification Match, Personal Appearance,
+Chicago Street Fight, Four Corners Match y los Touch Turnbuckle (no vuelven al Backlash), Hell in a Cell Match (no
+bloquea el Ringside) y Flying Tope (su texto no dice qué revierte). Están simplificadas: Catapult y Over the Top
+Rope (la carta siguiente ignora cualquier "solo después de"), Out Think the Fink, Stratusfied (mira 5 cartas),
+Totally Bogus! (revierte cualquier carta que haga robar), Cole Calls It Right!, Crimson Goddess y Spinnerooni (la
+maniobra revertida no va al Ring rival), What???, You Will Respect Me, Duchess of Queensbury Rules y Handicap Match.
 
 ## Cartas y arte
 

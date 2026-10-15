@@ -76,6 +76,8 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::Draws => "que hace robar cartas".into(),
         CardFilter::ForcesDiscard => "que obliga a descartar".into(),
         CardFilter::SameTitleInRing => "con el mismo título que una carta de su Ring".into(),
+        CardFilter::SuperstarSpecific => "específica de Superstar".into(),
+        CardFilter::Holds(_) => "si se cumple la condición".into(),
     }
 }
 
@@ -95,6 +97,12 @@ fn boost(b: &Boost) -> String {
     }
     if b.irreversible {
         parts.push("no se puede revertir".into());
+    }
+    if b.no_hand_reversal {
+        parts.push("no se puede revertir desde la mano".into());
+    }
+    if b.no_backlash_reversal {
+        parts.push("no se puede revertir desde el Backlash".into());
     }
     if b.no_arsenal_reversal {
         parts.push("no se puede revertir desde el Arsenal".into());
@@ -181,7 +189,10 @@ pub fn effect(e: &Effect) -> String {
             format!("descarta 1 carta por cada {} en su Ring ({})", filter(f), who(*w))
         }
         Effect::DiscardMirror { max } => format!("descarta hasta {}; el rival descarta las mismas", cards(*max)),
-        Effect::HandToArsenalTop { who: w, n } => format!("{} de la mano arriba del Arsenal ({})", cards(*n), who(*w)),
+        Effect::HandToArsenalTop { who: w, n, random } => {
+            let how = if *random { " al azar" } else { "" };
+            format!("{}{how} de la mano arriba del Arsenal ({})", cards(*n), who(*w))
+        }
         Effect::ShuffleHandAndRedraw { who: w } => format!("baraja la mano en el Arsenal y roba igual ({})", who(*w)),
         Effect::Dig { n, take } => format!("mira {} del Arsenal y quédate {}", cards(*n), take),
         Effect::DamageSuperstarValue { who: w } => format!("{} voltea tantas cartas como su Superstar Value", who(*w)),
@@ -214,6 +225,9 @@ pub fn effect(e: &Effect) -> String {
         Effect::NextPlayWatch { filter: f, .. } => format!("según cómo salga tu próxima {}", filter(f)),
         Effect::DrawRingCards { less } => format!("roba 1 por cada carta en los Rings, menos {less}"),
         Effect::OpponentChooses { n, .. } => format!("el rival elige {n} opciones"),
+        Effect::Counted { effect: e, .. } => format!("{} (según la cuenta)", effect(e)),
+        Effect::IrreversibleThis => "esta carta no se puede revertir".into(),
+        Effect::MillUntil { who: w, filter: f } => format!("voltea hasta una {} ({})", filter(f), who(*w)),
         Effect::AsOpponent(es) => {
             let shown: Vec<Effect> =
                 es.iter().filter(|e| !matches!(e, Effect::OpponentChooses { .. })).cloned().collect();

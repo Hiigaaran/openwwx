@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::card::{Ability, SuperstarDef, Trait};
+use crate::card::{Ability, CardDef, CardFilter, CardKind, SuperstarDef, Trait};
 use crate::db::CardDb;
 
 pub const ARSENAL_SIZE: usize = 60;
@@ -124,6 +124,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
             s.abilities.iter().any(|a| match a {
                 Ability::CannotPack(t) => t.eq_ignore_ascii_case(&def.title),
                 Ability::CannotPackTrait(t) => def.has_trait(*t),
+                Ability::CannotPackMatching(f) => printed_match(def, f),
                 _ => false,
             }) || (!def.script.only_packed_by.is_empty() && !named(&def.script.only_packed_by))
                 || named(&def.script.not_packed_by)
@@ -172,6 +173,30 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
     }
     problems
+}
+
+/// Does the printed card match `filter`? Filters about how a card is played
+/// never match.
+pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
+    match filter {
+        CardFilter::Any => true,
+        CardFilter::Maneuver => def.kinds.iter().any(|k| matches!(k, CardKind::Maneuver(_))),
+        CardFilter::ManeuverType(t) => def.kinds.contains(&CardKind::Maneuver(*t)),
+        CardFilter::Action => def.kinds.contains(&CardKind::Action),
+        CardFilter::Reversal => def.is_reversal(),
+        CardFilter::Title(t) => def.title.eq_ignore_ascii_case(t),
+        CardFilter::TitleContains(w) => def.title.to_lowercase().contains(&w.to_lowercase()),
+        CardFilter::Trait(t) => def.has_trait(*t),
+        CardFilter::DamageAtMost(n) => def.damage <= *n,
+        CardFilter::DamageAtLeast(n) => def.damage >= *n,
+        CardFilter::Keyword(w) => def.other_traits.iter().any(|t| t.eq_ignore_ascii_case(w)),
+        CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
+        CardFilter::SuperstarSpecific => def.superstar.is_some(),
+        CardFilter::All(fs) => fs.iter().all(|f| printed_match(def, f)),
+        CardFilter::AnyOf(fs) => fs.iter().any(|f| printed_match(def, f)),
+        CardFilter::Not(f) => !printed_match(def, f),
+        _ => false,
+    }
 }
 
 /// May `star` pack cards with this logo, as itself or as a Superstar it

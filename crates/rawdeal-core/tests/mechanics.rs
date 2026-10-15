@@ -23,6 +23,11 @@ const SET: &str = r#"(
         (id: "m/censor", name: "Censor", hand_size: 6, superstar_value: 1, abilities: [ReverseByDiscardingAny(Action)]),
         (id: "m/team", name: "Team", hand_size: 6, superstar_value: 5, abilities: [CountsAs(["First"])]),
         (id: "m/tough", name: "Tough", hand_size: 6, superstar_value: 1, abilities: [ReduceDamage(2)]),
+        (id: "m/giant", name: "Giant", hand_size: 6, superstar_value: 3, abilities: [
+            PlayCost(filter: All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 1)]), discard: 2),
+            OpponentDamageCap(filter: ManeuverType(Grapple), max: 1)]),
+        (id: "m/watcher", name: "Watcher", hand_size: 6, superstar_value: 1,
+            abilities: [OnOpponentPlayMatching(filter: Maneuver, effects: [Draw(who: You, n: 1)])]),
     ],
     cards: [
         (id: "m/filler", title: "Filler", kinds: [Action], fortitude: 0, damage: 0),
@@ -68,6 +73,10 @@ const SET: &str = r#"(
         (id: "m/backed", title: "Backed", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [OpponentChooses(n: 2, options: [[Draw(who: You, n: 1)], [Mill(who: Opponent, n: 1)],
                 [Draw(who: You, n: 3)]])])),
+        (id: "m/count", title: "Count", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [Counted(count: HandSize, effect: Mill(who: Opponent, n: 0))])),
+        (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
+            script: (restricts_self: Some((filter: Action)))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
             also_superstars: ["m/second"]),
     ],
@@ -475,4 +484,56 @@ fn the_opponent_picks_two_different_options() {
     apply(&e, &mut s, P2, Action::ChooseOption(0));
     assert_eq!(s.player(P1).hand.len(), hand - 1 + 1, "P1 drew 1");
     assert_eq!(s.player(P2).ringside.len(), 1, "P2 overturned 1");
+}
+
+#[test]
+fn later_maneuvers_can_cost_discards() {
+    let e = engine();
+    let mut s = start(&e, "giant", &["hit", "hit"], "second", &[]);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).hand.len(), hand - 1, "the first maneuver is free");
+    play(&e, &mut s, P1, "hit");
+    let Some(Decision { player: P1, kind: DecisionKind::ChooseCards { min: 2, .. } }) = s.decision.clone() else {
+        panic!("P1 discards 2, got {:?}", s.decision)
+    };
+}
+
+#[test]
+fn opponent_grapples_can_be_capped() {
+    let e = engine();
+    let mut s = start(&e, "first", &["grab"], "giant", &[]);
+    play(&e, &mut s, P1, "grab");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).ringside.len(), 1, "Grab's 3D is capped at 1");
+}
+
+#[test]
+fn counted_effects_use_the_count() {
+    let e = engine();
+    let mut s = start(&e, "first", &["count"], "second", &[]);
+    play(&e, &mut s, P1, "count");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).ringside.len(), s.player(P1).hand.len());
+}
+
+#[test]
+fn abilities_can_trigger_on_opponent_maneuvers() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit"], "watcher", &[]);
+    let hand = s.player(P2).hand.len();
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).hand.len(), hand + 1);
+}
+
+#[test]
+fn a_ring_card_can_restrict_its_owner() {
+    let e = engine();
+    let mut s = start(&e, "first", &["talk", "filler"], "second", &[]);
+    assert!(playable(&e, &s, P1, "filler"));
+    play(&e, &mut s, P1, "talk");
+    no_reversal(&e, &mut s);
+    assert!(!playable(&e, &s, P1, "filler"));
 }

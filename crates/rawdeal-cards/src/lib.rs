@@ -97,6 +97,7 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
             && !star.abilities.iter().any(|a| match a {
                 rawdeal_core::Ability::CannotPack(t) => t.eq_ignore_ascii_case(&c.title),
                 rawdeal_core::Ability::CannotPackTrait(t) => c.has_trait(*t),
+                rawdeal_core::Ability::CannotPackMatching(f) => rawdeal_core::printed_match(c, f),
                 _ => false,
             })
     };
