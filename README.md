@@ -85,7 +85,7 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Validación de mazos: 60 cartas, máx. 3 copias, Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
-## Interpretaciones de reglas (confirmadas por Simon, 2026-10-14)
+## Interpretaciones de reglas (confirmadas por Simon, 2026-10-14 y 2026-10-15)
 
 - Un Reversal volteado durante el daño detiene el daño automáticamente (no es opcional).
 - Las Acciones hacen su D impreso como daño (casi todas tienen D 0).
@@ -96,9 +96,6 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Chain: el costo de descartar 2 solo aplica al revertir desde la mano o el Backlash, no al voltear un
   Reversal durante el daño.
 - Las cartas Backlash que llegan al Ringside nunca vuelven a la mano ni al Arsenal.
-
-## Interpretaciones de reglas por confirmar
-
 - El texto de un Reversal que no dice "If played from your hand" también se aplica cuando se voltea durante
   el daño (por ejemplo, Manager Interferes roba 1 en los dos casos).
 - Una carta híbrida jugada como Acción no hace daño (Chop, Undertaker's Tombstone Piledriver).
