@@ -364,6 +364,10 @@ pub struct CardScript {
     /// The card cannot be reversed by cards from the Backlash deck.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub no_backlash_reversal: bool,
+    /// "You may discard (or overturn) up to `max` cards when you play this:
+    /// it is -`per`F for each." The engine pays just enough to play it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fortitude_discount: Option<FortitudeDiscount>,
     /// The card can also be played from your Ringside pile while this holds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_ringside: Option<Condition>,
@@ -435,6 +439,16 @@ pub struct RingAbility {
     /// Not on the turn the card was played.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub not_turn_played: bool,
+}
+
+/// See [`CardScript::fortitude_discount`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FortitudeDiscount {
+    pub per: u8,
+    pub max: u8,
+    /// Overturn the top cards of your Arsenal instead of discarding.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub overturn: bool,
 }
 
 /// What a card in the Ring keeps the opponent from playing, and when.

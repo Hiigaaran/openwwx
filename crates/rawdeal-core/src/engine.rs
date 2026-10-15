@@ -503,6 +503,7 @@ impl Engine {
                 schedule_effects(state, &all, p, Source::Card(card));
             }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
+                let pay_k = self.fortitude_payment(state, p, card, kind).unwrap_or(0);
                 let (bonus, used, end_turn) = self.play_bonus(state, p, card, kind);
                 for i in used.into_iter().rev() {
                     match &mut state.boosts[i].1.duration {
@@ -544,6 +545,18 @@ impl Engine {
                 );
                 let before = self.def(state, card).script.before_reversal.clone();
                 schedule_effects(state, &before, p, Source::Card(card));
+                if let Some(d) = self.def(state, card).script.fortitude_discount {
+                    // Paid before the card moved: the card no longer counts in hand.
+                    let k = pay_k;
+                    if k > 0 {
+                        let effect = if d.overturn {
+                            Effect::Mill { who: Who::You, n: k }
+                        } else {
+                            Effect::Discard { who: Who::You, n: k, pick: Pick::Chosen }
+                        };
+                        schedule_effects(state, &[effect], p, Source::Card(card));
+                    }
+                }
                 let cost = self.play_cost(state, p, played);
                 if cost > 0 {
                     schedule_effects(
@@ -2008,6 +2021,15 @@ impl Engine {
         {
             return false;
         }
+        self.fortitude_payment(state, player, card, kind).is_some()
+    }
+
+    /// How many cards `player` must discard (or overturn) for the card's
+    /// Fortitude discount to play `card` as `kind`, or `None` if they cannot.
+    fn fortitude_payment(&self, state: &GameState, player: PlayerId, card: CardId, kind: CardKind) -> Option<u8> {
+        let def = self.def(state, card);
+        let as_action = def.script.as_action.as_ref().filter(|_| kind == CardKind::Action);
+        let (bonus, _, _) = self.play_bonus(state, player, card, kind);
         let mut printed = as_action.and_then(|a| a.fortitude).unwrap_or(def.fortitude) as i32;
         if bonus.double_fortitude {
             printed *= 2;
@@ -2016,7 +2038,24 @@ impl Engine {
         if bonus.opponent_fortitude {
             available = available.max(self.fortitude(state, player.opponent()) as i32);
         }
-        self.ring_allows(state, player, def, available, printed + bonus.fortitude as i32)
+        let needed = printed + bonus.fortitude as i32;
+        let mut k = 0;
+        if let Some(d) = def.script.fortitude_discount.filter(|d| d.per > 0 && needed > available) {
+            k = (needed - available + d.per as i32 - 1) / d.per as i32;
+            let after = state.last_played.map(|l| l.card);
+            let hypothetical = Played { after, bonus, ..Played::new(card, player, kind) };
+            let spare = if d.overturn {
+                state.player(player).arsenal.len()
+            } else {
+                let hand = state.player(player).hand.iter().filter(|&&c| c != card).count();
+                hand.saturating_sub(self.play_cost(state, player, hypothetical) as usize)
+            };
+            if k > d.max as i32 || k as usize > spare {
+                return None;
+            }
+        }
+        let discount = k * def.script.fortitude_discount.map_or(0, |d| d.per as i32);
+        self.ring_allows(state, player, def, available, needed - discount).then_some(k as u8)
     }
 
     /// Cards matching a restriction on `player` (from an effect or from a card

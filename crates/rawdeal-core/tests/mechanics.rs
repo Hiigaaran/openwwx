@@ -93,6 +93,8 @@ const SET: &str = r#"(
             script: (on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Any)])),
         (id: "m/toss", title: "Toss", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [DiscardAll(who: You, filter: Title("Comeback"))])),
+        (id: "m/precise", title: "Precise", kinds: [Maneuver(Strike)], fortitude: 4, damage: 3,
+            script: (fortitude_discount: Some((per: 2, max: 2)))),
         (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
             script: (restricts_self: Some((filter: Action)))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
@@ -641,4 +643,18 @@ fn ring_cards_react_when_the_opponent_removes_them() {
         apply(&e, &mut s, player, Action::ChooseCards(vec![options[0]]));
     }
     assert_eq!(s.player(P1).hand.len(), hand + 2);
+}
+
+#[test]
+fn discards_can_pay_for_fortitude() {
+    let e = engine();
+    let mut s = start(&e, "first", &["precise", "filler", "filler"], "second", &[]);
+    assert!(playable(&e, &s, P1, "precise"), "4F at 0F: discard 2 for -4F");
+    play(&e, &mut s, P1, "precise");
+    if let Some(Decision { kind: DecisionKind::ChooseCards { options, min, .. }, player }) = s.decision.clone() {
+        assert_eq!(min, 2);
+        apply(&e, &mut s, player, Action::ChooseCards(options[..2].to_vec()));
+    }
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).ringside.len(), 2);
 }
