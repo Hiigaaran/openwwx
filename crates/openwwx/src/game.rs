@@ -172,7 +172,7 @@ impl Match {
         let legal = if self.idle() { self.engine.legal_actions(&self.state, self.me) } else { vec![] };
         let mut leave = Leave::Stay;
 
-        egui::Panel::right("log").default_size(320.0).show(ui, |ui| {
+        egui::Panel::right("log").default_size(270.0).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Animaciones:");
                 egui::ComboBox::from_id_salt("speed").selected_text(self.speed.label()).show_ui(ui, |ui| {
@@ -192,10 +192,15 @@ impl Match {
                 }
             });
         });
+        egui::Panel::right("preview")
+            .exact_size(cards::PREVIEW.x + 16.0)
+            .resizable(false)
+            .show(ui, cards::preview_panel);
         egui::Panel::top("opponent").show(ui, |ui| {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 self.piles(ui, self.me.opponent());
+                self.superstar_card(ui, &view, self.me.opponent());
                 ui.vertical(|ui| {
                     self.player_bar(ui, &view, self.me.opponent());
                     let start = ui.cursor().min;
@@ -220,6 +225,7 @@ impl Match {
             self.hand(ui, &legal);
             ui.horizontal(|ui| {
                 self.piles(ui, self.me);
+                self.superstar_card(ui, &view, self.me);
                 ui.vertical(|ui| self.player_bar(ui, &view, self.me));
             });
             ui.add_space(4.0);
@@ -466,6 +472,11 @@ impl Match {
         }
     }
 
+    fn superstar_card(&self, ui: &mut Ui, view: &PlayerView, p: PlayerId) {
+        let star = self.db().superstar(view.players[p.index()].superstar);
+        cards::superstar(ui, star);
+    }
+
     fn player_bar(&mut self, ui: &mut Ui, view: &PlayerView, p: PlayerId) {
         let info = &view.players[p.index()];
         let star = self.db().superstar(info.superstar).clone();
@@ -475,10 +486,7 @@ impl Match {
         let backlash = side.backlash.len();
         let r = ui.horizontal(|ui| {
             let label = if p == self.me { "Tú" } else { "Rival" };
-            ui.label(RichText::new(format!("{label}: {}", star.name)).strong().size(16.0)).on_hover_text(format!(
-                "Hand Size {} · Superstar Value {}\n{}",
-                star.hand_size, star.superstar_value, star.text
-            ));
+            ui.label(RichText::new(format!("{label}: {}", star.name)).strong().size(16.0));
             ui.separator();
             ui.label(RichText::new(format!("Fortitude {fortitude}")).color(Color32::from_rgb(255, 210, 90)));
             ui.separator();

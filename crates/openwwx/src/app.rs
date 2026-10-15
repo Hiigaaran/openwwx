@@ -31,6 +31,7 @@ pub struct App {
     game: Option<Match>,
     /// Folder typed by hand, for systems without a folder picker.
     typed_dir: String,
+    ctx: egui::Context,
 }
 
 impl App {
@@ -43,6 +44,7 @@ impl App {
             error: None,
             game: None,
             typed_dir: String::new(),
+            ctx: cc.egui_ctx.clone(),
         };
         // Cards next to the program (a "cards" folder) are used when nothing was chosen yet.
         let dir = app.settings.cards_dir.clone().or_else(bundled_cards_dir);
@@ -74,6 +76,14 @@ impl App {
                     self.error = Some(format!("No se pudieron cargar las cartas de {}: {e}", dir.display()));
                 }
             },
+        }
+        let pictures = crate::art::install(&self.ctx, self.settings.cards_dir.as_deref());
+        if pictures > 0 {
+            self.source.push_str(&if pictures == 1 {
+                ", 1 imagen de arte".to_owned()
+            } else {
+                format!(", {pictures} imágenes de arte")
+            });
         }
         for (i, s) in self.settings.superstars.iter_mut().enumerate() {
             if s.as_ref().is_none_or(|id| self.db.superstar_by_id(id).is_none()) {

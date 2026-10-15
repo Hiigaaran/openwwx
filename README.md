@@ -26,6 +26,12 @@ caen al Ringside con un destello rojo, y los avisos grandes marcan turnos, rever
 La velocidad se cambia arriba del relato (lentas, normales, rápidas o sin animaciones) y "Saltar" las termina al
 instante.
 
+Las Superstars de la lucha aparecen como cartas junto a sus pilas, y el visor a la izquierda del relato muestra en grande
+la última carta por la que pasó el mouse. Sin arte, cada carta se dibuja con la estructura de Raw Deal (título,
+Fortitude y Daño, dibujo según su tipo, línea de tipo, texto y Stun Value). Si en la carpeta de cartas (o en una
+subcarpeta, por ejemplo `art`) hay imágenes `.png` o `.jpg` cuyo nombre es el GUID de OCTGN de la carta, su id o su
+título, se usa la imagen tal cual.
+
 Para compilarla tú mismo:
 
 ```sh

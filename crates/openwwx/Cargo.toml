@@ -10,5 +10,6 @@ rawdeal-core.workspace = true
 rawdeal-cards.workspace = true
 rawdeal-ai.workspace = true
 eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "glow", "links", "persistence", "wayland", "x11"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 rfd = "0.17.2"
 serde.workspace = true

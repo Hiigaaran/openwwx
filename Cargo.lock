@@ -1156,6 +1156,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -1796,9 +1798,10 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "openwwx"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "eframe",
+ "image",
  "rawdeal-ai",
  "rawdeal-cards",
  "rawdeal-core",
@@ -2108,7 +2111,7 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "rawdeal-ai"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rand",
  "rand_chacha",
@@ -2117,7 +2120,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-cards"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rand",
  "rand_chacha",
@@ -2130,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rawdeal-ai",
  "rawdeal-cards",
@@ -2139,7 +2142,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "proptest",
  "rand",
