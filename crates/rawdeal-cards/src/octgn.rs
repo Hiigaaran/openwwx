@@ -255,6 +255,15 @@ fn parse_traits(traits: &str) -> (Vec<Trait>, Vec<String>) {
             "chain" => known.push(Trait::Chain),
             "irreversible" => known.push(Trait::Irreversible),
             "active" => known.push(Trait::Active),
+            // Also kept as text, so `Keyword("Fan Favorite")` filters still match.
+            "fan favorite" | "cheater" | "universally unique" => {
+                known.push(match t.to_ascii_lowercase().as_str() {
+                    "fan favorite" => Trait::FanFavorite,
+                    "cheater" => Trait::Cheater,
+                    _ => Trait::UniversallyUnique,
+                });
+                other.push(t.to_string());
+            }
             _ => other.push(t.to_string()),
         }
     }

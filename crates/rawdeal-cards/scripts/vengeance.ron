@@ -1,0 +1,875 @@
+// Hand-written scripts for Vengeance cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// Enforcers are not supported, so no Superstar ever has an Enforcer revealed.
+// Approximation: cards removed from the game go to the Ringside pile when a script moves them at all.
+// Approximation: Female Superstars are the ones marked female in the earlier sets (Chyna, Lita, Mae Young,
+// Stephanie McMahon and Trish Stratus).
+(
+    abilities: {
+        // The Tag Team Title Belts are not supported yet. A F:0 maneuver is never shuffled back into the Arsenal.
+        "Evolution": [
+            StartOfTurn([Arrange(who: You, n: 3), Mill(who: You, n: 2)]),
+            Activated(
+                cost: [Discard(who: You, n: 3, pick: Chosen)],
+                effects: [Mill(who: You, n: 3), RemoveFromRing(who: Opponent, n: 1, filter: Any)],
+            ),
+        ],
+        // Limiting the opponent's Action cards is not supported yet.
+        // Approximation: he counts as Chris Jericho for card effects too.
+        "The Highlight of the Night": [CountsAs(["Chris Jericho"])],
+        // Enforcers, the 50-card Arsenal and the extra Mankind cards are not supported yet.
+        // Approximation: he never reveals, and the +8 Starting Hand Size is drawn at the end of the Pre-match phase.
+        "The Mystery Wrestler": [EndOfPrematch([Draw(who: You, n: 8)])],
+        // Approximation: he counts as Edge for card effects too.
+        "Leader of the Edge Army": [
+            OnOpponentPlayMatching(
+                filter: Action,
+                effects: [Choice([[Draw(who: You, n: 1)], [Discard(who: Opponent, n: 1, pick: Chosen)]])],
+            ),
+            CountsAs(["Edge"]),
+        ],
+        // Enforcers, revealed Stipulations, the 'Heyman' ban and the 50-card Arsenal are not supported yet, so he
+        // plays with Hand Size 0.
+        "Paul Heyman": [],
+        // Changing the alignment of It's True! It's True! is not supported yet.
+        // Approximation: he counts as Kurt Angle for card effects too.
+        "Your Freaking Hero": [
+            OnPlayMatching(filter: Trait(Chain), effects: [Optional([Draw(who: You, n: 1)])]),
+            CountsAs(["Kurt Angle"]),
+        ],
+        // Making maneuvers Multi and reversing Actions by discarding 3 cards are not supported yet.
+        "FBI": [],
+        "A-Train": [
+            Activated(
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [
+                    Search(
+                        filter: All([
+                            Not(Trait(Unique)),
+                            AnyOf([TitleContains("power"), TitleContains("bomb"), TitleContains("slam")]),
+                        ]),
+                    ),
+                ],
+            ),
+            FortitudeFor(filter: AnyOf([TitleContains("power"), TitleContains("bomb"), TitleContains("slam")]), delta: -4),
+        ],
+    },
+    scripts: {
+        // High Risk
+        // Approximation: no card is ever removed from the game, so # is 0, and as an action the card goes to the
+        // Ringside pile instead of leaving the game.
+        "Leaping Neck Snap": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [DiscardThis, LookAtHand(who: Opponent), RingsideToArsenal(who: You, n: 2, up_to: true)],
+            )),
+        ),
+        "Revolving Takedown": (
+            bonuses: [(fortitude: -5)],
+            play_after: Some(Maneuver),
+            reverses: Some((targets: TitleContains("takedown"))),
+        ),
+        "Flying Leg Scissors": (play_after: Some(All([Maneuver, DamageAtLeast(2)]))),
+
+        // Strikes
+        "Spinning Kick": (),
+        "Right Cross Punch": (
+            bonuses: [(per: Some(TitleContains("cross")), damage: 1)],
+            on_play: [Optional([Search(filter: Title("Left Cross Punch"))])],
+        ),
+        "Left Cross Punch": (
+            bonuses: [(per: Some(TitleContains("cross")), damage: 1)],
+            on_play: [Optional([Search(filter: Title("Right Cross Punch"))])],
+        ),
+        // Putting it into the Ring from hand when the opponent looks at your hand is not supported yet.
+        "Judo Thrust": (),
+        "Lariat": (),
+        // Losing the Heel trait for Deadman Inc. and John Cena, the +5D to maneuvers without text and coming back
+        // from the Ringside pile are not supported yet.
+        "Steel Chain Shot": (
+            play_after: Some(Any),
+            reverses_from_ring: Some((targets: Action, fortitude: Some(0), discard_cost: 1)),
+        ),
+        "Short Arm Rib Breaker": (not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus"]),
+        // Playing it from the Ringside pile is not supported yet.
+        "Blindside Kick": (),
+        // The Enforcer part is not supported yet.
+        "Struck by an Unknown Foreign Object": (
+            requires: Some(
+                AnyOf([
+                    InYourRing(Title("Roll Out of the Ring")),
+                    OpponentRingHas(filter: Title("Roll Out of the Ring"), n: 1),
+                ]),
+            ),
+            on_play: [RemoveFromRing(who: Opponent, n: 2, filter: Not(Maneuver))],
+        ),
+
+        // Grapples
+        "Snap Neckbreaker": (),
+        "Pretzel Jerk": (
+            on_play: [
+                Optional([Discard(who: You, n: 1, pick: Chosen), Search(filter: All([Action, Not(Trait(Unique))]))]),
+            ],
+        ),
+        "Face Driver": (play_after: Some(Trait(Chain))),
+        "Vertical DDT Drop": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Trait(SetUp))])),
+        ),
+        // Putting it into the Ring from hand when the opponent moves your Ring cards is not supported yet.
+        "Judo Takedown": (),
+        "Quick Snap Body Slam": (
+            on_play: [Boost((applies_to: Maneuver, duration: NextCard, no_backlash_reversal: true))],
+        ),
+        "Double Underhook Power Bomb": (),
+        // Playing it from the Ringside pile is not supported yet.
+        "Blindside Slam": (),
+        // Choosing an Enforcer for the opponent is not supported yet, so the next card is always -2F.
+        "Suplex": (on_play: [Boost((applies_to: Any, duration: NextCard, fortitude: -2))]),
+        "Military Slam": (),
+        "Takedown": (
+            bonuses: [(fortitude: -14)],
+            reverses: Some((targets: All([Action, Not(Trait(Unique))]))),
+        ),
+        "Death Valley Driver": (bonuses: [(fortitude: -5)], reverses: Some((targets: ManeuverType(HighRisk)))),
+
+        // Submissions
+        "Ankle Torque": (on_play: [Optional([Search(filter: Title("Minute Hold"))])]),
+        "Triangle Choke": (),
+        "Body Lock": (),
+        // Putting it into the Ring from hand after the opponent's second Action is not supported yet.
+        "Judo Choke": (),
+        "Wraparound Wrist Lock": (
+            on_play: [Boost((applies_to: Maneuver, duration: NextCard, no_backlash_reversal: true))],
+        ),
+        "Headlock": (),
+        "Apply Legal Leverage": (play_after: Some(AnyOf([ManeuverType(Submission), All([Maneuver, Trait(Chain)])]))),
+        // Playing it from the Ringside pile is not supported yet.
+        "Blindside Choke": (),
+        "Super Hold": (bonuses: [(when: FortitudeBelowOpponent, fortitude: -7)]),
+
+        // Reversals
+        // Playing Reversals from the Ringside pile is not supported yet.
+        "I Already Warned You": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Quick Reflexes": (
+            not_with: ["Step Aside"],
+            reverses: Some((
+                targets: AnyOf([
+                    All([ManeuverType(Strike), DamageAtMost(7)]),
+                    All([
+                        ManeuverType(Strike),
+                        DamageAtMost(10),
+                        Holds(All([SuperstarValueAtLeast(4), Not(SuperstarValueAtMostOpponent)])),
+                    ]),
+                ]),
+                effects: [Draw(who: You, n: 1)],
+            )),
+        ),
+        "Unexpected Turn of Events": (
+            not_with: ["Escape Move"],
+            reverses: Some((
+                targets: AnyOf([
+                    All([ManeuverType(Grapple), DamageAtMost(7)]),
+                    All([
+                        ManeuverType(Grapple),
+                        DamageAtMost(10),
+                        Holds(All([SuperstarValueAtLeast(4), Not(SuperstarValueAtMostOpponent)])),
+                    ]),
+                ]),
+                effects: [Draw(who: You, n: 1)],
+            )),
+        ),
+        // Playing Reversals from the Ringside pile is not supported yet.
+        "Blindsided Ego": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Playing Reversals from the Ringside pile is not supported yet.
+        "Leave Me Alone": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Playing Reversals from the Ringside pile is not supported yet.
+        "Blindsided Control": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Removing cards from the game is not supported yet.
+        "Two!": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                overturned_only: true,
+                effects: [Discard(who: You, n: 2, pick: Chosen)],
+            )),
+        ),
+        // Playing Reversals from the Ringside pile is not supported yet.
+        "Headstrong": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Sloppy ... Very Sloppy": (
+            reverses: Some((
+                targets: Any,
+                from_hand_only: true,
+                fortitude_when: Some((AnyOf([Superstar("Mae Young"), Superstar("Moolah")]), 5)),
+            )),
+        ),
+
+        // Actions
+        // Choosing an Enforcer is not supported yet.
+        "Suplex into the Ring": (
+            on_play: [
+                DiscardThis,
+                Choice([
+                    [],
+                    [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))],
+                    [RingsideToHand(who: You, n: 2, filter: Some(All([Maneuver, TitleContains("suplex")])))],
+                ]),
+            ],
+            reverses: Some((targets: Title("Roll Out of the Ring"), effects: [Mill(who: Opponent, n: 2)])),
+        ),
+        "Chain Wrestling": (
+            on_play: [
+                Search(filter: All([Maneuver, Trait(Chain)])),
+                NextCardMustBe(Not(Title("Chain Wrestling"))),
+            ],
+        ),
+        // Reversing from the Ringside pile and removing cards from the game are not supported yet.
+        "When Hell Freezes Over!": (
+            on_play: [DiscardThis, Draw(who: You, n: 1)],
+            reverses: Some((targets: TitleContains("hell"))),
+        ),
+        "Minute Hold": (
+            play_after: Some(ManeuverType(Submission)),
+            on_play: [Draw(who: You, n: 1)],
+            while_in_ring: [(applies_to: ManeuverType(Submission), damage: 1)],
+            restricts_opponent: Some((filter: Title("Elbow to the Face"))),
+            in_ring_on_play: [
+                (whose: Some(You), filter: All([Maneuver, Not(ManeuverType(Submission))]), effects: [SacrificeThis]),
+            ],
+        ),
+        // Approximation: the opponent always puts 2 cards in your Ringside pile, even with a Venue in a Ring.
+        "Throw Into the Ring": (
+            on_play: [
+                MillChosen(who: You, n: 2, filter: Some(Not(Trait(Unique)))),
+                AsOpponent([MillChosen(who: Opponent, n: 2)]),
+            ],
+        ),
+        // Leaving the Ring when your turn ends without a maneuver and the Enforcer part are not supported yet.
+        "J.R. Style Donnybrook": (
+            restricts_opponent: Some((filter: All([AnyOf([Trait(Face), Trait(Heel)]), AnyOf([Action, Maneuver])]))),
+        ),
+        // Playing without discarding to reverse a Chain card and removing the reversed card from the game are not
+        // supported yet.
+        "Chained Heat": (
+            on_play: [
+                DiscardThis,
+                RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(All([Trait(Chain), Not(Title("Chained Heat"))]))),
+            ],
+            reverses: Some((targets: AnyOf([Trait(Chain), Keyword("Heat")]))),
+        ),
+        // The Venue and Enforcer parts are not supported yet.
+        "Down and Out": (
+            on_play: [
+                DiscardThis,
+                Draw(who: You, n: 1),
+                Boost((applies_to: Not(Maneuver), duration: NextCard, end_turn: true)),
+            ],
+        ),
+        // Naming a card for other cards to count as is not supported yet.
+        "According to the Contract Table": (requires: Some(Never)),
+        // Becoming Permanent and removing the maneuver from the game are not supported yet.
+        // Approximation: the maneuver must be your next card, instead of ending your turn if it is not.
+        "Last Chance": (
+            bonuses: [(when: FortitudeBelowOpponent, fortitude: -5)],
+            ring_ability: Some((
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(Maneuver)), NextCardMustBeChosen],
+            )),
+        ),
+        // Revealing cards to send it to the Ringside pile is not supported yet.
+        // Approximation: it goes to the Ringside pile instead of leaving the game.
+        "J.R. Style Authentic BBQ Sauce!": (
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Counted(count: YourRingMatching(TitleContains("J.R.")), effect: DrawUpTo(who: You, n: 0)),
+                    DrawUpTo(who: You, n: 2),
+                ],
+            )),
+        ),
+        // Blanking the text of a card in the Ring is not supported yet.
+        "For the Love of God-Why, King, Why?": (requires: Some(Never)),
+        // Removing a card with an Activated Card Effect is not supported yet.
+        "Escape the Rules": (
+            on_play: [
+                ShuffleThisIntoArsenal,
+                Optional([
+                    RingsideToHand(who: You, n: 1, filter: Some(All([Not(Trait(Unique)), Not(Action)]))),
+                    EndTurn,
+                ]),
+            ],
+            reverses: Some((
+                targets: AnyOf([
+                    ManeuverType(HighRisk),
+                    Title("Superplex"),
+                    All([Maneuver, After(Title("Throw Into the Corner Turnbuckle"))]),
+                ]),
+                overturned_only: true,
+            )),
+        ),
+        // Keeping cards under it is not supported yet.
+        "That's Broken!": (requires: Some(Never)),
+        "He's Playing Possum?": (
+            on_play: [Mill(who: Opponent, n: 1)],
+            in_ring_on_play: [(whose: Some(Opponent), filter: Maneuver, effects: [Mill(who: You, n: 1)])],
+        ),
+        // Continuing the turn after a reversal is not supported yet.
+        "J.R. Style Push": (requires: Some(Never)),
+        // Approximation: it needs 3 Reversals in the opponent's Ring instead of more than in yours, and he skips at
+        // most 1 turn.
+        "Now or Never": (
+            requires: Some(OpponentRingHas(filter: Reversal, n: 3)),
+            on_play: [SkipNextTurn(who: Opponent)],
+        ),
+        // Removing cards from the game and reversing Arsenal searches are not supported yet.
+        // Approximation: it reverses any card that lets the opponent draw.
+        "Enough With the Trash Talk": (reverses: Some((targets: All([AnyOf([Maneuver, Action]), Draws])))),
+
+        // Pre-match
+        "Anaheim, California": (
+            restricts_self: Some((
+                filter: All([
+                    Not(Trait(Unique)),
+                    AnyOf([Trait(Raw), Trait(SmackDown)]),
+                    EarlierThisTurn(filter: All([Not(Trait(Unique)), AnyOf([Trait(Raw), Trait(SmackDown)])]), n: 1),
+                ]),
+            )),
+            restricts_opponent: Some((
+                filter: All([
+                    Not(Trait(Unique)),
+                    AnyOf([Trait(Raw), Trait(SmackDown)]),
+                    EarlierThisTurn(filter: All([Not(Trait(Unique)), AnyOf([Trait(Raw), Trait(SmackDown)])]), n: 1),
+                ]),
+            )),
+        ),
+        // Superstar Value changes are not supported yet.
+        "Atlanta, Georgia": (requires: Some(Never), not_packed_by: ["Edge"]),
+        // Doubling the Face and Heel cards in the Ring is not supported yet.
+        "Newcastle, England": (
+            restricts_self: Some((
+                filter: All([AnyOf([Trait(Face), Trait(Heel)]), EarlierThisTurn(filter: AnyOf([Trait(Face), Trait(Heel)]), n: 1)]),
+            )),
+            restricts_opponent: Some((
+                filter: All([AnyOf([Trait(Face), Trait(Heel)]), EarlierThisTurn(filter: AnyOf([Trait(Face), Trait(Heel)]), n: 1)]),
+            )),
+        ),
+        // Superstar Value changes are not supported yet.
+        "Omaha, Nebraska": (requires: Some(Never)),
+        // Effects when the opponent reverses a card are not supported yet.
+        "Calgary, Alberta, Canada": (requires: Some(Never)),
+        // Changing Raw Roulette Wheel's text, removing cards from the game and picking who starts are not supported
+        // yet.
+        // Approximation: of the top 3 cards, 1 goes to your hand and the other 2 to the bottom of the Arsenal.
+        "Las Vegas, Nevada": (end_of_prematch: [Dig(n: 3, take: 1)]),
+        // Superstar Value changes are not supported yet.
+        "New York, New York": (requires: Some(Never), not_packed_by: ["Edge"]),
+        // Superstar Value changes are not supported yet.
+        "Saskatoon, Saskatchewan, Canada": (requires: Some(Never)),
+        // Picking cards at random until a Reversal and Starting Hand Size changes are not supported yet.
+        "Houston, Texas": (requires: Some(Never)),
+        "Philadelphia, Pennsylvania": (
+            end_of_prematch: [
+                Search(filter: All([Not(Trait(Unique)), AnyOf([Keyword("Foreign Object"), TitleContains("hardcore")])]), n: 3),
+                SkipNextTurn(who: You),
+            ],
+        ),
+        // The Pre-match limit part is not supported yet.
+        // Approximation: the +1 Starting Hand Size is drawn at the end of the Pre-match phase.
+        "Raleigh, North Carolina": (
+            end_of_prematch: [
+                AsOpponent([If(condition: Not(SuperstarValueAtMostOpponent), effects: [AsOpponent([Draw(who: You, n: 1)])])]),
+            ],
+        ),
+        // Changing the Mid-match limit is not supported yet.
+        "Springfield, Illinois": (requires: Some(Never)),
+        "A Chorus of Boos": (
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Counted(
+                        count: OpponentValueTimes(1),
+                        effect: Boost((applies_to: Any, duration: NextCard, fortitude: -1)),
+                    ),
+                ],
+            )),
+        ),
+        "Spontaneous Combustion": (
+            end_of_prematch: [Optional([MillChosen(who: You, n: 1, filter: Some(Keyword("Heat")))])],
+            while_in_ring: [(applies_to: All([Maneuver, Keyword("Heat")]), damage: 1)],
+        ),
+        // Making a maneuver Multi is not supported yet.
+        "This Is Gonna Be a Rocket Buster": (requires: Some(Never)),
+        "Old School Beating": (
+            while_in_ring: [(applies_to: Maneuver, damage: 1)],
+            ring_ability: Some((sacrifice: true, effects: [Boost((applies_to: Maneuver, duration: NextCard, damage: 3))])),
+        ),
+        // Winning by the Foreign Objects in the Ring is not supported yet.
+        "First Blood Match": (
+            requires: Some(Never),
+            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus"],
+        ),
+        // Title Belts are not supported yet.
+        "The Title Is On the Line!": (requires: Some(Never)),
+        // Choosing the opponent's next Pre-match card and the Mid-match limit are not supported yet.
+        "You Rang?": (requires: Some(Never)),
+        // Tag Team matches are not supported yet.
+        "You, Me, and Whoever!?!": (requires: Some(Never)),
+        // Changing the Pre-match order and Title Belts are not supported yet.
+        "Bitter Rivals": (requires: Some(Never)),
+        "It's All About the Game": (),
+        // Removing a card with an Activated Card Effect is not supported yet.
+        // Approximation: the +1 Starting Hand Size is drawn at the end of the Pre-match phase.
+        "Managed by Dawn Marie": (end_of_prematch: [Draw(who: You, n: 1)]),
+
+        // Mid-match
+        // Its text is cut short in the data, and checking for a Feud card is not supported yet.
+        "Hardcore Style": (requires: Some(Never)),
+        // Not being Active for Mankind or Cactus Jack is not supported yet.
+        "Immune to Pain": (while_in_ring_opponent: [(applies_to: Maneuver, damage: -1)]),
+        // Title Belts are not supported yet.
+        "Number One Contender": (requires: Some(Never)),
+        // Effects when you play a Reversal are not supported yet.
+        "The Beautiful People": (requires: Some(Never)),
+        // Reversing effects that change your Reversals is not supported yet.
+        "Grab the Ref": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Tag Team matches are not supported yet.
+        "Desperate Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: a Pre-match Manager is a card with "Managed by" in the title, and you overturn a multiple of
+        // 3 cards.
+        "Ringside Assistance": (
+            requires: Some(InYourRing(TitleContains("Managed by"))),
+            on_play: [
+                Choice([
+                    [],
+                    [Mill(who: You, n: 3), Boost((applies_to: Maneuver, duration: NextCard, damage: 2))],
+                    [Mill(who: You, n: 6), Boost((applies_to: Maneuver, duration: NextCard, damage: 4))],
+                    [Mill(who: You, n: 9), Boost((applies_to: Maneuver, duration: NextCard, damage: 6))],
+                    [Mill(who: You, n: 12), Boost((applies_to: Maneuver, duration: NextCard, damage: 8))],
+                    [Mill(who: You, n: 15), Boost((applies_to: Maneuver, duration: NextCard, damage: 10))],
+                ]),
+            ],
+        ),
+        "You're as Graceful as a Cow on Ice": (
+            reverses: Some((
+                targets: EarlierThisTurn(filter: Any, n: 2),
+                requires: Some(AnyOf([OpponentHandLarger, FortitudeBelowOpponent])),
+            )),
+        ),
+        "Revolutionizing the Business": (on_play: [DrawUpTo(who: You, n: 4), Discard(who: You, n: 6, pick: Chosen)]),
+        "Chain Finisher": (play_after: Some(All([Maneuver, Trait(Chain)])), after_damage: [EndTurn]),
+        // Checking what the opponent attempted last turn is not supported yet.
+        "All That ... and Nothing?": (requires: Some(Never)),
+        "Divas Revealed": (
+            bonuses: [(when: Not(OpponentFemale), fortitude: -10)],
+            on_play: [
+                If(condition: Not(OpponentFemale), effects: [DiscardThis, Draw(who: You, n: 1)]),
+                If(condition: OpponentFemale, effects: [Discard(who: Opponent, n: 4, pick: Chosen)]),
+            ],
+            reveals_opponent_hand: true,
+        ),
+        // Going back to the Backlash deck from the Ringside pile is not supported yet.
+        "To the Rescue!": (ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1), EndTurn]))),
+        // Reversing Activated Card Effects is not supported yet.
+        // Approximation: it is -10F when your Superstar Value is at most your opponent's.
+        "Unscrupulous S.O.B.": (
+            reverses: Some((
+                targets: All([Action, Not(Trait(Unique))]),
+                fortitude_when: Some((SuperstarValueAtMostOpponent, 5)),
+            )),
+        ),
+        // Approximation: it is -8F when your Superstar Value is at most your opponent's.
+        "Cheap Accolades": (
+            bonuses: [(when: SuperstarValueAtMostOpponent, fortitude: -8)],
+            on_play: [Boost((applies_to: Maneuver, duration: NextMatching, damage: 6, reversal_fortitude: 20))],
+        ),
+
+        // Evolution
+        // Approximation: you discard 3 hand and 3 Backlash cards for each card, and the chosen cards may be Unique.
+        "Evolution Is a Mystery": (
+            end_of_prematch: [
+                Choice([
+                    [],
+                    [
+                        Discard(who: You, n: 3, pick: Chosen),
+                        BacklashToRingside(who: You, n: 3),
+                        BacklashToRingside(who: Opponent, n: 1),
+                    ],
+                    [
+                        Discard(who: You, n: 6, pick: Chosen),
+                        BacklashToRingside(who: You, n: 6),
+                        BacklashToRingside(who: Opponent, n: 2),
+                    ],
+                ]),
+            ],
+        ),
+        // Removing cards from the game is not supported yet.
+        "Paid, Laid, and Made": (
+            on_play: [Mill(who: You, n: 3), RingsideToBacklash(who: You, n: 3), DrawUpTo(who: You, n: 3)],
+        ),
+        // Removing cards from the game is not supported yet.
+        "Yesterday Is So Long Ago": (requires: Some(Never)),
+        "I See the Line in the Sand": (
+            on_play: [Counted(count: OpponentValueTimes(1), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
+        ),
+        "Nothing Ever Stays the Same": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [If(condition: Superstar("Batista"), effects: [RingsideToArsenalBottom(who: You, n: 4)])],
+            )),
+        ),
+
+        // Chris Jericho
+        // Giving back a card removed from the game is not supported yet.
+        // Approximation: it goes to the Ringside pile instead of leaving the game.
+        "You Sanctimonious Son of a B!tch": (
+            in_ring_start_of_turn: [If(condition: FortitudeAboveOpponent, effects: [Mill(who: Opponent, n: 1)])],
+            reverses_from_ring: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                fortitude: Some(0),
+                requires: Some(FortitudeBelowOpponent),
+            )),
+        ),
+        // Changing the Mid-match limit and moving it to the Backlash deck are not supported yet.
+        "Listen Up, Junior: Don't Be an Ass-clown!": (requires: Some(Never)),
+        "My Obscenely Expensive Jeri-tron 5000": (
+            while_in_ring: [
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(1))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(2))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(3))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(4))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(5))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(6))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(7))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(8))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(9))]), fortitude: -1),
+                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(10))]), fortitude: -1),
+            ],
+            in_ring_on_play: [(whose: Some(You), filter: Trait(Unique), effects: [Optional([Draw(who: You, n: 1)])])],
+        ),
+        // Searching for a copy of the reversed card is not supported yet.
+        "Roll the Footage, Monkeys!": (reverses: Some((targets: Action))),
+        "Jericho's Ensugiri": (
+            on_play: [Counted(count: OpponentValueTimes(1), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+            reverses: Some((targets: ManeuverType(Submission))),
+        ),
+
+        // Mankind, Cactus Jack, Dude Love and The Mystery Wrestler
+        // Changing the Mid-match limit is not supported yet.
+        // Approximation: the opponent's card goes to his Ringside pile instead of leaving the game.
+        "You Don't Want to Go Where I've Been": (
+            bonuses: [
+                (when: Superstar("The Mystery Wrestler"), fortitude: -4),
+                (when: AnyOf([Superstar("Mankind"), Superstar("Cactus Jack")]), fortitude: -7),
+            ],
+            on_play: [
+                Choice([
+                    [DiscardAll(who: You, filter: Any), Search(filter: Any)],
+                    [RemoveFromRing(who: Opponent, n: 1, filter: Any)],
+                    [MillChosen(who: Opponent, n: 1)],
+                ]),
+            ],
+        ),
+        "Testicular Fortitude": (
+            irreversible_when: Some(AnyOf([Superstar("Mankind"), Superstar("The Mystery Wrestler")])),
+            requires: Some(HandHas(Reversal)),
+            on_play: [
+                DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen),
+                Search(filter: All([Action, Not(Trait(Unique))])),
+                Search(filter: All([Maneuver, Not(Trait(Unique))])),
+            ],
+        ),
+        // Coming back from the Ringside pile is not supported yet.
+        "I'm Hardcore! I'm Hardcore!": (
+            irreversible_when: Some(AnyOf([Superstar("Cactus Jack"), Superstar("The Mystery Wrestler")])),
+            on_play: [Search(filter: Keyword("Foreign Object"))],
+            while_in_ring: [(applies_to: Keyword("Foreign Object"), fortitude: -4)],
+        ),
+
+        // Edge
+        // Removing Big Slide Into the Ring from the game is not supported yet, so it is not needed.
+        "The Edgeucation of Adam Copeland": (
+            ring_ability: Some((
+                cost: [DiscardMatching(who: You, n: 1, filter: Title("Roll Out of the Ring"), pick: Chosen)],
+                effects: [DrawUpTo(who: You, n: 4)],
+            )),
+        ),
+        "Downward Spiral": (
+            on_play: [
+                Optional([Discard(who: You, n: 1, pick: Chosen), Search(filter: ManeuverType(TrademarkFinisher))]),
+            ],
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+        "Edge Kick": (on_play: [Optional([Search(filter: Title("Roll Out of the Ring"), ringside: true)])]),
+        // The opponent's option to remove his Ringside pile and continue, and removing the reversed card from the
+        // game, are not supported yet.
+        "Scream If You Want It": (
+            reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true)),
+        ),
+        // Removing cards from the game is not supported yet.
+        "`Cause I Want More": (requires: Some(Never)),
+
+        // Paul Heyman
+        // Revealing Stipulations is not supported yet.
+        // Approximation: "Draw 1-" is read as draw up to 1 and "Bury 3-" as putting 3 Ringside cards on the bottom of
+        // the Arsenal.
+        "Let the Bodies Hit the Floor": (
+            on_play: [
+                DrawUpTo(who: You, n: 1),
+                RingsideToArsenalBottom(who: You, n: 3),
+                Boost((applies_to: Any, duration: NextCard, fortitude: -4)),
+            ],
+        ),
+        // Checking your own Arsenal size is not supported yet.
+        "You're Dangerously Close": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+
+        // Cards for earlier Superstars
+        "Big Boys Club": (
+            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus"],
+            while_in_ring: [(applies_to: All([Maneuver, Holds(FortitudeAtLeastOpponent)]), fortitude: -10)],
+            while_in_ring_opponent: [
+                (applies_to: All([Action, Not(Trait(SetUp)), Holds(FortitudeAtMostOpponent)]), fortitude: 10),
+            ],
+        ),
+        "Do You Know Who Else Is Hot?": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                RingsideToHand(who: You, n: 1),
+                Boost((applies_to: Any, duration: NextCard, fortitude: -5)),
+            ],
+        ),
+        "The Straps Are Down!": (
+            on_play: [
+                Discard(who: Opponent, n: 2, pick: Chosen),
+                Choice([
+                    [Boost((applies_to: Maneuver, duration: NextCard, fortitude: -10))],
+                    [Boost((applies_to: Maneuver, duration: NextCard, damage: 10))],
+                ]),
+            ],
+        ),
+        "Oh, It's True!": (
+            on_play: [Search(filter: Any), EndTurn],
+            reverses: Some((targets: ManeuverType(HighRisk))),
+            while_in_ring: [(applies_to: Title("It's True! It's True!"), fortitude: -9)],
+        ),
+        // Approximation: the next card may ignore any "can only be played after" text.
+        "Angle's German Suplex": (on_play: [Boost((applies_to: Any, duration: NextCard, ignore_play_after: true))]),
+        "Whoo!": (on_play: [Boost((applies_to: Trait(Chain), duration: ThisTurn, no_arsenal_reversal: true))]),
+        "Angle's Moonsault": (
+            play_after: Some(Maneuver),
+            on_play: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Trait(Unique)))])],
+            while_in_ring: [(applies_to: Maneuver, fortitude: -6)],
+        ),
+        // Approximation: "completely reverse" is read as a normal reversal, and from the Ring the card goes to the
+        // Ringside pile instead of leaving the game.
+        "It's a Numbers Game": (
+            reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]))),
+            reverses_from_ring: Some((targets: Maneuver, fortitude: Some(0))),
+        ),
+        "FBI Hit List": (on_play: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Maneuver))]),
+        "The Arrivederci": (on_play: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)])]),
+        "The Whack": (on_play: [Optional([Draw(who: You, n: 1)])]),
+        "The Fuhgeddaboutit": (after_damage: [EndTurn]),
+        // Playing it in any Pre-match phase and the Stipulation ban are not supported yet.
+        // Approximation: the chosen Backlash card may be Unique.
+        "Snot Rocket": (end_of_prematch: [BacklashToRingside(who: Opponent, n: 1)]),
+        "Who Do You Think You Are?": (reverses: Some((targets: Action))),
+        "Chugga-chugga-chugga-chugga": (
+            on_play: [
+                Counted(count: YourRingMatching(Maneuver), effect: RingsideToArsenal(who: You, n: 0, up_to: true)),
+                Counted(count: YourRingMatching(Maneuver), effect: DrawUpTo(who: You, n: 0)),
+            ],
+        ),
+        "Derailer": (
+            play_after: Some(Any),
+            on_play: [Optional([Search(filter: Any, ringside: true), EndTurn])],
+        ),
+        "Train Wreck": (reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)])))),
+        // Undertaker's second use and moving Mid-match cards to the Backlash deck are not supported yet.
+        "Managed by Paul Bearer": (
+            ring_ability: Some((
+                cost: [DiscardMatching(who: You, n: 1, filter: SuperstarSpecific, pick: Chosen)],
+                effects: [RingsideToArsenalBottom(who: You, n: 3)],
+            )),
+        ),
+        // Changing the Pre-match limit is not supported yet.
+        "Know Your Role and Shut Your Mouth": (requires: Some(Never)),
+        // Approximation: your next Unique maneuver is -5F, whichever one it is.
+        "Kane's Rage": (
+            on_play: [
+                Search(filter: All([Maneuver, Trait(Unique)])),
+                Boost((applies_to: All([Maneuver, Trait(Unique)]), duration: NextCard, fortitude: -5)),
+            ],
+            ring_ability: Some((
+                cost: [Discard(who: You, n: 3, pick: Chosen)],
+                effects: [RingToHand(who: You, n: 1, filter: Title("Kane's Rage"))],
+            )),
+        ),
+        // Approximation: the card goes to the Ringside pile instead of leaving the game.
+        "Rikishi's Hip Toss": (on_play: [MillChosen(who: Opponent, n: 1)]),
+        // Removing cards from the game is not supported yet.
+        "Pain is Inevitable": (
+            bonuses: [(when: Superstar("Chris Benoit"), fortitude: -12)],
+            on_play: [
+                Choice([
+                    [RingsideToHand(who: You, n: 60, filter: Some(ManeuverType(Strike)))],
+                    [RingsideToHand(who: You, n: 60, filter: Some(ManeuverType(Grapple)))],
+                    [RingsideToHand(who: You, n: 60, filter: Some(ManeuverType(Submission)))],
+                    [RingsideToHand(who: You, n: 60, filter: Some(ManeuverType(HighRisk)))],
+                    [RingsideToHand(who: You, n: 60, filter: Some(ManeuverType(TrademarkFinisher)))],
+                ]),
+            ],
+        ),
+        // Keeping cards under it is not supported yet.
+        "Viva La Raza! Low Rider": (requires: Some(Never)),
+        // Naming a logo is not supported yet.
+        "WWE Commentators": (
+            end_of_prematch: [Optional([Discard(who: You, n: 1, pick: Random), Search(filter: Action)])],
+        ),
+        // Naming a card and the Permanent trait are not supported yet.
+        "The Best Surprises Sneak Up From Behind": (requires: Some(Never)),
+        "Blood Is Thicker Than Wood": (
+            end_of_prematch: [
+                OpponentChooses(
+                    n: 1,
+                    options: [[Discard(who: Opponent, n: 3, pick: Chosen)], [Search(filter: Not(SuperstarSpecific))]],
+                ),
+            ],
+        ),
+        // Overturning cards equal to the chosen card's D is not supported yet.
+        "To All My Peeps Around the World...": (
+            on_play: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+        ),
+        "The Era of Mattitude Has Arrived": (on_play: [Search(filter: ManeuverType(Grapple), n: 2, up_to: true)]),
+        "Lita's DDT": (on_play: [Optional([RingsideToArsenal(who: You, n: 1)])]),
+        "Van Terminator": (
+            play_after: Some(Maneuver),
+            requires: Some(
+                AnyOf([
+                    InYourRing(Keyword("Foreign Object")),
+                    OpponentRingHas(filter: Keyword("Foreign Object"), n: 1),
+                ]),
+            ),
+            on_play: [
+                DiscardAll(who: You, filter: Any),
+                DiscardAll(who: Opponent, filter: Any),
+                EndTurn,
+                BoostOpponent((applies_to: Any, duration: NextTurnFirstCard, irreversible: true)),
+            ],
+        ),
+        // Removing cards from the game is not supported yet.
+        // Approximation: you choose the Backlash cards he discards.
+        "How Many Times?": (
+            on_play: [
+                Mill(who: Opponent, n: 5),
+                BacklashToRingside(who: Opponent, n: 5),
+                RemoveFromRing(who: Opponent, n: 5, filter: Not(Maneuver)),
+                MillChosen(who: Opponent, n: 5),
+            ],
+        ),
+        // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
+        "Keep It Simple, Sir": (on_play: [Search(filter: Trait(Unique))]),
+        "The StratusFear": (
+            play_after: Some(Any),
+            reverses: Some((targets: AnyOf([ManeuverType(HighRisk), Title("From the Top Rope")]))),
+        ),
+        "Managed by Kyo Dai": (
+            end_of_prematch: [Optional([SacrificeThis, RemoveFromRing(who: Opponent, n: 1, filter: Any)])],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Search(filter: All([Not(Trait(Unique)), TitleContains("kick")]))],
+            )),
+        ),
+        "I've Got Hurri-powers...": (
+            on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 3))],
+            ring_ability: Some((
+                effects: [
+                    Choice([
+                        [],
+                        [Discard(who: You, n: 1, pick: Chosen), Boost((applies_to: Maneuver, duration: NextCard, damage: 3))],
+                        [Discard(who: You, n: 2, pick: Chosen), Boost((applies_to: Maneuver, duration: NextCard, damage: 6))],
+                        [Discard(who: You, n: 3, pick: Chosen), Boost((applies_to: Maneuver, duration: NextCard, damage: 9))],
+                        [Discard(who: You, n: 4, pick: Chosen), Boost((applies_to: Maneuver, duration: NextCard, damage: 12))],
+                    ]),
+                ],
+            )),
+        ),
+        "Who's That Jumpin' Out The Sky?": (
+            on_play: [Search(filter: Title("From the Top Rope")), Search(filter: Title("Springboard"))],
+            ring_ability: Some((sacrifice: true, effects: [DrawUpTo(who: You, n: 2)])),
+        ),
+        "Noble Bomb": (on_play: [Optional([RingsideToArsenal(who: You, n: 1)])]),
+        // Choosing an Enforcer is not supported yet, so as an action it does nothing.
+        "Didn't I Already Fire You?": (reverses: Some((targets: AnyOf([Trait(Raw), Trait(SmackDown)])))),
+        "Belly-to-Belly Steinerplex": (on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
+        "All Things Are Possible": (requires: Some(OpponentHandLarger), on_play: [Search(filter: Any)]),
+        // Going back to the Backlash deck from the Ringside pile is not supported yet.
+        "Greco Roman Specialists": (
+            on_play: [
+                RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Grapple))),
+                RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Submission))),
+                RingsideToBacklash(who: You, n: 1),
+            ],
+        ),
+        // Being reversible only from the Arsenal after From the Top Rope is not supported yet.
+        "Test's Top Rope Double Axe Handle": (
+            play_after: Some(All([Maneuver, DamageAtLeast(2)])),
+            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, Discard(who: Opponent, n: 2, pick: Chosen)])),
+        ),
+        // Filtering maneuvers by printed F and counting the cards revealed for the Superstar ability are not
+        // supported yet.
+        "Unleash the Beast": (requires: Some(Never)),
+        // Blanking the text of a card in the Ring is not supported yet.
+        "I Should've Been In That Magazine...": (requires: Some(Never)),
+        "Control Your World": (
+            end_of_prematch: [CannotPlay(who: Opponent, filter: Maneuver, turns: 1)],
+            while_in_ring: [(applies_to: Maneuver, damage: 2)],
+        ),
+        // Replacing the Superstar ability is not supported yet.
+        "Bald is Beautiful!": (requires: Some(Never)),
+        // Approximation: as a reversal it stops any Action, wherever it was played from.
+        "So ... You Think You're Untouchable?": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                Discard(who: Opponent, n: 1, pick: Controller),
+                Counted(count: SuperstarValue, effect: DrawUpTo(who: You, n: 0)),
+            ],
+            reverses: Some((
+                targets: Action,
+                effects: [Counted(count: SuperstarValue, effect: DrawUpTo(who: You, n: 0))],
+            )),
+        ),
+        // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
+        "The Boss's Main Squeeze": (reverses: Some((targets: Action))),
+        // Going to the Backlash deck is not supported yet.
+        // Approximation: your next 'DDT' card is -7F, whichever one it is.
+        "Golden Thong Award": (
+            on_play: [
+                Search(filter: All([Not(Trait(Unique)), TitleContains("DDT")])),
+                Boost((applies_to: TitleContains("DDT"), duration: NextCard, fortitude: -7)),
+            ],
+        ),
+        // Approximation: the next card is -F twice half the opponent's Fortitude, rounded up.
+        "This Is Not Enough": (
+            requires: Some(OpponentHandLarger),
+            on_play: [
+                DrawToMatchOpponent,
+                Counted(count: HalfOpponentFortitude, effect: Boost((applies_to: Any, duration: NextCard, fortitude: -2))),
+            ],
+        ),
+        "Nidia's Mink Coat": (
+            while_in_ring_opponent: [
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(1))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(2))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(3))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(4))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(5))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(6))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(7))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(8))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(9))]), fortitude: 1),
+                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(10))]), fortitude: 1),
+            ],
+        ),
+    },
+)

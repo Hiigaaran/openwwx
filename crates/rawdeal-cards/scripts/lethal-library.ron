@@ -1,0 +1,206 @@
+// Hand-written scripts for Lethal Library cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// Backstage cards (Remember Who Pays Your Salary!, King's Crown) and the Enforcer
+// Shane O' Mac or Stephanie? are skipped by the importer: they are not supported yet.
+// Female Superstars for packing limits are Chyna, Lita, Mae Young, Stephanie McMahon,
+// Trish Stratus and The Fabulous Moolah.
+(
+    abilities: {
+        // Packing both Raw and SmackDown! cards, No Chance in Hell being a Set-up card that ignores its
+        // "played from your opponent's hand" text, and only playing F:0 or Foreign Object maneuvers (a
+        // printed-Fortitude filter) are not supported yet.
+        // Approximation: the cards with "Vince" in the title are the ones imported so far.
+        "Vince McMahon": [
+            OpponentCannotPlay("I'm Vincent Kennedy McMahon, Dammit!"),
+            OpponentCannotPlay("Managed by Vince McMahon"),
+            OpponentCannotPlay("Vince McMahon Interferes!"),
+        ],
+    },
+    scripts: {
+        // Strikes
+        // Approximation: one random Backlash deck card is discarded, Mid-match or not.
+        "Sucker Punch": (before_reversal: [BacklashToRingside(who: You, n: 1, random: true)]),
+        "Gut Punch Body Slam": (
+            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus", "The Fabulous Moolah"],
+            on_play: [
+                If(
+                    condition: FortitudeAboveOpponent,
+                    effects: [
+                        Choice([
+                            [],
+                            [
+                                If(
+                                    condition: HandAtLeast(1),
+                                    effects: [
+                                        Discard(who: You, n: 1, pick: Chosen),
+                                        RemoveFromRing(who: Opponent, n: 1, filter: Not(Maneuver)),
+                                    ],
+                                ),
+                            ],
+                            [
+                                If(
+                                    condition: HandAtLeast(2),
+                                    effects: [
+                                        Discard(who: You, n: 2, pick: Chosen),
+                                        RemoveFromRing(who: Opponent, n: 2, filter: Not(Maneuver)),
+                                    ],
+                                ),
+                            ],
+                            [
+                                If(
+                                    condition: HandAtLeast(3),
+                                    effects: [
+                                        Discard(who: You, n: 3, pick: Chosen),
+                                        RemoveFromRing(who: Opponent, n: 3, filter: Not(Maneuver)),
+                                    ],
+                                ),
+                            ],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+
+        // Grapples
+        "Atomic Spine Buster": (on_play: [Choice([[Mill(who: You, n: 5)], [BacklashToRingside(who: You, n: 30)]])]),
+
+        // Submissions
+        // Approximation: either every Heat card in your hand is discarded or none.
+        "Leg Lock": (
+            play_after: Some(Any),
+            on_play: [
+                Optional([DiscardAll(who: You, filter: Keyword("Heat"))]),
+                RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(Trait(Chain))),
+            ],
+        ),
+
+        // Actions
+        // Cards removed from the game are not supported yet, so only the Ringside half is scripted.
+        "McMahon Family Values": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(AnyOf([Trait(Unique), TitleContains("McMahon")]))),
+            ],
+        ),
+        "Explosion Raw Deal": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller),
+                If(
+                    condition: HandAtLeast(1),
+                    effects: [
+                        Optional([
+                            Discard(who: You, n: 1, pick: Chosen),
+                            DiscardMatching(who: Opponent, n: 1, filter: Action, pick: Controller),
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        // Approximation: either every non-unique non-Maneuver card goes to the Ringside pile or none, and the
+        // Ring ability may take any Maneuver from your Ringside pile, not only the one overturned.
+        "Lethal Library": (
+            on_play: [Optional([MillAll(who: You, filter: All([Not(Maneuver), Not(Trait(Unique))]))])],
+            ring_ability: Some((
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [
+                    MillUntil(who: You, filter: Maneuver),
+                    RingsideToHand(who: You, n: 1, filter: Some(Maneuver)),
+                    NextCardMustBeChosen,
+                ],
+            )),
+        ),
+
+        // Reversals
+        // Approximation: the 2 cards go to the Ringside pile instead of being removed from the game.
+        "The Price We Pay": (
+            reverses: Some((targets: All([Action, Not(Trait(SetUp))]))),
+            in_ring_on_play: [
+                (
+                    filter: All([Action, Not(Trait(SetUp))]),
+                    effects: [
+                        Choice([
+                            [Mill(who: You, n: 2)],
+                            [AsOpponent([RingsideToArsenal(who: You, n: 2, up_to: true)])],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+
+        // Pre-match
+        // Switching Superstar abilities is not supported yet.
+        "White Wedding": (requires: Some(Never), extra_traits: [UniversallyUnique]),
+        "Osaka, Japan": (
+            end_of_prematch: [
+                If(
+                    condition: HandHas(Reversal),
+                    effects: [
+                        Optional([
+                            DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen),
+                            Search(filter: All([Reversal, Not(Trait(Unique))])),
+                        ]),
+                    ],
+                ),
+                AsOpponent([
+                    If(
+                        condition: HandHas(Maneuver),
+                        effects: [
+                            Optional([
+                                DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen),
+                                Search(filter: All([Maneuver, Not(Trait(Unique))])),
+                            ]),
+                        ],
+                    ),
+                ]),
+            ],
+        ),
+        // Removing cards from the game is not supported yet.
+        "I Don't Care About the Heat": (requires: Some(Never)),
+
+        // Mid-match
+        // Putting it back into the Backlash deck (or Ringside pile) from the Ring or Ringside pile to end the turn
+        // is not supported yet.
+        "Change in Programming Lineup": (
+            on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent)],
+        ),
+        // Approximation: it reverses the Mid-match card as it is played, instead of blanking it after it succeeds.
+        // Making an opponent with 15 or more cards discard down to 5 is not supported yet.
+        "The Road to Victory": (
+            on_play: [DiscardThis, Draw(who: You, n: 1)],
+            reverses: Some((targets: All([Trait(MidMatch), Not(Trait(Unique))]))),
+        ),
+        // Approximation: the 10 cards go to the Ringside pile instead of being removed from the game.
+        "Suicide Strike": (
+            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus", "The Fabulous Moolah"],
+            on_play: [Mill(who: You, n: 10)],
+            on_reversed_from_hand: [Mill(who: You, n: 5), Mill(who: Opponent, n: 5)],
+        ),
+        // Removing a maneuver in your Ring from the game to reverse a maneuver of the same type is not supported yet.
+        "Counterproductive Ambitions": (requires: Some(Never)),
+        // Blanking the opponent's Superstar ability when they do not discard 2 cards is not supported yet.
+        "How Important Is It?": (requires: Some(Never)),
+
+        // Vince McMahon
+        // Changing the opponent's Starting Hand Size, Superstar Value and Pre-match/Mid-match limits is not
+        // supported yet.
+        "Master of Promotion": (requires: Some(Never)),
+        "I'm Vincent Kennedy McMahon, Dammit!": (
+            on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
+            reverses: Some((targets: AnyOf([Trait(Unique), SuperstarSpecific]))),
+        ),
+        // Giving the McMahon Pre-match cards a larger Pre-match limit is not supported yet.
+        "The First Family of Professional Wrestling": (
+            end_of_prematch: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Not(Trait(Unique)))])],
+            ring_ability: Some((sacrifice: true, effects: [Search(filter: SuperstarSpecific)])),
+        ),
+        "A Dynasty's Destiny": (
+            bonuses: [(when: Superstar("Vince McMahon"), fortitude: -5)],
+            on_play: [Search(filter: Any)],
+            reverses: Some((
+                targets: Not(ManeuverType(TrademarkFinisher)),
+                fortitude_when: Some((Superstar("Vince McMahon"), 7)),
+            )),
+        ),
+    },
+)

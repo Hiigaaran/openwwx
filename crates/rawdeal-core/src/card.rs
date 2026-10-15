@@ -1093,6 +1093,12 @@ pub fn same_title(a: &str, b: &str) -> bool {
     norm(a) == norm(b)
 }
 
+/// Does a printed keyword trait match `word`? "Volley: 6" matches "Volley".
+pub fn keyword_matches(trait_text: &str, word: &str) -> bool {
+    trait_text.eq_ignore_ascii_case(word)
+        || trait_text.split_once(':').is_some_and(|(head, _)| head.trim().eq_ignore_ascii_case(word))
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1100,5 +1106,12 @@ mod tests {
         assert!(super::same_title("Backlash!", "Backlash"));
         assert!(super::same_title("All the Answers ...", "all the answers..."));
         assert!(!super::same_title("Lock Up", "Lock-Down"));
+    }
+
+    #[test]
+    fn keywords_match_their_numbered_forms() {
+        assert!(super::keyword_matches("Volley: 6", "Volley"));
+        assert!(super::keyword_matches("Heat", "heat"));
+        assert!(!super::keyword_matches("Volleyball", "Volley"));
     }
 }

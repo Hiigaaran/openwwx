@@ -189,7 +189,7 @@ pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
         CardFilter::Trait(t) => def.has_trait(*t),
         CardFilter::DamageAtMost(n) => def.damage <= *n,
         CardFilter::DamageAtLeast(n) => def.damage >= *n,
-        CardFilter::Keyword(w) => def.other_traits.iter().any(|t| t.eq_ignore_ascii_case(w)),
+        CardFilter::Keyword(w) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, w)),
         CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
         CardFilter::SuperstarSpecific => def.superstar.is_some(),
         CardFilter::All(fs) => fs.iter().all(|f| printed_match(def, f)),

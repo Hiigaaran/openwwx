@@ -2507,7 +2507,7 @@ impl Engine {
             CardFilter::TitleContains(word) => def.title.to_lowercase().contains(&word.to_lowercase()),
             CardFilter::Trait(t) => def.has_trait(*t),
             CardFilter::DamageAtMostYourFortitude => def.damage as u16 <= fortitude(),
-            CardFilter::Keyword(word) => def.other_traits.iter().any(|t| t.eq_ignore_ascii_case(word)),
+            CardFilter::Keyword(word) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, word)),
             _ => unreachable!("only printed filters"),
         }
     }

@@ -1,0 +1,25 @@
+// Hand-written scripts for Summerslam Tin cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// The SummerSlam Pay-Per-View Event is skipped by the importer (unknown card type).
+(
+    abilities: {
+        // The 45-card Arsenal is not supported yet.
+        // Approximation: the searched card goes to the opponent's Ringside pile instead of being removed from the game.
+        "The Fabulous Moolah": [
+            CannotPackMatching(All([Maneuver, DamageAtLeast(3)])),
+            Activated(cost: [], effects: [MillChosen(who: Opponent, n: 1)]),
+        ],
+    },
+    scripts: {
+        // Actions
+        // Filtering cards by their printed set logo (Survivor Series) is not supported yet.
+        "That Won't Make the Cut!": (requires: Some(Never)),
+
+        // Mae Young and The Fabulous Moolah
+        // Moving a Backlash deck card from your Ring area to your Backlash deck is not supported yet.
+        "The Older the Berry...": (
+            on_play: [Optional([RingsideToHand(who: You, n: 1)]), Optional([RingsideToBacklash(who: You, n: 1)])],
+        ),
+    },
+)

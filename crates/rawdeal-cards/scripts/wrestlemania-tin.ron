@@ -1,0 +1,27 @@
+// Hand-written scripts for Wrestlemania Tin cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// The WrestleMania Pay-Per-View Event is skipped by the importer (unknown card type).
+(
+    abilities: {
+        // Superstar Value equal to the opponent's and Puppies! Puppies! being Multi are not supported yet.
+        // Approximation: the 3 extra cards of the Starting Hand are drawn at the end of the Pre-match phase.
+        "Jerry Lawler": [
+            EndOfPrematch([If(condition: OpponentFemale, effects: [Draw(who: You, n: 3)])]),
+            Activated(
+                cost: [],
+                effects: [
+                    Search(filter: AnyOf([Title("Piledriver"), Title("Puppies! Puppies!"), Title("Falling Fist")])),
+                ],
+            ),
+            CannotPlayMatching(Title("The King Interferes!")),
+            OpponentCannotPlay("The King Interferes!"),
+        ],
+    },
+    scripts: {
+        // Actions
+        "Absolutely Raw": (on_play: [Search(filter: All([Trait(Raw), Not(Trait(Unique))]), n: 2, up_to: true)]),
+        // Cards removed from the game, and coming back from the Ringside pile, are not supported yet.
+        "Ultimate Smackdown!": (requires: Some(Never)),
+    },
+)
