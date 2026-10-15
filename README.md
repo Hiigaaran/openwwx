@@ -2,8 +2,8 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded y Backlash con
-sus efectos programados. El diseño completo está en
+Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded, Backlash y
+Survivor Series con sus efectos programados. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -93,6 +93,8 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Superstars, cartas que solo ciertas Superstars pueden (o no pueden) llevar, Hand Size según el Superstar Value
   rival (Edge), habilidades una vez por partida y las de las 10 Superstars nuevas, cartas Pre-match y Mid-match del
   set (incluida la que anula la próxima carta Pre-match del rival).
+- Survivor Series: Cactus Jack, Deadman Inc y sus 10 cartas, y Stephanie Interferes (Triple H), que no puede ir en
+  el mismo mazo que Chyna Interferes.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -133,6 +135,9 @@ Boyz (sus Foreign Objects siguen siendo Heel), Crucifix Rollup (el pin solo como
 (Maintain Hold), Blown Spot (el -#F), Lita to the Xtreme (seguir el turno tras un Reversal), Swanton Bomb (buscarla
 como High Risk), Con-Chair-To (solo si la revierten desde la mano) y Captive Tag Out (sin compañero). Adrenaline Rush,
 Study the Tapes, Student of the Sport y Big Slide Into the Ring están simplificadas.
+
+Survivor Series: todas sus cartas se juegan. Dead Man Walking manda 4 cartas del Arsenal rival al Ringside sin
+contarlas como daño.
 
 ## Cartas y arte
 

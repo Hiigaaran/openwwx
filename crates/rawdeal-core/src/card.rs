@@ -310,6 +310,9 @@ pub struct CardScript {
     /// These Superstars cannot pack the card.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub not_packed_by: Vec<String>,
+    /// Cards with these titles cannot share a deck with this card.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_with: Vec<String>,
     /// While in your Ring: effects when a matching card is successfully played.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub in_ring_on_play: Vec<RingTrigger>,

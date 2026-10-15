@@ -54,6 +54,11 @@ pub enum DeckProblem {
     Forbidden {
         card: String,
     },
+    /// Two cards that cannot share a deck.
+    Exclusive {
+        card: String,
+        other: String,
+    },
 }
 
 const CONFLICTS: [(Trait, Trait); 3] =
@@ -144,6 +149,17 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
             }
             Some(_) => {}
             None => present.extend(def.traits.iter().copied()),
+        }
+    }
+    for id in deck.arsenal.iter().chain(&deck.backlash) {
+        let Some(def) = db.card_by_id(id).map(|i| db.card(i)) else { continue };
+        for other in &def.script.not_with {
+            if per_title.contains_key(&other.to_lowercase()) {
+                let problem = DeckProblem::Exclusive { card: def.title.clone(), other: other.clone() };
+                if !problems.contains(&problem) {
+                    problems.push(problem);
+                }
+            }
         }
     }
     let both = superstar.is_some_and(|s| s.abilities.contains(&Ability::PackBothAlignments));

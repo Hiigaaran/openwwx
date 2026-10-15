@@ -112,7 +112,14 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
         let mut arsenal = Vec::new();
         let mut titles = std::collections::HashSet::new();
         for card in own.clone().chain(generic.clone().filter(|c| !c.has_trait(avoid) && !c.has_trait(Trait::SetUp))) {
-            if !titles.insert(card.title.to_lowercase()) {
+            let excluded = |t: &str| {
+                card.script.not_with.iter().any(|o| o.eq_ignore_ascii_case(t))
+                    || db.cards().iter().any(|c| {
+                        c.title.eq_ignore_ascii_case(t)
+                            && c.script.not_with.iter().any(|o| o.eq_ignore_ascii_case(&card.title))
+                    })
+            };
+            if titles.iter().any(|t: &String| excluded(t)) || !titles.insert(card.title.to_lowercase()) {
                 continue;
             }
             let copies = if card.has_trait(Trait::Unique) { 1 } else { 3 };

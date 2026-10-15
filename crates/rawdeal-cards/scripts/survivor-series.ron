@@ -1,0 +1,57 @@
+// Hand-written scripts for Survivor Series cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        "Cactus Jack": [DrawSegment(2), ReduceDamage(1)],
+        "Deadman Inc": [
+            Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)]),
+        ],
+    },
+    scripts: {
+        // Cactus Jack
+        "Cactus's Double Arm DDT": (bonuses: [(when: InYourRing(Title("Barbed Wire Baseball Bat")), fortitude: -6)]),
+        "Cactus Clothesline": (reverses: Some((targets: ManeuverType(Strike)))),
+        "Bang! Bang!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                on_reverse: [DiscardAll(who: Opponent, filter: Any)],
+            )),
+        ),
+        "Barbed Wire Baseball Bat": (
+            on_play: [Choice([[Search(filter: Any)], [RingsideToHand(who: You, n: 1), Shuffle(who: You)]])],
+            while_in_ring: [(applies_to: All([Maneuver, PlayerRingHas(filter: Title("Mr. Socko"), n: 1)]), damage: 1)],
+        ),
+
+        // Deadman Inc
+        "Old School Clothesline": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            bonuses: [(reversal_damage: 6)],
+        ),
+        "Dead Man Walking": (
+            reverses: Some((
+                targets: Maneuver,
+                effects: [
+                    Mill(who: Opponent, n: 4),
+                    Discard(who: Opponent, n: 1, pick: Chosen),
+                    Boost((applies_to: Maneuver, duration: NextTurn, damage: 2)),
+                    Boost((applies_to: Any, duration: NextTurn, reversal_fortitude: 25)),
+                ],
+            )),
+        ),
+        "I'll Make You Famous": (on_play: [Search(filter: Any, n: 6, up_to: true), Mill(who: You, n: 255)]),
+        "This Is My Yard": (
+            on_play: [
+                Boost((applies_to: Maneuver, duration: ThisTurn, damage: 5)),
+                Boost((applies_to: Any, duration: ThisTurn, reversal_fortitude: 20)),
+            ],
+        ),
+        "The Last Ride": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+
+        // Triple H
+        "Stephanie Interferes": (
+            reverses: Some((targets: Maneuver, on_reverse: [Draw(who: You, n: 2)])),
+            not_with: ["Chyna Interferes"],
+        ),
+    },
+)

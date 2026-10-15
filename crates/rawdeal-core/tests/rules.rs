@@ -634,3 +634,13 @@ fn backlash_deck_rules() {
     deck.backlash.extend(["test/pyro", "test/pyro", "test/chair", "test/chair"].map(String::from));
     assert!(validate_deck(&db, &deck).contains(&DeckProblem::TooManyPreMatch(11)));
 }
+
+#[test]
+fn exclusive_cards_cannot_share_a_deck() {
+    let mut set = rawdeal_cards::test_set();
+    let jab = set.cards.iter_mut().find(|c| c.id == "test/jab").unwrap();
+    jab.script.not_with = vec!["Lock Up".into()];
+    let db = rawdeal_cards::build_db([set]).unwrap();
+    let deck = rawdeal_cards::test_deck(TECH);
+    assert!(validate_deck(&db, &deck).iter().any(|p| matches!(p, DeckProblem::Exclusive { .. })));
+}
