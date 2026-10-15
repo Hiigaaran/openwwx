@@ -1,0 +1,861 @@
+// Hand-written scripts for Backlash cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        "Dudley Boyz": [
+            Activated(cost: [], effects: [Search(filter: Keyword("Foreign Object"))], once_per_game: true),
+        ],
+        "Buh-Buh Ray Dudley": [
+            DrawSegmentOption([DrawRingCards(less: 2), AtEndOfTurn([DiscardAll(who: You, filter: Any)])]),
+        ],
+        "D-Von Dudley": [
+            OnPlayMatching(filter: Maneuver, effects: [Optional([Draw(who: You, n: 1)])]),
+            OpponentCannotPlay("Brotherly Love"),
+        ],
+        // Replacing discards with draws is not supported yet.
+        "Edge and Christian": [],
+        // Starting after the Pre-match phase and the You Think You Know Me? part are not supported yet.
+        "Edge": [
+            HandSizeFromOpponentValue(times: 2, min: 6),
+            OnPlay(title: "Faceplant", effects: [Optional([RingsideToArsenal(who: You, n: 4, up_to: true)])]),
+        ],
+        "Christian": [BlankOpponentCardDraws],
+        "Hardy Boyz": [
+            Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: ManeuverType(HighRisk))]),
+        ],
+        "Matt Hardy": [
+            OnPlayMatching(filter: ManeuverType(HighRisk), effects: [RingsideToArsenal(who: You, n: 6, up_to: true)]),
+        ],
+        "Jeff Hardy": [
+            OnPlayMatching(
+                filter: ManeuverType(HighRisk),
+                effects: [Choice([[], [Draw(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]])],
+            ),
+        ],
+        "Right to Censor": [
+            ReverseByDiscardingAny(AnyOf([All([Action, Trait(Face)]), All([Action, Trait(Heel)])])),
+            Activated(cost: [], effects: [BuryHand(who: You, then: Draw)]),
+            CannotPackTrait(Face),
+            CannotPackTrait(Heel),
+        ],
+    },
+    scripts: {
+        // High Risk
+        "Flying Head Scissors": (
+            play_after: Some(All([Maneuver, DamageAtLeast(3)])),
+            play_after_unless: Some(
+                All([
+                    AnyOf([
+                        Superstar("Eddie Guerrero"),
+                        Superstar("Hardy Boyz"),
+                        Superstar("Matt Hardy"),
+                        Superstar("Jeff Hardy"),
+                    ]),
+                    After(All([Maneuver, DamageAtLeast(2)])),
+                ]),
+            ),
+            on_play: [Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, reversal_fortitude: 8))],
+        ),
+        "Big Splash in the Corner": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            bonuses: [(reversal_damage: 2)],
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        "Flying Clothesline": (play_after: Some(Title("From the Top Rope")), on_play: [Mill(who: You, n: 1)]),
+        "Drive Opponent Thru Announcer's Table!": (
+            play_after: Some(
+                AnyOf([
+                    Title("Roll Out of the Ring"),
+                    Title("Throw Opponent Out of the Ring"),
+                    Title("Announcer's Table"),
+                    Title("Baseball Slide"),
+                    Title("Giant Swing"),
+                    Title("Suicide Plancha"),
+                    All([Maneuver, After(Title("Irish Whip"))]),
+                ]),
+            ),
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+        ),
+        // The pinfall only happens when played as a maneuver.
+        "Crucifix Rollup": (
+            play_after: Some(Maneuver),
+            after_damage: [If(condition: OpponentArsenalAtMost(5), effects: [WinByPin])],
+            reverses: Some((
+                targets: AnyOf([Title("Fireman's Carry"), Title("Samoan Drop"), After(Title("Irish Whip"))]),
+            )),
+        ),
+
+        // Strikes
+        "Chop to the Chest": (
+            on_play: [
+                Boost((applies_to: Maneuver, duration: NextCard, damage: 1, reversal_fortitude: 1)),
+                If(condition: Superstar("Chris Benoit"), effects: [Optional([Search(filter: Title("Chop to the Chest"))])]),
+            ],
+        ),
+        "Slap the Taste Out of Your Mouth": (
+            requires: Some(FortitudeBelowOpponent),
+            not_reversed_by: Some(Title("Elbow to the Face")),
+            on_play: [Optional([Search(filter: Title("Shake It Off"))])],
+        ),
+        "Leg Sweep": (reverses: Some((targets: AnyOf([Title("Double Leg Takedown"), Title("European Uppercut")])))),
+        "Struck by a Kendo Stick": (
+            not_reversed_by: Some(
+                AnyOf([Title("Elbow to the Face"), Title("Double Digits"), Title("Triple H's Reverse Neck Breaker")]),
+            ),
+        ),
+        "Pop the Guy On the Apron": (requires: Some(Never)),
+        "Running Lariat": (
+            not_reversed_by: Some(Title("Elbow to the Face")),
+            bonuses: [(reversal_damage: 2)],
+            on_reversed_from_hand: [
+                BoostOpponent((applies_to: Maneuver, duration: NextTurnFirstCard, irreversible: true)),
+            ],
+        ),
+        "Garbage Can Lid": (
+            reverses: Some((targets: Not(Any))),
+            reverses_from_ring: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                damage: Fixed(3),
+                fortitude: Some(0),
+            )),
+        ),
+        "Stun Gun": (
+            play_after: Some(Title("Irish Whip")),
+            after_damage: [Search(filter: Title("Hung Out to Dry"))],
+            reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]), from_hand_only: true)),
+        ),
+        "Hung Out to Dry": (
+            play_after: Some(ManeuverType(Strike)),
+            bonuses: [(when: After(Title("Stun Gun")), reversal_fortitude: 15)],
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+        ),
+        "Running Clothesline": (no_hand_reversal: true, irreversible_when: Some(Not(After(Title("Irish Whip"))))),
+
+        // Grapples
+        "Scoop Slam": (on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)]),
+        "Leg Drag": (reverses: Some((targets: AnyOf([Title("Kick"), Title("Superkick"), Title("Spinning Heel Kick")])))),
+        "Neck Breaker": (
+            on_play: [
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                If(
+                    condition: OpponentSuperstar("Stone Cold Steve Austin"),
+                    effects: [Optional([LookAtHand(who: Opponent)])],
+                ),
+            ],
+            reverses: Some((targets: Title("Back Body Drop"))),
+        ),
+        "Rib Breaker": (on_play: [Optional([Search(filter: Title("Power Slam"))])]),
+        "Tiger Bomb": (
+            on_play: [
+                Optional([
+                    Discard(who: You, n: 2, pick: Chosen),
+                    Boost((applies_to: Any, duration: NextCard, irreversible: true)),
+                ]),
+            ],
+        ),
+        "Single Arm DDT": (after_damage: [Search(filter: Title("DDT")), NextCardMustBe(Title("DDT"))]),
+        "Tandem Atomic Drop": (requires: Some(Never)),
+        "Brainbuster": (
+            on_play: [
+                If(
+                    condition: OpponentSuperstar("Stone Cold Steve Austin"),
+                    effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+                ),
+            ],
+        ),
+        "Spine Buster": (
+            on_play: [
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                If(condition: Superstar("The Rock"), effects: [Search(filter: Title("The People's Elbow"), ringside: true)]),
+            ],
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+        "Workin' on the Knee": (
+            play_after: Some(Maneuver),
+            on_play: [
+                Optional([
+                    RingsideToHand(
+                        who: You,
+                        n: 1,
+                        filter: Some(AnyOf([Title("Knee Breaker"), Title("Stump Puller"), Title("Figure Four Leg Lock")])),
+                    ),
+                ]),
+            ],
+        ),
+        "Half Hour Suplex": (before_reversal: [DiscardForDamage(per: 2)]),
+        // Not being able to play Maintain Hold right after it is not enforced.
+        "Clutch onto Opponent": (only_reversed_by_title: true),
+        "Captive Tag Out": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+        "Arm Wrench": (bonuses: [(per: Some(All([Maneuver, TitleContains("Arm")])), damage: 1)]),
+        "Entangle In the Ropes": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [Optional([Draw(who: You, n: 1)]), Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        "Apply Illegal Leverage": (play_after: Some(ManeuverType(Submission)), on_play: [RepeatPreviousEffects]),
+        "Texas Cloverleaf": (
+            bonuses: [(when: Superstar("Dean Malenko"), fortitude: -2, damage: 1)],
+            on_play: [Search(filter: Title("Maintain Hold"))],
+        ),
+        "Microphone Cord": (
+            play_after: Some(AnyOf([Title("Throw Opponent Out of the Ring"), Title("Giant Swing"), Title("Announcer's Table")])),
+            on_play: [
+                Search(filter: Title("Maintain Hold")),
+                Boost((applies_to: Any, duration: NextCard, irreversible: true)),
+            ],
+        ),
+        "Sharpshooter": (
+            bonuses: [(when: Superstar("The Rock"), fortitude: -2)],
+            on_play: [
+                Search(filter: Title("Maintain Hold")),
+                Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
+                If(condition: Superstar("The Rock"), effects: [Optional([Draw(who: You, n: 1)])]),
+            ],
+        ),
+
+        // Reversals
+        "Clumsy Opponent": (
+            reverses: Some((targets: All([Maneuver, DamageAtMost(4)]), effects: [Optional([Draw(who: You, n: 1)])])),
+        ),
+        "No Sell Maneuver": (
+            only_packed_by: [
+                "Stone Cold Steve Austin", "Undertaker", "Deadman Inc", "Kane", "Two Man Power Trip", "Big Show",
+                "Al Snow", "Hollywood Hulk Hogan", "Brock Lesnar", "The Rattlesnake", "Big Poppa Pump",
+                "Gene Snitsky", "Heidenreich",
+            ],
+            reverses: Some((
+                targets: Maneuver,
+                from_hand_only: true,
+                effects: [Discard(who: You, n: 2, pick: Chosen)],
+            )),
+        ),
+        // Played after a maneuver succeeds, outside the reversal window: not supported yet.
+        "Over Sell Maneuver": (
+            not_packed_by: [
+                "Stone Cold Steve Austin", "Undertaker", "Deadman Inc", "Kane", "Tazz", "Two Man Power Trip",
+                "The Rattlesnake", "Big Poppa Pump", "Gene Snitsky", "Heidenreich",
+            ],
+            reverses: Some((targets: Not(Any))),
+        ),
+        "Kissing Up to the Stinkin' Fans": (
+            reverses: Some((
+                targets: All([
+                    Action,
+                    Trait(Face),
+                    AnyOf([
+                        EarlierThisTurn(filter: All([Action, Trait(Face)]), n: 1),
+                        PlayerRingHas(filter: Trait(Face), n: 5),
+                    ]),
+                ]),
+                effects: [Search(filter: Any)],
+            )),
+        ),
+        "Hey! That's Cheap Heat!": (
+            reverses: Some((
+                targets: All([
+                    Action,
+                    Trait(Heel),
+                    AnyOf([
+                        EarlierThisTurn(filter: All([Action, Trait(Heel)]), n: 1),
+                        PlayerRingHas(filter: Trait(Heel), n: 5),
+                    ]),
+                ]),
+                effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            )),
+        ),
+        // The -#F on your next turn is not supported yet.
+        "Blown Spot": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]),
+                requires: Some(FortitudeAtMostOpponent),
+            )),
+        ),
+
+        // Actions
+        "Charismatic Style": (
+            on_play: [
+                If(
+                    condition: Not(Superstar("Kurt Angle")),
+                    effects: [RingsideToHand(who: You, n: 1, filter: Some(All([AnyOf([Action, Maneuver]), Not(Trait(Unique))])))],
+                ),
+                If(
+                    condition: Superstar("Kurt Angle"),
+                    effects: [RingsideToHand(who: You, n: 1, filter: Some(AnyOf([Action, Maneuver])))],
+                ),
+                NextCardMustBeChosen,
+            ],
+        ),
+        "Set Him Up": (
+            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver)])),
+            on_play: [Optional([Search(filter: All([Maneuver, Not(Trait(Unique))]))])],
+        ),
+        "Great Technical Knowledge": (
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        ManeuverType(Submission),
+                        Not(AnyOf([PlayedBy("Kurt Angle"), PlayedBy("Chris Benoit")])),
+                    ]),
+                    damage: 1,
+                ),
+                (
+                    applies_to: All([ManeuverType(Submission), AnyOf([PlayedBy("Kurt Angle"), PlayedBy("Chris Benoit")])]),
+                    damage: 3,
+                ),
+            ],
+        ),
+        "Turn the Match into a Pier Six Brawl": (
+            bonuses: [(when: AnyOf([Superstar("Rikishi"), Superstar("X-Pac")]), fortitude: -4)],
+            on_play: [Draw(who: You, n: 1)],
+            while_in_ring: [(applies_to: ManeuverType(Strike), damage: 2)],
+        ),
+        "Amazing Display of Power": (
+            on_play: [Draw(who: You, n: 1)],
+            while_in_ring: [(applies_to: ManeuverType(Grapple), damage: 3)],
+        ),
+        // Approximation: you choose the 7 cards; your opponent does not pick the 3 that stay.
+        "Adrenaline Rush": (on_play: [RingsideToArsenal(who: You, n: 7, up_to: true)]),
+        "Let's Take it Home!": (
+            extra_traits: [UniversallyUnique],
+            while_in_ring_all: [(applies_to: Maneuver, damage: 2)],
+            in_ring_on_play: [(filter: Maneuver, effects: [Optional([Draw(who: You, n: 1)])])],
+        ),
+        "Drawing Extra Heat": (
+            requires: Some(SuperstarValueAtMost(3)),
+            on_play: [
+                Optional([Draw(who: You, n: 1)]),
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                Mill(who: Opponent, n: 1),
+            ],
+        ),
+        "Well-Deserved Push": (
+            requires: Some(SuperstarValueAtMost(2)),
+            on_play: [Choice([[RingsideToArsenal(who: You, n: 4, up_to: true)], [RingsideToBacklash(who: You, n: 1)]])],
+        ),
+        "Propel Partner": (requires: Some(Never)),
+        "Ladder In the Ring": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [
+                If(
+                    condition: AnyOf([Superstar("Hardy Boyz"), Superstar("Matt Hardy"), Superstar("Jeff Hardy")]),
+                    effects: [Optional([RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(HighRisk)))])],
+                ),
+            ],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Boost((
+                        applies_to: ManeuverType(HighRisk),
+                        duration: NextMatching,
+                        damage: 6,
+                        stun_value: 2,
+                        reversal_damage: 4,
+                    )),
+                ],
+            )),
+        ),
+        "Giving Away the Business": (
+            as_action: Some((on_play: [Search(filter: Any), RevealHand(who: You)])),
+            reverses: Some((targets: All([Action, Draws]))),
+        ),
+        "Heel Turn": (
+            requires: Some(Not(OpponentSuperstar("Kurt Angle"))),
+            on_play: [
+                LookAtHand(who: Opponent),
+                If(
+                    condition: OpponentHandHas(Trait(Face)),
+                    effects: [
+                        DiscardAll(who: Opponent, filter: Trait(Face)),
+                        Optional([MillAll(who: Opponent, filter: Trait(Face))]),
+                    ],
+                ),
+                If(condition: Not(OpponentHandHas(Trait(Face))), effects: [DiscardAll(who: You, filter: Any)]),
+            ],
+        ),
+        // Continuing the turn after a reversal is not supported yet.
+        "Lita to the Xtreme": (
+            requires: Some(All([Not(Superstar("Lita")), Not(OpponentSuperstar("Lita"))])),
+            on_play: [
+                Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, ignore_play_after: true)),
+                NextCardMustBe(ManeuverType(HighRisk)),
+            ],
+        ),
+        "You're Not in My League": (
+            requires: Some(RingStunValueGreater),
+            on_play: [
+                LookAtHand(who: Opponent),
+                Discard(who: Opponent, n: 2, pick: Controller),
+                DrawUpTo(who: You, n: 2),
+            ],
+        ),
+        "Busted Wide Open": (
+            requires: Some(All([LastPlayedThisTurn(filter: All([ManeuverType(Strike), DamageAtLeast(5)]), n: 2), Not(OpponentFemale)])),
+            irreversible: true,
+            on_play: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 2, pick: Controller)],
+            in_ring_opponent_start_of_turn: [Mill(who: You, n: 2)],
+        ),
+        "Seeing Stars": (
+            requires: Some(RingStunValueGreater),
+            on_play: [Search(filter: All([Maneuver, Not(Trait(Unique)), StunValueAtLeast(1)]), n: 2)],
+        ),
+        "Announcer's Table": (
+            play_after: Some(
+                AnyOf([
+                    Title("Roll Out of the Ring"),
+                    Title("Throw Opponent Out of the Ring"),
+                    Title("Baseball Slide"),
+                    Title("Giant Swing"),
+                    Title("Suicide Plancha"),
+                    All([Maneuver, After(Title("Irish Whip"))]),
+                ]),
+            ),
+            on_play: [
+                RingsideToHand(who: You, n: 1, filter: Some(Maneuver)),
+                Boost((
+                    applies_to: AnyOf([Title("Drive Opponent Thru Announcer's Table!"), Title("Piledriver")]),
+                    duration: NextCard,
+                    damage: 5,
+                    reversal_fortitude: 20,
+                )),
+            ],
+        ),
+        "I'm Gonna Put You Through the Ring": (
+            irreversible: true,
+            on_play: [
+                Boost((applies_to: All([ManeuverType(Grapple), DamageAtLeast(10)]), duration: NextCard, double_damage: true)),
+            ],
+        ),
+        "Watching My Back": (
+            on_play: [Optional([BacklashToRingside(who: Opponent, n: 1), BacklashToRingside(who: You, n: 1)])],
+        ),
+
+        // Pre-match Events
+        // Approximation: the opponent shows the starting hand once instead of keeping it face up.
+        "Study the Tapes": (on_play: [Mill(who: You, n: 4)], end_of_prematch: [RevealHand(who: Opponent)]),
+        // Approximation: the Mid-match use only looks at the opponent's hand.
+        "Student of the Sport": (
+            on_play: [Mill(who: You, n: 2)],
+            ring_ability: Some((sacrifice: true, effects: [LookAtHand(who: Opponent)])),
+        ),
+        "Awesome Pyro!": (
+            end_of_prematch: [
+                SacrificeThis,
+                Optional([
+                    ShuffleHandAndRedraw(who: You),
+                    If(
+                        condition: AnyOf([
+                            Superstar("Kane"),
+                            Superstar("Chris Jericho"),
+                            Superstar("Chyna"),
+                            Superstar("Kurt Angle"),
+                            Superstar("Dudley Boyz"),
+                            Superstar("Buh-Buh Ray Dudley"),
+                            Superstar("D-Von Dudley"),
+                            Superstar("Christian"),
+                            Superstar("Booker T"),
+                            Superstar("The Big Freak'n Machine"),
+                            Superstar("Rey Mysterio"),
+                        ]),
+                        effects: [Draw(who: You, n: 1)],
+                    ),
+                ]),
+            ],
+        ),
+        "Givin' 'em High Fives": (on_play: [Mill(who: You, n: 5)], end_of_prematch: [RingsideToHand(who: You, n: 1)]),
+        "Taunt the Fans": (
+            end_of_prematch: [
+                Optional([Search(filter: Not(Trait(Unique))), Discard(who: You, n: 1, pick: Random)]),
+            ],
+        ),
+        "Fans Love an Underdog": (
+            end_of_prematch: [If(condition: Not(SuperstarValueAtMostOpponent), effects: [SacrificeThis])],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Draw(who: You, n: 1), Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 8))],
+            )),
+        ),
+        "Trash Talkin' Interview": (
+            ring_ability: Some((sacrifice: true, effects: [RingsideToArsenal(who: You, n: 4)])),
+        ),
+        "Jump the Bell": (requires: Some(Never)),
+        "Old School Wrestling Match": (on_play: [BlankNextPreMatch(who: Opponent)]),
+        "Here a Mark, There a Mark, Everywhere a Mark Mark...": (
+            requires: Some(SuperstarValueAtLeast(5)),
+            ring_ability: Some((sacrifice: true, effects: [Choice([[Arrange(who: You, n: 5)], [Shuffle(who: You)]])])),
+        ),
+        "Underrated Superstar": (
+            requires: Some(Not(Superstar("Tazz"))),
+            end_of_prematch: [
+                If(condition: SuperstarValueAtMost(2), effects: [Draw(who: You, n: 3)]),
+                If(condition: Not(SuperstarValueAtMostOpponent), effects: [Discard(who: You, n: 1, pick: Chosen)]),
+            ],
+        ),
+
+        // Mid-match cards
+        "Backlash!": (
+            reverses: Some((
+                targets: All([
+                    AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                    EarlierThisTurn(filter: Maneuver, n: 1),
+                ]),
+                requires: Some(FortitudeBelowOpponent),
+            )),
+        ),
+        "Dirty Low Blow": (requires: Some(FortitudeBelowOpponent), no_hand_reversal: true),
+        "Small Concealed Foreign Object": (
+            play_after: Some(ManeuverType(Strike)),
+            on_play: [Draw(who: You, n: 1)],
+            while_in_ring: [(applies_to: ManeuverType(Strike), damage: 1)],
+            in_ring_on_play: [(whose: Some(You), filter: All([Maneuver, Not(ManeuverType(Strike))]), effects: [SacrificeThis])],
+        ),
+        "Armageddon WWF Style": (
+            requires: Some(FortitudeAtMostOpponent),
+            bonuses: [(when: AnyOf([Superstar("Undertaker"), Superstar("Kane")]), fortitude: -10)],
+            on_play: [ClearRing(who: You), ClearRing(who: Opponent), Optional([Draw(who: You, n: 1)])],
+        ),
+        "Per Order of the Chairman": (
+            restricts_opponent: Some((
+                filter: AnyOf([
+                    Title("No Chance in Hell"),
+                    Title("Borrring ... Borrring ...!!!"),
+                    Title("Giving Away the Business"),
+                    Title("Again With This Crap!?!?!"),
+                    Title("V.K.M.'s Patented Big Gulp"),
+                ]),
+            )),
+        ),
+        "Spectacular Ring Entrance!": (
+            requires: Some(All([FirstTurnOfGame, FirstCardThisTurn])),
+            on_play: [Mulligan(n: 4)],
+        ),
+        "When You Thought You Had All the Answers ...": (
+            reverses: Some((
+                targets: ManeuverType(TrademarkFinisher),
+                requires: Some(Not(InYourRing(ManeuverType(TrademarkFinisher)))),
+                ignores_irreversible: true,
+                reversed_to_arsenal: true,
+                effects: [DrawUpTo(who: Opponent, n: 1)],
+            )),
+        ),
+        "Referee Finally Catches Something!": (reverses: Some((targets: Trait(Heel)))),
+        // Title Belts are not in the card sets yet.
+        "Don't Mess with the Champ!": (requires: Some(Never)),
+        "Fully Loaded!": (
+            bonuses: [(when: FortitudeBelowOpponent, fortitude: -7)],
+            on_play: [
+                Choice([
+                    [RingsideToArsenal(who: You, n: 4, up_to: true, filter: Some(Reversal))],
+                    [If(condition: Not(HandAtLeast(1)), effects: [DrawUpTo(who: You, n: 4)])],
+                ]),
+            ],
+        ),
+        "Again With This Crap!?!?!": (
+            reverses: Some((
+                targets: All([AnyOf([Maneuver, Action]), Not(Trait(SetUp)), SameTitleInRing]),
+                requires: Some(FortitudeBelowOpponent),
+            )),
+        ),
+        "No Mercy!": (
+            play_after: Some(Maneuver),
+            requires: Some(FortitudeAboveOpponent),
+            on_play: [Boost((applies_to: Maneuver, duration: NextCard, irreversible: true))],
+        ),
+
+        // Dudley Boyz
+        "3D": (
+            play_after: Some(Title("Irish Whip")),
+            reverses: Some((
+                targets: AnyOf([Title("Irish Whip"), ManeuverType(Strike), ManeuverType(Grapple)]),
+                from_hand_only: true,
+            )),
+        ),
+        "Wazzzzuuup?!?!?": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            irreversible: true,
+            on_play: [
+                Optional([Draw(who: You, n: 1)]),
+                If(condition: After(TitleContains("slam")), effects: [Optional([Search(filter: Any)])]),
+            ],
+        ),
+
+        // Buh-Buh Ray Dudley
+        "Buh-Buh Bomb": (
+            requires: Some(
+                AnyOf([
+                    InYourRing(Title("Table! Table! Table!")),
+                    UsedRingCardThisTurn(Title("Table! Table! Table!")),
+                ]),
+            ),
+            reverses: Some((targets: ManeuverType(HighRisk))),
+        ),
+        "Catatonic Stare": (on_play: [BuryHand(who: You, then: SearchHalf)]),
+        "My Name Is...": (
+            on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), Choice([[EndTurn], [DrawUpTo(who: Opponent, n: 1)]])],
+        ),
+        "Buh-Buh Drop": (
+            on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)],
+            reverses: Some((targets: ManeuverType(Strike))),
+        ),
+        "Buh-Buh Punch": (
+            on_play: [Boost((applies_to: ManeuverType(Grapple), duration: NextCard, irreversible: true))],
+            reverses: Some((targets: ManeuverType(Strike))),
+        ),
+
+        // D-Von Dudley
+        "Testify!": (on_play: [RingsideToHand(who: You, n: 5, up_to: true), SkipNextTurn(who: Opponent)]),
+        "Spinning Elbow": (
+            play_after: Some(Maneuver),
+            reverses: Some((
+                targets: All([
+                    Maneuver,
+                    AnyOf([After(Title("Irish Whip")), After(Title("Throw Into the Corner Turnbuckle"))]),
+                ]),
+            )),
+        ),
+        "Doin' the D-Von": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                effects: [DiscardHandAndDraw(min: 4)],
+            )),
+        ),
+        "Thou Shall Not #### With the Dudleyz!": (reverses: Some((targets: ForcesDiscard))),
+        "D-Von ... Get the Table!": (
+            on_play: [
+                Search(filter: Title("Table! Table! Table!")),
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 2, filter: Reversal, pick: Controller),
+            ],
+        ),
+
+        // Edge and Christian
+        "Con-Chair-To": (
+            not_reversed_by: Some(Title("When You Thought You Had All the Answers ...")),
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [Discard(who: Opponent, n: 3, pick: Chosen)],
+            on_reversed_from_hand: [
+                BoostOpponent((applies_to: Any, duration: NextTurnFirstCard, irreversible: true)),
+            ],
+        ),
+        "For the Benefit of Those with Flash Photography...": (
+            on_play: [
+                Optional([Draw(who: You, n: 1)]),
+                Boost((applies_to: All([Maneuver, DamageAtMost(4)]), duration: NextCards(2), irreversible: true)),
+            ],
+        ),
+
+        // Edge
+        "Edge-O-Matic": (reverses: Some((targets: ManeuverType(Strike)))),
+        "Million Dollar Smile": (
+            on_play: [If(condition: OpponentHandLarger, effects: [DrawUpTo(who: You, n: 3)])],
+            ring_ability: Some((
+                not_turn_played: true,
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
+            )),
+        ),
+        // Approximation: the +2 starting hand is drawn at the end of the Pre-match phase.
+        "Big Slide Into the Ring": (
+            end_of_prematch: [Draw(who: You, n: 2), SacrificeThis],
+            as_action: Some((requires: Some(After(Title("Roll Out of the Ring"))), on_play: [DrawUpTo(who: You, n: 4)])),
+        ),
+        "Listen, You Reekazoid!": (requires: Some(OpponentHandLarger), on_play: [DrawToMatchOpponent]),
+        "Sodas Rule!": (on_play: [RingsideToArsenalCount(who: You, count: HandPlus(2))]),
+
+        // Christian
+        "Unprettier": (reverses: Some((targets: ManeuverType(Grapple)))),
+        "Kazoo Theme Songs": (on_play: [RingsideToArsenalCount(who: You, count: OpponentValueTimes(2))]),
+        "Christian's Shades": (
+            reverses_from_ring: Some((targets: Action, fortitude: Some(0), effects: [Draw(who: You, n: 1)])),
+        ),
+        "This Is So Totally Unfair!": (
+            reverses: Some((
+                targets: Maneuver,
+                requires: Some(FortitudeBelowOpponent),
+                effects: [Optional([Draw(who: You, n: 1)])],
+            )),
+        ),
+        "Greetings to Our Fans In ... Where the Hell Are We?": (
+            on_play: [DrawUpTo(who: You, n: 4), RingsideToArsenal(who: You, n: 1)],
+        ),
+
+        // Hardy Boyz
+        "Poetry in Motion": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 4, pick: Chosen)],
+        ),
+        "Spin Cycle": (
+            play_after: Some(All([Maneuver, DamageAtLeast(2)])),
+            reverses: Some((targets: All([Maneuver, After(Title("Throw Into the Corner Turnbuckle"))]))),
+        ),
+
+        // Matt Hardy
+        "Twist of Fate": (reverses: Some((targets: ManeuverType(Grapple)))),
+        "Matt's Moonsault": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_reversed_from_hand: [Discard(who: You, n: 2, pick: Chosen), DrawUpTo(who: Opponent, n: 2)],
+        ),
+        "Roar for the Fans": (
+            bonuses: [(when: InYourRing(Title("Mattitude Adjustment")), fortitude: -3)],
+            on_play: [Draw(who: You, n: 2), Boost((applies_to: Maneuver, duration: NextCard, damage: 3))],
+        ),
+        "Matt Hardy's Patented Leg Drop": (
+            irreversible: true,
+            play_after: Some(All([Maneuver, DamageAtLeast(2)])),
+            on_play: [Optional([Draw(who: You, n: 1)])],
+        ),
+        "Put It All On the Line": (
+            ring_ability: Some((
+                requires: Some(After(Maneuver)),
+                sacrifice: true,
+                effects: [
+                    NextPlayWatch(
+                        filter: ManeuverType(HighRisk),
+                        on_success: [ShuffleRingsideIntoArsenal(who: You)],
+                        on_reversed: [Discard(who: You, n: 4, pick: Chosen)],
+                    ),
+                ],
+            )),
+        ),
+
+        // Jeff Hardy. Searching and playing Swanton Bomb as a High Risk maneuver is not supported yet.
+        "Swanton Bomb": (
+            play_after: Some(All([Maneuver, DamageAtLeast(3)])),
+            on_reversed_from_hand: [Discard(who: You, n: 4, pick: Chosen)],
+        ),
+        "Ride the Barricade": (
+            irreversible: true,
+            play_after: Some(Title("Throw Opponent Out of the Ring")),
+            reverses: Some((targets: Title("Roll Out of the Ring"))),
+        ),
+        "No, Jeff, Don't Do It!": (
+            play_after: Some(Maneuver),
+            on_play: [
+                Search(filter: All([Maneuver, Not(Trait(Unique))])),
+                Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, ignore_play_after: true)),
+            ],
+        ),
+        "Whisper in the Wind": (
+            play_after: Some(Maneuver),
+            reverses: Some((
+                targets: All([Maneuver, After(Title("Throw Into the Corner Turnbuckle"))]),
+                from_hand_only: true,
+                fortitude: Some(0),
+                effects: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)],
+            )),
+        ),
+        "Incite the Fans!": (
+            on_play: [DrawUpTo(who: You, n: 6), LookAtHand(who: Opponent), Discard(who: You, n: 2, pick: Chosen)],
+        ),
+
+        // Right to Censor
+        "Right to Interfere": (
+            reverses: Some((
+                targets: Maneuver,
+                requires: Some(FortitudeBelowOpponent),
+                effects: [Mill(who: You, n: 4)],
+            )),
+        ),
+        "We're Doing This For Your Own Good!": (
+            on_play: [
+                Search(filter: Maneuver),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 5, reversal_fortitude: 20)),
+            ],
+        ),
+        "What's Wrong with You People?": (
+            requires: Some(OpponentArsenalAtLeast(7)),
+            on_play: [MillChosen(who: Opponent, n: 6, filter: Some(Action))],
+        ),
+        "We're Here to Clean Up the World Wrestling Federation!": (
+            on_play: [
+                DrawUpTo(who: You, n: 2),
+                Choice([
+                    [Boost((applies_to: Any, duration: ThisTurn, fortitude: -12))],
+                    [Boost((applies_to: Maneuver, duration: ThisTurn, damage: 3))],
+                ]),
+            ],
+        ),
+        "This is Unacceptable Behavior!": (
+            as_action: Some((
+                requires: Some(FortitudeBelowOpponent),
+                on_play: [RingsideToArsenal(who: You, n: 5, up_to: true)],
+            )),
+            reverses: Some((targets: Maneuver, overturned_only: true)),
+        ),
+        "Censored!": (reverses: Some((targets: Any, on_reverse: [PurgeReversedTitle]))),
+
+        // Logo cards for earlier Superstars
+        "DTA": (on_play: [LookAtHand(who: Opponent), RingsideToArsenal(who: You, n: 1)]),
+        "Brothers 'til the End": (
+            reverses: Some((
+                targets: Maneuver,
+                requires: Some(Not(AnyOf([OpponentSuperstar("Undertaker"), OpponentSuperstar("Kane")]))),
+                fortitude_when: Some((Superstar("Undertaker"), 10)),
+                effects: [Optional([Draw(who: You, n: 1)])],
+            )),
+        ),
+        "Three Faces of Foley": (
+            requires: Some(FirstCardThisTurn),
+            on_play: [ShuffleRingsideIntoArsenal(who: You), DiscardAll(who: You, filter: Any), EndTurn],
+        ),
+        // Its effect only matters in Tag Team and Pre-match situations the engine does not have yet.
+        "The Brahma Bull": (requires: Some(Never)),
+        "Sledge Hammer Shot": (
+            bonuses: [(when: InYourRing(Title("Game Over? You're Damn Right I'm Over!")), fortitude: -10)],
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(InYourRing(Title("Game Over? You're Damn Right I'm Over!"))),
+            no_arsenal_reversal: true,
+            on_play: [DrawUpTo(who: You, n: 2)],
+        ),
+        "Superior Acrobatics": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(HighRisk)]),
+                effects: [Search(filter: Maneuver)],
+            )),
+        ),
+        // Rikishi's changed ability is in his own Superstar script.
+        "I Did It For You": (
+            irreversible_when: Some(
+                AnyOf([
+                    OpponentSuperstar("Stone Cold Steve Austin"),
+                    OpponentSuperstar("The Rock"),
+                    OpponentSuperstar("Triple H"),
+                ]),
+            ),
+        ),
+        "Where Are Your Medals?": (
+            reverses: Some((targets: Any, effects: [Discard(who: Opponent, n: 3, pick: Chosen)])),
+        ),
+        "Ovicular Fortitude": (
+            requires: Some(Not(OpponentFemale)),
+            while_in_ring_opponent: [(applies_to: Maneuver, damage: 2)],
+            extra_draw: 1,
+        ),
+        "Just Another Victim!": (
+            on_play: [
+                Draw(who: You, n: 2),
+                BoostOpponent((applies_to: Any, duration: NextTurnFirstCard, irreversible: true, end_turn: true)),
+                Boost((applies_to: Any, duration: NextTurnCards(3), reversal_fortitude: 13)),
+                EndTurn,
+            ],
+        ),
+        "Prove Me Wrong": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                NextPlayWatch(filter: Maneuver, on_success: [Search(filter: Any, n: 2, up_to: true)]),
+            ],
+        ),
+        "Eddie's Roll Up": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            after_damage: [If(condition: HandLargerBy(5), effects: [WinByPin])],
+        ),
+        "Pac's Back": (irreversible: true, on_play: [RingsideToArsenalCount(who: You, count: HalfOpponentFortitude)]),
+        "The One Billy Gunn": (
+            on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent)],
+            ring_ability: Some((
+                cost: [DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen)],
+                effects: [Draw(who: You, n: 1)],
+            )),
+        ),
+    },
+)

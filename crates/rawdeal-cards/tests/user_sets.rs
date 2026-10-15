@@ -59,19 +59,33 @@ fn user_sets_every_card_in_random_piles() {
     let engine = Engine::new(Arc::new(db));
     let db = engine.db();
     let pile = |star: &str, rng: &mut rand_chacha::ChaCha8Rng| {
-        let pool: Vec<String> = db
-            .cards()
-            .iter()
-            .filter(|c| {
-                c.superstar.as_deref().is_none_or(|s| rawdeal_core::same_superstar(s, star)) && !c.is_backlash()
-            })
-            .map(|c| c.id.clone())
-            .collect();
-        let arsenal = (0..60).map(|_| pool.choose(rng).unwrap().clone()).collect();
-        DeckList { superstar: star.to_string(), arsenal, backlash: vec![] }
+        let pool = |f: &dyn Fn(&rawdeal_core::CardDef) -> bool| -> Vec<String> {
+            db.cards()
+                .iter()
+                .filter(|c| c.superstar.is_none() || c.logos().any(|s| rawdeal_core::same_superstar(s, star)))
+                .filter(|c| f(c))
+                .map(|c| c.id.clone())
+                .collect()
+        };
+        let main = pool(&|c| !c.is_backlash());
+        let pre = pool(&|c| c.is_pre_match());
+        let mid = pool(&|c| c.is_backlash() && !c.is_pre_match());
+        let arsenal = (0..60).map(|_| main.choose(rng).unwrap().clone()).collect();
+        let mut backlash = Vec::new();
+        for list in [&pre, &mid] {
+            if !list.is_empty() {
+                backlash.extend((0..10).map(|_| list.choose(rng).unwrap().clone()));
+            }
+        }
+        DeckList { superstar: star.to_string(), arsenal, backlash }
     };
     let mut played = std::collections::BTreeSet::new();
-    for seed in 0..2000u64 {
+    let seeds = std::env::var("OPENWWX_SEEDS").ok().and_then(|s| s.parse().ok()).unwrap_or(5000u64);
+    let from = std::env::var("OPENWWX_SEED_FROM").ok().and_then(|s| s.parse().ok()).unwrap_or(0u64);
+    for seed in from..seeds {
+        if std::env::var_os("OPENWWX_TRACE").is_some() {
+            eprintln!("seed {seed}");
+        }
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let a = stars.choose(&mut rng).unwrap().clone();
         let b = stars.choose(&mut rng).unwrap().clone();
@@ -91,7 +105,15 @@ fn user_sets_every_card_in_random_piles() {
             assert!(legal.len() < 5_000, "{} legal actions", legal.len());
             let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
             for ev in engine.apply(&mut state, p, action).unwrap() {
-                if let Event::CardPlayed { card, .. } | Event::Reversed { reversal: card, .. } = ev {
+                // A Superstar ability can reverse by discarding any card: only count real Reversals.
+                let card = match ev {
+                    Event::CardPlayed { card, .. } => Some(card),
+                    Event::Reversed { reversal, .. } if db.card(state.card(reversal).def).is_reversal() => {
+                        Some(reversal)
+                    }
+                    _ => None,
+                };
+                if let Some(card) = card {
                     played.insert(db.card(state.card(card).def).title.clone());
                 }
             }

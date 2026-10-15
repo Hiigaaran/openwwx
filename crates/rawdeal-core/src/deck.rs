@@ -115,7 +115,13 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         };
         let def = db.card(idx);
         let forbidden = superstar.is_some_and(|s| {
-            s.abilities.iter().any(|a| matches!(a, Ability::CannotPack(t) if t.eq_ignore_ascii_case(&def.title)))
+            let named = |names: &[String]| names.iter().any(|n| n.eq_ignore_ascii_case(&s.name));
+            s.abilities.iter().any(|a| match a {
+                Ability::CannotPack(t) => t.eq_ignore_ascii_case(&def.title),
+                Ability::CannotPackTrait(t) => def.has_trait(*t),
+                _ => false,
+            }) || (!def.script.only_packed_by.is_empty() && !named(&def.script.only_packed_by))
+                || named(&def.script.not_packed_by)
         });
         if forbidden {
             problems.push(DeckProblem::Forbidden { card: id.to_string() });
@@ -133,7 +139,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
         match &def.superstar {
             // Superstar-specific cards ignore trait conflicts.
-            Some(s) if !same_superstar(s, &deck.superstar) => {
+            Some(_) if !def.logos().any(|s| same_superstar(s, &deck.superstar)) => {
                 problems.push(DeckProblem::WrongSuperstar { card: id.to_string() })
             }
             Some(_) => {}
@@ -153,8 +159,10 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
 }
 
 /// Does a card's Superstar logo (`"set/slug"`) name this Superstar? Logos
-/// printed in one set name Superstars from other sets by the same slug.
+/// printed in one set name Superstars from other sets by the same slug, or by
+/// a shorter name ("billy-gunn" for "b-a-billy-gunn").
 pub fn same_superstar(logo: &str, superstar: &str) -> bool {
     let slug = |id: &str| id.rsplit('/').next().unwrap_or(id).to_string();
-    logo == superstar || slug(logo) == slug(superstar)
+    let (logo, star) = (slug(logo), slug(superstar));
+    logo == star || star.ends_with(&format!("-{logo}"))
 }

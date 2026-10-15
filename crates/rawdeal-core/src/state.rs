@@ -152,6 +152,25 @@ pub struct PlayBonus {
     pub double_fortitude: bool,
     #[serde(default)]
     pub no_hand_reversal: bool,
+    #[serde(default)]
+    pub double_damage: bool,
+}
+
+/// What a player's next card this turn has to be.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum NextMust {
+    Filter(CardFilter),
+    /// One of these cards.
+    Cards(Vec<CardId>),
+}
+
+/// Effects waiting on how a player's next matching card turns out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Watch {
+    pub player: PlayerId,
+    pub filter: CardFilter,
+    pub on_success: Vec<Effect>,
+    pub on_reversed: Vec<Effect>,
 }
 
 /// Which rulebook the match uses.
@@ -208,6 +227,21 @@ pub struct GameState {
     /// Cards found by the search being resolved.
     #[serde(default)]
     pub last_chosen: Vec<CardId>,
+    /// Players who used a once-per-game Superstar ability.
+    #[serde(default)]
+    pub ability_spent: [bool; 2],
+    /// The only cards a player may play next this turn.
+    #[serde(default)]
+    pub next_must: Option<(PlayerId, NextMust)>,
+    /// Players whose next Pre-match card is blank.
+    #[serde(default)]
+    pub blank_prematch: [bool; 2],
+    /// Waiting for a player's next matching card this turn.
+    #[serde(default)]
+    pub watches: Vec<Watch>,
+    /// The watch the card in play triggered.
+    #[serde(default)]
+    pub in_play_watch: Option<Watch>,
     pub(crate) pending: Vec<Step>,
     pub(crate) rng: ChaCha8Rng,
 }

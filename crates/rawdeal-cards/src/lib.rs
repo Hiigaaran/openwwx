@@ -89,11 +89,22 @@ pub fn load_deck(path: &Path) -> Result<DeckList, LoadError> {
 /// Meant for trying out a card set, not for good play.
 pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
     use rawdeal_core::Trait;
-    db.superstar_by_id(superstar)?;
+    let star = db.superstar(db.superstar_by_id(superstar)?);
+    let named = |names: &[String]| names.iter().any(|n| n.eq_ignore_ascii_case(&star.name));
+    let packable = |c: &CardDef| {
+        (c.script.only_packed_by.is_empty() || named(&c.script.only_packed_by))
+            && !named(&c.script.not_packed_by)
+            && !star.abilities.iter().any(|a| match a {
+                rawdeal_core::Ability::CannotPack(t) => t.eq_ignore_ascii_case(&c.title),
+                rawdeal_core::Ability::CannotPackTrait(t) => c.has_trait(*t),
+                _ => false,
+            })
+    };
     let usable = |c: &&CardDef| {
         !c.is_backlash()
+            && packable(c)
             && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
-            && c.superstar.as_deref().is_none_or(|s| rawdeal_core::same_superstar(s, superstar))
+            && (c.superstar.is_none() || c.logos().any(|s| rawdeal_core::same_superstar(s, superstar)))
     };
     let own = db.cards().iter().filter(usable).filter(|c| c.superstar.is_some());
     let generic = db.cards().iter().filter(usable).filter(|c| c.superstar.is_none());

@@ -1,6 +1,6 @@
-//! Scenario tests for the rules added for the Fully Loaded set: Ring
-//! abilities, lasting restrictions, new Superstar abilities and reversal
-//! limits. The cards are invented for the tests.
+//! Scenario tests for the rules added for the Fully Loaded and Backlash sets:
+//! Ring abilities, lasting restrictions, new Superstar abilities, reversal
+//! limits and timing. The cards are invented for the tests.
 
 use std::sync::Arc;
 
@@ -18,6 +18,9 @@ const SET: &str = r#"(
         (id: "m/escalator", name: "Escalator", hand_size: 6, superstar_value: 5, abilities: [EscalatingManeuverDamage]),
         (id: "m/flyer", name: "Flyer", hand_size: 6, superstar_value: 5,
             abilities: [FirstOfTurnIrreversible(ManeuverType(HighRisk))]),
+        (id: "m/twice", name: "Twice", hand_size: 0, superstar_value: 1,
+            abilities: [HandSizeFromOpponentValue(times: 2, min: 6)]),
+        (id: "m/censor", name: "Censor", hand_size: 6, superstar_value: 1, abilities: [ReverseByDiscardingAny(Action)]),
     ],
     cards: [
         (id: "m/filler", title: "Filler", kinds: [Action], fortitude: 0, damage: 0),
@@ -46,6 +49,16 @@ const SET: &str = r#"(
         (id: "m/study", title: "Study", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [Search(filter: Title("Hit"), n: 3, up_to: true, random_back: 1)])),
         (id: "m/spy", title: "Spy", kinds: [Action], fortitude: 0, damage: 0, script: (reveals_opponent_hand: true)),
+        (id: "m/lid", title: "Lid", kinds: [Action], fortitude: 0, damage: 0,
+            script: (reverses_from_ring: Some((targets: Maneuver, damage: Fixed(3))))),
+        (id: "m/follow", title: "Follow", kinds: [Maneuver(Strike)], fortitude: 0, damage: 1,
+            script: (after_damage: [Draw(who: You, n: 1)])),
+        (id: "m/picky", title: "Picky", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [NextCardMustBe(Title("Hit"))])),
+        (id: "m/twin", title: "Twin", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [Boost((applies_to: Maneuver, duration: NextCards(2), damage: 1))])),
+        (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
+            also_superstars: ["m/second"]),
     ],
 )"#;
 
@@ -281,4 +294,112 @@ fn spy_reveals_the_opponents_hand() {
 fn reprints_share_copy_limits_and_logos_cross_sets() {
     assert!(same_superstar("set-b/the-rock", "set-a/the-rock"));
     assert!(!same_superstar("set-b/kane", "set-a/the-rock"));
+}
+
+#[test]
+fn hand_size_can_follow_the_opponents_superstar_value() {
+    let e = engine();
+    let s = start(&e, "first", &[], "twice", &[]);
+    assert_eq!(e.hand_size(&s, P2), 10, "twice First's Superstar Value of 5");
+    assert_eq!(s.player(P2).hand.len(), 10);
+}
+
+#[test]
+fn a_ring_card_can_be_sacrificed_to_reverse() {
+    let e = engine();
+    let mut s = start(
+        &e,
+        "first",
+        &["filler", "filler", "filler", "filler", "filler", "filler", "filler", "hit"],
+        "second",
+        &["lid"],
+    );
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P2, "lid");
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P1, "hit");
+    let lid = find(&e, &s, &s.player(P2).ring, "lid").unwrap();
+    match &s.decision {
+        Some(Decision { player: P2, kind: DecisionKind::Reversal { options, .. } }) => assert!(options.contains(&lid)),
+        other => panic!("expected a reversal window, got {other:?}"),
+    }
+    apply(&e, &mut s, P2, Action::Reverse { card: lid });
+    assert_eq!(s.card(lid).zone, Zone::Ringside);
+    assert_eq!(s.active, P2);
+    assert_eq!(s.player(P1).ringside.len(), 1 + 3, "the reversed Hit plus 3 damage");
+}
+
+#[test]
+fn after_damage_effects_need_the_card_to_stand() {
+    let e = engine();
+    let mut s = start(&e, "first", &["follow", "follow"], "second", &["counter"]);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "follow");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).hand.len(), hand, "played 1, drew 1");
+    play(&e, &mut s, P1, "follow");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    assert_eq!(s.player(P1).hand.len(), hand - 1, "reversed: no draw");
+}
+
+#[test]
+fn next_card_must_match() {
+    let e = engine();
+    let mut s = start(&e, "first", &["picky", "hit", "grab"], "second", &[]);
+    play(&e, &mut s, P1, "picky");
+    assert!(!playable(&e, &s, P1, "grab"));
+    assert!(playable(&e, &s, P1, "hit"));
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert!(playable(&e, &s, P1, "grab"));
+}
+
+#[test]
+fn a_boost_can_cover_the_next_two_cards() {
+    let e = engine();
+    let mut s = start(&e, "first", &["twin", "hit", "hit", "hit"], "second", &[]);
+    play(&e, &mut s, P1, "twin");
+    let mut taken = Vec::new();
+    for _ in 0..3 {
+        let before = s.player(P2).ringside.len();
+        play(&e, &mut s, P1, "hit");
+        taken.push(s.player(P2).ringside.len() - before);
+    }
+    assert_eq!(taken, vec![3, 3, 2]);
+}
+
+#[test]
+fn any_card_can_be_discarded_to_reverse_matching_cards() {
+    let e = engine();
+    let mut s = start(&e, "first", &["stop"], "censor", &[]);
+    play(&e, &mut s, P1, "stop");
+    let filler = in_hand(&e, &s, P2, "filler");
+    match &s.decision {
+        Some(Decision { player: P2, kind: DecisionKind::Reversal { options, .. } }) => {
+            assert!(options.contains(&filler))
+        }
+        other => panic!("expected a reversal window, got {other:?}"),
+    }
+    apply(&e, &mut s, P2, Action::Reverse { card: filler });
+    assert_eq!(s.active, P2);
+    assert_eq!(s.card(filler).zone, Zone::Ringside);
+}
+
+#[test]
+fn cards_with_several_logos_go_in_either_deck() {
+    let e = engine();
+    for star in ["m/first", "m/second"] {
+        let deck = DeckList { superstar: star.into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+        let problems = validate_deck(e.db(), &deck);
+        assert!(!problems.iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })), "{star}: {problems:?}");
+    }
+    let deck = DeckList { superstar: "m/flyer".into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+    assert!(validate_deck(e.db(), &deck).iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })));
+}
+
+#[test]
+fn shortened_logos_still_match() {
+    assert!(same_superstar("set-b/billy-gunn", "set-a/b-a-billy-gunn"));
+    assert!(!same_superstar("set-b/gunn", "set-a/b-a-billy-gunnx"));
 }

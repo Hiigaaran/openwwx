@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 
 use rawdeal_core::card::ReversalDamage;
 use rawdeal_core::{
-    Ability, CardDef, CardFilter, CardKind, CardScript, ManeuverType, ReverseSpec, SuperstarDef, Trait,
+    Ability, CardDef, CardFilter, CardKind, CardScript, ManeuverType, PreMatchType, ReverseSpec, SuperstarDef, Trait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -98,7 +98,16 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let mut kinds = Vec::new();
         let mut reversal_type = None;
         let mut unknown = None;
-        for part in card_type.split('/').map(str::trim) {
+        // Backlash cards: "Pre-match Event", "Mid-match Reversal: Special".
+        let mut mid_match = false;
+        for part in card_type.split(" / ").map(str::trim) {
+            let part = match part.strip_prefix("Mid-match ") {
+                Some(rest) => {
+                    mid_match = true;
+                    rest
+                }
+                None => part,
+            };
             match parse_kind(part) {
                 Some((kind, rev)) => {
                     if !kinds.contains(&kind) {
@@ -106,8 +115,6 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                     }
                     reversal_type = reversal_type.or(rev);
                 }
-                // "Reversal: Strike/High Risk: Special": the rest of a Reversal's type.
-                None if kinds.last() == Some(&CardKind::Reversal) => reversal_type = Some(ReversalType::Special),
                 None => unknown = Some(part.to_string()),
             }
         }
@@ -116,17 +123,26 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             continue;
         }
 
-        let (traits, other_traits) = parse_traits(&prop("Traits"));
-        let superstar = prop("SS Logos")
+        let (mut traits, other_traits) = parse_traits(&prop("Traits"));
+        if mid_match && !traits.contains(&Trait::MidMatch) {
+            traits.push(Trait::MidMatch);
+        }
+        let mut logos: Vec<String> = prop("SS Logos")
             .split(',')
-            .next()
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .map(|s| format!("{prefix}/{}", slug(s)));
+            .map(|s| format!("{prefix}/{}", slug(s)))
+            .collect();
+        let superstar = (!logos.is_empty()).then(|| logos.remove(0));
 
         let mut script = overlay.scripts.get(&title).cloned().unwrap_or_default();
         if let Some((key, _)) = overlay.scripts.get_key_value(&title) {
             used.push(key);
+        }
+        for t in std::mem::take(&mut script.extra_traits) {
+            if !traits.contains(&t) {
+                traits.push(t);
+            }
         }
         if kinds.contains(&CardKind::Reversal) && script.reverses.is_none() {
             script.reverses = infer_reversal(reversal_type, &text);
@@ -145,6 +161,7 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             stun_value: number("Stun"),
             traits,
             superstar,
+            also_superstars: logos,
             text,
             other_traits,
             source_id,
@@ -156,12 +173,12 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
     // Logos may shorten a Superstar's name ("Billy Gunn" for "B.A. Billy Gunn").
     let star_ids: Vec<String> = set.superstars.iter().map(|s| s.id.clone()).collect();
     for card in &mut set.cards {
-        if let Some(logo) = &mut card.superstar
-            && !star_ids.contains(logo)
-        {
-            let short = logo.rsplit('/').next().unwrap_or_default().to_string();
-            if let Some(full) = star_ids.iter().find(|id| id.ends_with(&format!("-{short}"))) {
-                *logo = full.clone();
+        for logo in card.superstar.iter_mut().chain(&mut card.also_superstars) {
+            if !star_ids.contains(logo) {
+                let short = logo.rsplit('/').next().unwrap_or_default().to_string();
+                if let Some(full) = star_ids.iter().find(|id| id.ends_with(&format!("-{short}"))) {
+                    *logo = full.clone();
+                }
             }
         }
     }
@@ -194,9 +211,15 @@ fn parse_kind(part: &str) -> Option<(CardKind, Option<ReversalType>)> {
         "High Risk" => maneuver(ManeuverType::HighRisk),
         "Trademark Finisher" => maneuver(ManeuverType::TrademarkFinisher),
         "Action" => Some((CardKind::Action, None)),
+        "Pre-match Venue" => Some((CardKind::PreMatch(PreMatchType::Venue), None)),
+        "Pre-match Feud" => Some((CardKind::PreMatch(PreMatchType::Feud), None)),
+        "Pre-match Stipulation" => Some((CardKind::PreMatch(PreMatchType::Stipulation), None)),
+        "Pre-match Manager" => Some((CardKind::PreMatch(PreMatchType::Manager), None)),
+        "Pre-match Event" => Some((CardKind::PreMatch(PreMatchType::Event), None)),
+        "Pre-match Object" => Some((CardKind::PreMatch(PreMatchType::Object), None)),
         _ => {
             let rest = part.strip_prefix("Reversal")?;
-            let rev = if rest.contains("Special") {
+            let rev = if rest.contains("Special") || rest.contains('/') {
                 ReversalType::Special
             } else {
                 match rest.trim_start_matches(':').trim() {
@@ -315,7 +338,7 @@ mod tests {
   <property name="Card Text" value="Reverse any Strike maneuver of 7D or less and end your opponent's turn. # is equal to the reversed maneuver's Damage." /></card>
 <card id="g3" name="Some Guy"><property name="Hand Size" value="6" /><property name="SSV" value="3" />
   <property name="CardType" value="Superstar Card" /><property name="Card Text" value="Ability." /></card>
-<card id="g4" name="Weird"><property name="CardType" value="Pre-match Venue" /></card>
+<card id="g4" name="Weird"><property name="CardType" value="Pre-match Banana" /></card>
 </cards></set>"#;
 
     #[test]
@@ -344,7 +367,7 @@ mod tests {
 
         assert_eq!(set.superstars[0].hand_size, 6);
         assert_eq!(set.superstars[0].abilities, vec![Ability::DrawSegment(2)]);
-        assert_eq!(report.skipped, vec![("Weird".to_string(), "Pre-match Venue".to_string())]);
+        assert_eq!(report.skipped, vec![("Weird".to_string(), "Pre-match Banana".to_string())]);
         assert_eq!(report.unused_overlay, vec!["Nobody".to_string()]);
     }
 

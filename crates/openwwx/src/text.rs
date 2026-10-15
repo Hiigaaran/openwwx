@@ -66,6 +66,11 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::Not(f) => format!("no {}", filter(f)),
         CardFilter::Keyword(k) => k.clone(),
         CardFilter::EarlierThisTurn { filter: f, n } => format!("si ya jugó {n} {} este turno", filter(f)),
+        CardFilter::PlayedBy(name) => format!("jugada por {name}"),
+        CardFilter::StunValueAtLeast(n) => format!("con Stun Value {n} o más"),
+        CardFilter::Draws => "que hace robar cartas".into(),
+        CardFilter::ForcesDiscard => "que obliga a descartar".into(),
+        CardFilter::SameTitleInRing => "con el mismo título que una carta de su Ring".into(),
     }
 }
 
@@ -101,6 +106,12 @@ fn boost(b: &Boost) -> String {
     if b.double_fortitude {
         parts.push("F doble".into());
     }
+    if b.double_damage {
+        parts.push("daño doble".into());
+    }
+    if b.end_turn {
+        parts.push("luego termina el turno".into());
+    }
     let when = match b.duration {
         Duration::NextCard => "tu próxima carta, si es",
         Duration::NextMatching => "tu próxima",
@@ -108,6 +119,8 @@ fn boost(b: &Boost) -> String {
         Duration::NextTurn => "el próximo turno, cada",
         Duration::NextTurnFirstCard => "tu primera carta del próximo turno, si es",
         Duration::Turns(_) => "durante varios turnos, cada",
+        Duration::NextCards(_) => "tus próximas cartas, si son",
+        Duration::NextTurnCards(_) => "tus primeras cartas del próximo turno, si son",
     };
     format!("{when} {}: {}", filter(&b.applies_to), parts.join(", "))
 }
@@ -175,6 +188,26 @@ pub fn effect(e: &Effect) -> String {
         }
         Effect::BoostOpponent(b) => format!("al rival: {}", boost(b)),
         Effect::WinByPin => "ganas por Pinfall".into(),
+        Effect::DiscardForDamage { per } => format!("descarta las cartas que quieras: +{per}D por cada una"),
+        Effect::NextCardMustBe(f) => format!("tu próxima carta tiene que ser {} o termina tu turno", filter(f)),
+        Effect::NextCardMustBeChosen => "tu próxima carta tiene que ser la elegida o termina tu turno".into(),
+        Effect::RepeatPreviousEffects => "repite el texto de tu carta anterior".into(),
+        Effect::MillAll { who: w, filter: f } => {
+            format!("todas las {} del Arsenal al Ringside ({})", filter(f), who(*w))
+        }
+        Effect::SacrificeThis => "esta carta va al Ringside".into(),
+        Effect::BlankNextPreMatch { .. } => "la próxima carta Pre-match del rival no tiene efecto".into(),
+        Effect::RingsideToBacklash { n, .. } => format!("{} Mid-match del Ringside al Backlash", cards(*n)),
+        Effect::BacklashToRingside { n, .. } => format!("{} del Backlash al Ringside", cards(*n)),
+        Effect::Mulligan { n } => format!("baraja hasta {} de la mano en el Arsenal y roba igual", cards(*n)),
+        Effect::DrawToMatchOpponent => "roba hasta tener tantas cartas como el rival".into(),
+        Effect::RingsideToArsenalCount { .. } => "baraja cartas del Ringside en el Arsenal".into(),
+        Effect::BuryHand { .. } => "pon tu mano al fondo del Arsenal y reponla".into(),
+        Effect::DiscardHandAndDraw { min } => format!("descarta tu mano y roba igual (al menos {min})"),
+        Effect::PurgeReversedTitle => "manda al Ringside todas las copias rivales de la carta revertida".into(),
+        Effect::ShuffleRingsideIntoArsenal { who: w } => format!("baraja todo el Ringside en el Arsenal ({})", who(*w)),
+        Effect::NextPlayWatch { filter: f, .. } => format!("según cómo salga tu próxima {}", filter(f)),
+        Effect::DrawRingCards { less } => format!("roba 1 por cada carta en los Rings, menos {less}"),
     }
 }
 
@@ -201,6 +234,9 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::HandToArsenalTop => "para poner arriba del Arsenal",
         ChoicePurpose::RingToHand => "del Ring para devolver a la mano",
         ChoicePurpose::DigToHand => "de arriba del Arsenal para tu mano",
+        ChoicePurpose::DiscardForDamage { .. } => "para descartar (+D por cada una)",
+        ChoicePurpose::RingsideToBacklash => "del Ringside para tu Backlash",
+        ChoicePurpose::Mulligan => "para barajar en el Arsenal y robar otras",
     }
 }
 

@@ -2,8 +2,8 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere y Fully Loaded con sus
-efectos programados. El diseño completo está en
+Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded y Backlash con
+sus efectos programados. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -87,6 +87,12 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   solo por una carta, bonos por varios turnos, prohibiciones de jugar cartas al rival, mostrar la mano, buscar
   varias cartas, devolver cartas del Ring a la mano, y las habilidades de las 9 Superstars nuevas (incluida la de
   Chyna, que revierte descartando una carta del mismo tipo).
+- Mecánicas de Backlash: cartas del Ring que se mandan al Ringside para revertir (botón "Revertir con … (del
+  Ring)"), efectos después del daño si la carta no fue revertida, efectos antes del Reversal (Half Hour Suplex),
+  "tu próxima carta tiene que ser …", bonos para las próximas N cartas, daño doble, cartas con logos de varias
+  Superstars, cartas que solo ciertas Superstars pueden (o no pueden) llevar, Hand Size según el Superstar Value
+  rival (Edge), habilidades una vez por partida y las de las 10 Superstars nuevas, cartas Pre-match y Mid-match del
+  set (incluida la que anula la próxima carta Pre-match del rival).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -119,6 +125,14 @@ Wolverine y Let's Make Some Noise .... Se juegan sin una parte de su texto: Tras
 Ring), Series of Suplexes (repetirla), Small Package (ganar con tres seguidas), Attitude Adjustment (el -#F del turno
 siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Ref KO'd! y That's Gonna Cost You! (revertir Reversals), y
 Masked Vengeance descarta al azar de toda la mano.
+
+Backlash: no se pueden jugar todavía Pop the Guy On the Apron, Tandem Atomic Drop, Propel Partner y Jump the Bell
+(Tag Team), Don't Mess with the Champ! (no hay Title Belts aún), The Brahma Bull y Over Sell Maneuver. Se juegan sin
+una parte de su texto: la habilidad de Edge and Christian, la de Edge (empezar después del Pre-match), la de Dudley
+Boyz (sus Foreign Objects siguen siendo Heel), Crucifix Rollup (el pin solo como maniobra), Clutch onto Opponent
+(Maintain Hold), Blown Spot (el -#F), Lita to the Xtreme (seguir el turno tras un Reversal), Swanton Bomb (buscarla
+como High Risk), Con-Chair-To (solo si la revierten desde la mano) y Captive Tag Out (sin compañero). Adrenaline Rush,
+Study the Tapes, Student of the Sport y Big Slide Into the Ring están simplificadas.
 
 ## Cartas y arte
 

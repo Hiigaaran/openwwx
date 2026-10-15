@@ -88,6 +88,9 @@ pub struct CardDef {
     /// Superstar this card is specific to, if any (e.g. a Trademark Finisher).
     #[serde(default)]
     pub superstar: Option<String>,
+    /// More Superstars whose logo is printed on the card; any of them may pack it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub also_superstars: Vec<String>,
     /// Original card text, for display only.
     #[serde(default)]
     pub text: String,
@@ -118,6 +121,11 @@ impl CardDef {
 
     pub fn is_pre_match(&self) -> bool {
         self.kinds.iter().any(|k| matches!(k, CardKind::PreMatch(_)))
+    }
+
+    /// Superstar logos printed on the card.
+    pub fn logos(&self) -> impl Iterator<Item = &str> {
+        self.superstar.iter().chain(&self.also_superstars).map(String::as_str)
     }
 }
 
@@ -152,6 +160,9 @@ pub enum Ability {
         /// Must hold for the ability to be used.
         #[serde(default)]
         requires: Option<Condition>,
+        /// Only once per game instead of once per turn.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        once_per_game: bool,
     },
     /// Draw this many cards in your Draw Segment instead of 1.
     DrawSegment(u8),
@@ -180,6 +191,20 @@ pub enum Ability {
     DrawSegmentDiscard(u8),
     /// You may pack both Face and Heel cards.
     PackBothAlignments,
+    /// In your Draw Segment you may apply these effects instead of drawing.
+    DrawSegmentOption(Vec<Effect>),
+    /// Extra effects when you successfully play a card matching `filter`.
+    OnPlayMatching { filter: CardFilter, effects: Vec<Effect> },
+    /// Hand Size is `times` your opponent's Superstar Value, at least `min`.
+    HandSizeFromOpponentValue { times: u8, min: u8 },
+    /// Card-drawing effects on cards your opponent plays do nothing (Stun
+    /// Value draws still happen).
+    BlankOpponentCardDraws,
+    /// You may reverse a card matching this from hand by discarding any 1
+    /// card; it deals no damage.
+    ReverseByDiscardingAny(CardFilter),
+    /// You cannot put cards with this trait in your decks.
+    CannotPackTrait(Trait),
 }
 
 /// Interpretable description of a card's text.
@@ -261,6 +286,44 @@ pub struct CardScript {
     /// before their Draw Segment, controlled by that opponent.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub in_ring_opponent_start_of_turn: Vec<Effect>,
+    /// Effects after the card's damage, if it was not reversed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub after_damage: Vec<Effect>,
+    /// Effects when the card is played, before the opponent may reverse it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub before_reversal: Vec<Effect>,
+    /// Reversals matching this cannot reverse the card.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_reversed_by: Option<CardFilter>,
+    /// Cannot be reversed by cards overturned from the Arsenal.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_arsenal_reversal: bool,
+    /// While in your Ring: you may put it in your Ringside pile to reverse.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverses_from_ring: Option<ReverseSpec>,
+    /// Traits the importer could not read from the printed traits.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra_traits: Vec<Trait>,
+    /// Only these Superstars may pack the card.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub only_packed_by: Vec<String>,
+    /// These Superstars cannot pack the card.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub not_packed_by: Vec<String>,
+    /// While in your Ring: effects when a matching card is successfully played.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub in_ring_on_play: Vec<RingTrigger>,
+}
+
+/// Effects of a card in the Ring when someone successfully plays a card.
+/// The player who played the card controls the effects.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RingTrigger {
+    /// Whose cards trigger it, relative to the owner of the Ring card; `None` is anyone's.
+    #[serde(default)]
+    pub whose: Option<Who>,
+    pub filter: CardFilter,
+    pub effects: Vec<Effect>,
 }
 
 fn is_zero(n: &u8) -> bool {
@@ -279,6 +342,9 @@ pub struct RingAbility {
     /// The card goes to its owner's Ringside pile when used.
     #[serde(default)]
     pub sacrifice: bool,
+    /// Not on the turn the card was played.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub not_turn_played: bool,
 }
 
 /// What a card in the Ring keeps the opponent from playing, and when.
@@ -362,6 +428,30 @@ pub enum Condition {
     FirstCardThisTurn,
     /// You ended your opponent's last turn by reversing a card matching this.
     ReversedLastTurn(CardFilter),
+    /// Your opponent's Superstar has this name.
+    OpponentSuperstar(String),
+    SuperstarValueAtMost(u8),
+    SuperstarValueAtLeast(u8),
+    /// Your Superstar Value is at most your opponent's.
+    SuperstarValueAtMostOpponent,
+    /// The Stun Value in your Ring is greater than in your opponent's.
+    RingStunValueGreater,
+    /// Your last `n` cards this turn all match.
+    LastPlayedThisTurn {
+        filter: CardFilter,
+        n: u8,
+    },
+    /// A card in your opponent's hand matches.
+    OpponentHandHas(CardFilter),
+    /// The first turn of the match.
+    FirstTurnOfGame,
+    OpponentArsenalAtMost(u8),
+    OpponentArsenalAtLeast(u8),
+    /// You have at least this many more cards in hand than your opponent.
+    HandLargerBy(u8),
+    /// You used the Ring ability of a card matching this this turn.
+    UsedRingCardThisTurn(CardFilter),
+    FortitudeAboveOpponent,
 }
 
 /// When a [`Boost`] applies and when it runs out.
@@ -380,6 +470,10 @@ pub enum Duration {
     /// Every matching card until the end of the owner's `n`th turn from now
     /// (counting the current one if it is theirs).
     Turns(u8),
+    /// Your next `n` cards played this turn.
+    NextCards(u8),
+    /// Your first `n` cards played next turn.
+    NextTurnCards(u8),
 }
 
 /// Temporary change to the cards a player plays.
@@ -413,6 +507,12 @@ pub struct Boost {
     /// The card's printed F is doubled (for the card and for Reversals).
     #[serde(default)]
     pub double_fortitude: bool,
+    /// The card does twice its damage.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub double_damage: bool,
+    /// The player's turn ends after the card.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub end_turn: bool,
 }
 
 fn any_card() -> CardFilter {
@@ -457,6 +557,15 @@ pub struct ReverseSpec {
     /// The Fortitude needed is the damage of the reversed card.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub fortitude_is_damage: bool,
+    /// Works even on cards that cannot be reversed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignores_irreversible: bool,
+    /// The reversed card is shuffled into its owner's Arsenal.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reversed_to_arsenal: bool,
+    /// While the condition holds, this Fortitude is needed instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fortitude_when: Option<(Condition, u8)>,
 }
 
 impl ReverseSpec {
@@ -473,6 +582,9 @@ impl ReverseSpec {
             requires: None,
             discard_cost: 0,
             fortitude_is_damage: false,
+            ignores_irreversible: false,
+            reversed_to_arsenal: false,
+            fortitude_when: None,
         }
     }
 }
@@ -524,6 +636,37 @@ pub enum CardFilter {
         filter: Box<CardFilter>,
         n: u8,
     },
+    /// The card is played by this Superstar (for printed cards: the effect's controller is).
+    PlayedBy(String),
+    StunValueAtLeast(u8),
+    /// The card's effects let its player draw.
+    Draws,
+    /// The card's effects make the opponent discard.
+    ForcesDiscard,
+    /// The player already has a card with the same title in their Ring.
+    SameTitleInRing,
+}
+
+/// A number worked out when an effect resolves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Count {
+    /// Cards in your hand plus this many.
+    HandPlus(u8),
+    /// Your opponent's Superstar Value times this.
+    OpponentValueTimes(u8),
+    /// Half your opponent's Fortitude, rounded up.
+    HalfOpponentFortitude,
+    /// Your Superstar Value.
+    SuperstarValue,
+}
+
+/// What happens after burying a hand.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BuryThen {
+    /// Draw as many cards as were buried.
+    Draw,
+    /// Search the Arsenal for half as many, rounded down.
+    SearchHalf,
 }
 
 /// Who an effect applies to, relative to the card's controller.
@@ -615,6 +758,8 @@ pub enum Effect {
     MillChosen {
         who: Who,
         n: u8,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
     },
     /// The controller searches their Arsenal (and Ringside pile, if
     /// `ringside`) for a card matching `filter`, reveals it, puts it in hand
@@ -754,6 +899,78 @@ pub enum Effect {
     BoostOpponent(Boost),
     /// The controller wins by pinfall.
     WinByPin,
+    /// Discard any number of cards: the card in play is +`per`D for each.
+    DiscardForDamage {
+        per: u8,
+    },
+    /// Only a card matching this may be your next card this turn.
+    NextCardMustBe(CardFilter),
+    /// Only one of the cards just chosen may be your next card this turn.
+    NextCardMustBeChosen,
+    /// The on-play effects of your previous card this turn happen again.
+    RepeatPreviousEffects,
+    /// The controller puts every card matching `filter` in the player's Arsenal
+    /// into their Ringside pile, then shuffles it.
+    MillAll {
+        who: Who,
+        filter: CardFilter,
+    },
+    /// The card this effect belongs to goes from the Ring to the Ringside pile.
+    SacrificeThis,
+    /// The next Pre-match card the player plays has no effect and goes to the
+    /// Ringside pile at the end of the Pre-match phase.
+    BlankNextPreMatch {
+        who: Who,
+    },
+    /// The player puts Mid-match cards from their Ringside pile into their Backlash deck.
+    RingsideToBacklash {
+        who: Who,
+        n: u8,
+    },
+    /// The controller puts cards from the player's Backlash deck into their Ringside pile.
+    BacklashToRingside {
+        who: Who,
+        n: u8,
+    },
+    /// Shuffle up to `n` cards from hand into the Arsenal and draw as many.
+    Mulligan {
+        n: u8,
+    },
+    /// Draw until you have as many cards in hand as your opponent.
+    DrawToMatchOpponent,
+    /// Shuffle up to `count` cards from Ringside into the Arsenal.
+    RingsideToArsenalCount {
+        who: Who,
+        count: Count,
+    },
+    /// Put the whole hand on the bottom of the Arsenal, then draw or search.
+    BuryHand {
+        who: Who,
+        then: BuryThen,
+    },
+    /// Discard your hand and draw as many cards, at least `min`.
+    DiscardHandAndDraw {
+        min: u8,
+    },
+    /// The controller puts every copy of the card they just reversed from the
+    /// opponent's hand and Arsenal into the opponent's Ringside pile.
+    PurgeReversedTitle,
+    ShuffleRingsideIntoArsenal {
+        who: Who,
+    },
+    /// Your next card this turn matching `filter`: `on_success` if it is not
+    /// reversed (after its damage), `on_reversed` if it is.
+    NextPlayWatch {
+        filter: CardFilter,
+        #[serde(default)]
+        on_success: Vec<Effect>,
+        #[serde(default)]
+        on_reversed: Vec<Effect>,
+    },
+    /// Draw a card for every card in both Rings, less `less`.
+    DrawRingCards {
+        less: u8,
+    },
 }
 
 fn one() -> u8 {

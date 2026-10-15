@@ -632,6 +632,21 @@ impl Match {
                 ui.label(
                     RichText::new(format!("El rival juega {title}. Puedes revertirla con una carta marcada.")).strong(),
                 );
+                // Cards in your Ring that can be sent to the Ringside pile to reverse.
+                for a in legal {
+                    if let Action::Reverse { card } = a
+                        && view.me_public().ring.contains(card)
+                    {
+                        let def = self.def_of(*card);
+                        if ui
+                            .button(format!("Revertir con {} (del Ring)", def.title))
+                            .on_hover_text(&def.text)
+                            .clicked()
+                        {
+                            chosen = Some(a.clone());
+                        }
+                    }
+                }
                 if ui.button("No revertir").clicked() {
                     chosen = Some(Action::DeclineReversal);
                 }

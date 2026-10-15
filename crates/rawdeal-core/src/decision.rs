@@ -56,6 +56,14 @@ pub enum ChoicePurpose {
     RingToHand,
     /// One of the top cards of your Arsenal goes to your hand.
     DigToHand,
+    /// Discard any number: the card in play is +`per`D for each.
+    DiscardForDamage {
+        per: u8,
+    },
+    /// Mid-match cards from your Ringside pile go back to your Backlash deck.
+    RingsideToBacklash,
+    /// Shuffle these into your Arsenal and draw as many.
+    Mulligan,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

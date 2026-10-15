@@ -4,6 +4,12 @@
 (
     abilities: {
         "Rikishi": [
+            // I Did It For You (Backlash) lowers the cost while it is in his Ring.
+            Activated(
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [Search(filter: Maneuver)],
+                requires: Some(InYourRing(Title("I Did It For You"))),
+            ),
             Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [Search(filter: Maneuver)]),
         ],
         "Kurt Angle": [PackBothAlignments],
@@ -377,14 +383,20 @@
             on_play: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6, reversal_fortitude: 6))],
         ),
         "Defensive Posture": (requires: Some(Never)),
-        // The Dudley Boyz bonus needs a Superstar from a later set.
         "Table! Table! Table!": (
             play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            on_play: [
+                If(
+                    condition: Superstar("Dudley Boyz"),
+                    effects: [Optional([RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Grapple)))])],
+                ),
+            ],
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
                     Boost((
-                        applies_to: ManeuverType(Grapple),
+                        // Buh-Buh Bomb counts as a Grapple for this card.
+                        applies_to: AnyOf([ManeuverType(Grapple), Title("Buh-Buh Bomb")]),
                         duration: NextMatching,
                         damage: 8,
                         stun_value: 1,
