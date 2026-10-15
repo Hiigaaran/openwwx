@@ -87,7 +87,8 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             }
             set.superstars.push(SuperstarDef {
                 id,
-                female: is_female(&title),
+                female: is_female(&title) || traits_of(&prop("Traits")).iter().any(|t| t.eq_ignore_ascii_case("diva")),
+                traits: traits_of(&prop("Traits")),
                 name: title,
                 hand_size: number("Hand Size"),
                 superstar_value: number("SSV"),
@@ -335,6 +336,10 @@ fn infer_reversal(rev: Option<ReversalType>, text: &str) -> Option<ReverseSpec> 
         ReversalDamage::Printed
     };
     Some(ReverseSpec::new(targets, damage))
+}
+
+fn traits_of(traits: &str) -> Vec<String> {
+    traits.split(',').map(str::trim).filter(|t| !t.is_empty()).map(str::to_string).collect()
 }
 
 /// OCTGN has no gender field, so women Superstars (and all-women teams) are listed by name.

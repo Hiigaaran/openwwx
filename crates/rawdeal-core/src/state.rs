@@ -49,6 +49,8 @@ pub enum Zone {
     Ring,
     Ringside,
     Backlash,
+    /// Removed from the game: the cards never come back.
+    Removed,
     /// Being played: waiting for reversals and resolution.
     InPlay,
 }
@@ -72,6 +74,9 @@ pub struct PlayerState {
     pub ringside: Vec<CardId>,
     /// Backlash deck (Advanced matches). Hidden from the opponent.
     pub backlash: Vec<CardId>,
+    /// Cards removed from the game, in the order they were removed.
+    #[serde(default)]
+    pub removed: Vec<CardId>,
     /// The Superstar's activated ability was used this turn.
     pub ability_used: bool,
 }
@@ -84,6 +89,7 @@ impl PlayerState {
             Zone::Ring => &self.ring,
             Zone::Ringside => &self.ringside,
             Zone::Backlash => &self.backlash,
+            Zone::Removed => &self.removed,
             Zone::InPlay => &[],
         }
     }
@@ -95,6 +101,7 @@ impl PlayerState {
             Zone::Ring => Some(&mut self.ring),
             Zone::Ringside => Some(&mut self.ringside),
             Zone::Backlash => Some(&mut self.backlash),
+            Zone::Removed => Some(&mut self.removed),
             Zone::InPlay => None,
         }
     }
@@ -273,7 +280,7 @@ impl GameState {
     pub fn check_invariants(&self) -> Result<(), String> {
         let mut seen = vec![0u8; self.cards.len()];
         for (pi, p) in self.players.iter().enumerate() {
-            for zone in [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside, Zone::Backlash] {
+            for zone in [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside, Zone::Backlash, Zone::Removed] {
                 for &c in p.zone(zone) {
                     let inst = self.card(c);
                     if inst.zone != zone {

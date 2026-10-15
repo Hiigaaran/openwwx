@@ -75,6 +75,24 @@ const SET: &str = r#"(
                 [Draw(who: You, n: 3)]])])),
         (id: "m/count", title: "Count", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [Counted(count: HandSize, effect: Mill(who: Opponent, n: 0))])),
+        (id: "m/exile", title: "Exile", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [RemoveFromGame(who: Opponent, from: Arsenal, n: 2), RemoveThis])),
+        (id: "m/proud", title: "Proud", kinds: [Action], fortitude: 0, damage: 0, script: (value_bonus: 5)),
+        (id: "m/check", title: "Check", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [If(condition: SuperstarValueAtLeast(9), effects: [Draw(who: You, n: 2)])])),
+        (id: "m/phoenix", title: "Phoenix", kinds: [Maneuver(Strike)], fortitude: 0, damage: 1,
+            script: (from_ringside: Some(Always))),
+        (id: "m/dump", title: "Dump", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [DiscardAll(who: You, filter: Title("Phoenix"))])),
+        (id: "m/comeback", title: "Comeback", kinds: [Action], fortitude: 0, damage: 0,
+            script: (ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [ReturnThis(to: Hand)])))),
+        (id: "m/grudge", title: "Grudge", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_removed_by_opponent: [Draw(who: You, n: 2)])),
+        (id: "m/sweep", title: "Sweep", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Any)])),
+        (id: "m/toss", title: "Toss", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [DiscardAll(who: You, filter: Title("Comeback"))])),
         (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
             script: (restricts_self: Some((filter: Action)))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
@@ -536,4 +554,91 @@ fn a_ring_card_can_restrict_its_owner() {
     play(&e, &mut s, P1, "talk");
     no_reversal(&e, &mut s);
     assert!(!playable(&e, &s, P1, "filler"));
+}
+
+#[test]
+fn cards_can_be_removed_from_the_game() {
+    let e = engine();
+    let mut s = start(&e, "first", &["exile"], "second", &[]);
+    let arsenal = s.player(P2).arsenal.len();
+    play(&e, &mut s, P1, "exile");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).removed.len(), 2);
+    assert_eq!(s.player(P2).arsenal.len(), arsenal - 2);
+    assert!(s.player(P2).ringside.is_empty(), "removed cards are not damage");
+    assert_eq!(s.player(P1).removed.len(), 1, "Exile removes itself");
+    assert!(s.player(P1).ring.is_empty());
+}
+
+#[test]
+fn ring_cards_can_change_superstar_value() {
+    let e = engine();
+    let mut s = start(&e, "first", &["proud", "check"], "second", &[]);
+    play(&e, &mut s, P1, "proud");
+    no_reversal(&e, &mut s);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "check");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).hand.len(), hand + 1, "Check left the hand and drew 2");
+}
+
+#[test]
+fn diva_and_female_groups_restrict_packing() {
+    let star = SuperstarDef {
+        id: "m/diva".into(),
+        name: "Diva".into(),
+        hand_size: 6,
+        superstar_value: 2,
+        female: true,
+        traits: vec!["Diva".into()],
+        text: String::new(),
+        abilities: vec![],
+        source_id: None,
+    };
+    assert!(star.is("Female") && star.is("diva") && !star.is("Male") && !star.is("Legend"));
+}
+
+#[test]
+fn some_cards_are_played_from_the_ringside_pile() {
+    let e = engine();
+    let mut s = start(&e, "first", &["phoenix", "dump"], "second", &[]);
+    play(&e, &mut s, P1, "dump");
+    no_reversal(&e, &mut s);
+    let phoenix = *s.player(P1).ringside.last().expect("Phoenix was discarded");
+    let action = Action::PlayCard { card: phoenix, kind: CardKind::Maneuver(ManeuverType::Strike) };
+    assert!(e.legal_actions(&s, P1).contains(&action));
+    apply(&e, &mut s, P1, action);
+    no_reversal(&e, &mut s);
+    assert!(s.player(P1).ring.contains(&phoenix));
+}
+
+#[test]
+fn a_ringside_card_can_return_to_hand() {
+    let e = engine();
+    let mut s = start(&e, "first", &["comeback", "toss", "filler"], "second", &[]);
+    play(&e, &mut s, P1, "toss");
+    no_reversal(&e, &mut s);
+    let comeback = *s.player(P1).ringside.last().expect("discarded");
+    let action = Action::UseRingCard { card: comeback };
+    assert!(e.legal_actions(&s, P1).contains(&action));
+    apply(&e, &mut s, P1, action);
+    let filler = in_hand(&e, &s, P1, "filler");
+    apply(&e, &mut s, P1, Action::ChooseCards(vec![filler]));
+    assert!(s.player(P1).hand.contains(&comeback));
+}
+
+#[test]
+fn ring_cards_react_when_the_opponent_removes_them() {
+    let e = engine();
+    let mut s = start(&e, "first", &["grudge"], "second", &["sweep"]);
+    play(&e, &mut s, P1, "grudge");
+    no_reversal(&e, &mut s);
+    end_turn(&e, &mut s);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P2, "sweep");
+    no_reversal(&e, &mut s);
+    if let Some(Decision { kind: DecisionKind::ChooseCards { options, .. }, player }) = s.decision.clone() {
+        apply(&e, &mut s, player, Action::ChooseCards(vec![options[0]]));
+    }
+    assert_eq!(s.player(P1).hand.len(), hand + 2);
 }

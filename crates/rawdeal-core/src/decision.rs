@@ -45,6 +45,8 @@ pub enum ChoicePurpose {
     Arrange,
     RingsideToHand,
     RingsideToArsenal,
+    /// The picked cards are removed from the game.
+    RemoveFromGame,
     HandToArsenalBottom,
     RingsideToArsenalBottom,
     /// Search your Arsenal: the card is revealed and goes to your hand.

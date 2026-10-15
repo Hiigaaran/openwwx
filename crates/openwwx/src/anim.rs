@@ -86,6 +86,7 @@ impl Display {
                 }
             },
             Zone::InPlay => self.in_play = None,
+            Zone::Removed => {}
         }
     }
 
@@ -105,6 +106,7 @@ impl Display {
             Zone::Ring => side.ring.extend(card),
             Zone::Ringside => side.ringside.extend(card),
             Zone::InPlay => self.in_play = card.map(|c| (c, p)),
+            Zone::Removed => {}
         }
     }
 }
@@ -150,7 +152,7 @@ impl Layout {
         };
         match zone {
             Zone::Arsenal | Zone::Backlash => self.arsenal[i],
-            Zone::Ringside => self.ringside[i],
+            Zone::Ringside | Zone::Removed => self.ringside[i],
             Zone::InPlay => self.in_play,
             Zone::Ring => after_last(&mut d.sides[i].ring.iter().copied(), self.ring[i]),
             Zone::Hand => after_last(&mut d.sides[i].hand.iter().flatten().copied(), self.hand[i]),
@@ -165,7 +167,7 @@ impl Layout {
         let i = p.index();
         match zone {
             Zone::Arsenal | Zone::Backlash => self.arsenal[i],
-            Zone::Ringside => self.ringside[i],
+            Zone::Ringside | Zone::Removed => self.ringside[i],
             Zone::InPlay => self.in_play,
             Zone::Ring => Rect::from_min_size(self.ring[i].min, size),
             Zone::Hand => Rect::from_center_size(self.hand[i].center(), size),

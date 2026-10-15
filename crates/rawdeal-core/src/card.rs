@@ -138,12 +138,26 @@ pub struct SuperstarDef {
     pub superstar_value: u8,
     #[serde(default)]
     pub female: bool,
+    /// Printed Superstar traits ("Diva", "Tag Team", "Legend", ...).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub traits: Vec<String>,
     #[serde(default)]
     pub text: String,
     #[serde(default)]
     pub abilities: Vec<Ability>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_id: Option<String>,
+}
+
+impl SuperstarDef {
+    /// Does `group` describe this Superstar? It is their name, "Female",
+    /// "Male", or one of their printed traits ("Diva", "Legend").
+    pub fn is(&self, group: &str) -> bool {
+        self.name.eq_ignore_ascii_case(group)
+            || (group.eq_ignore_ascii_case("female") && self.female)
+            || (group.eq_ignore_ascii_case("male") && !self.female)
+            || self.traits.iter().any(|t| t.eq_ignore_ascii_case(group))
+    }
 }
 
 /// Superstar abilities. Optional abilities wrap their effects in
@@ -167,6 +181,8 @@ pub enum Ability {
     /// You count as these Superstars for card effects and may pack cards with
     /// their logos.
     CountsAs(Vec<String>),
+    /// You may pack these Superstars' logo cards, but you do not count as them.
+    PacksLogos(Vec<String>),
     /// Effects at the end of the Pre-match phase.
     EndOfPrematch(Vec<Effect>),
     /// Draw this many cards in your Draw Segment instead of 1.
@@ -322,7 +338,8 @@ pub struct CardScript {
     /// Traits the importer could not read from the printed traits.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub extra_traits: Vec<Trait>,
-    /// Only these Superstars may pack the card.
+    /// Only these Superstars may pack the card. Entries can also be
+    /// "Female", "Male" or a Superstar trait (see [`SuperstarDef::is`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub only_packed_by: Vec<String>,
     /// These Superstars cannot pack the card.
@@ -337,6 +354,42 @@ pub struct CardScript {
     /// While in your Ring: you cannot play cards matching this.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restricts_self: Option<Restriction>,
+    /// An ability used, like a Ring card's, while the card is in your Ringside
+    /// pile (once per turn).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ringside_ability: Option<RingAbility>,
+    /// Effects when an effect your opponent controls takes this card out of your Ring.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on_removed_by_opponent: Vec<Effect>,
+    /// The card cannot be reversed by cards from the Backlash deck.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_backlash_reversal: bool,
+    /// The card can also be played from your Ringside pile while this holds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_ringside: Option<Condition>,
+    /// While in your Ring: your Superstar Value changes by this much.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub value_bonus: i8,
+    /// While in your Ring: your opponent's Superstar Value changes by this much.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub opponent_value_bonus: i8,
+    /// While in your Ring: you may have this many more (or fewer) Pre-match
+    /// cards in your Ring.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub pre_match_limit: i8,
+    /// Same, for your opponent's Pre-match cards.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub opponent_pre_match_limit: i8,
+    /// While in your Ring: you may have this many more (or fewer) Mid-match
+    /// cards in your Ring.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub mid_match_limit: i8,
+    /// Same, for your opponent's Mid-match cards.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub opponent_mid_match_limit: i8,
+    /// While in your Ring: your opponent's Hand Size changes by this much.
+    #[serde(default, skip_serializing_if = "is_zero_i8")]
+    pub opponent_hand_size_bonus: i8,
     /// While in your Ring: your Hand Size is this much larger.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub hand_size_bonus: u8,
@@ -453,6 +506,13 @@ pub enum Condition {
     FortitudeAtLeastOpponent,
     /// Your Superstar has this name.
     Superstar(String),
+    /// Your Superstar is this name, "Female", "Male" or has this Superstar
+    /// trait ("Diva", "Legend").
+    YouAre(String),
+    /// Same, for your opponent's Superstar.
+    OpponentIs(String),
+    /// Your Superstar Value is lower than your opponent's.
+    SuperstarValueBelowOpponent,
     /// Your opponent has at least `n` cards matching `filter` in their Ring.
     OpponentRingHas {
         filter: CardFilter,
@@ -472,6 +532,8 @@ pub enum Condition {
     OpponentSuperstar(String),
     SuperstarValueAtMost(u8),
     SuperstarValueAtLeast(u8),
+    OpponentSuperstarValueAtMost(u8),
+    OpponentSuperstarValueAtLeast(u8),
     /// Your Superstar Value is at most your opponent's.
     SuperstarValueAtMostOpponent,
     /// The Stun Value in your Ring is greater than in your opponent's.
@@ -667,6 +729,10 @@ pub enum CardFilter {
     Trait(Trait),
     DamageAtMost(u8),
     DamageAtLeast(u8),
+    /// Printed F at most this.
+    FortitudeAtMost(u8),
+    /// Printed F at least this.
+    FortitudeAtLeast(u8),
     /// Printed D at most the Fortitude of the effect's controller.
     DamageAtMostYourFortitude,
     /// Played right after a card matching this.
@@ -729,6 +795,18 @@ pub enum Count {
     InPlayDamage,
     /// Total printed F of the cards you last discarded by choice.
     LastDiscardedFortitude,
+    /// Half your Fortitude, rounded up.
+    HalfYourFortitude,
+    /// Cards in your opponent's hand.
+    OpponentHandSize,
+    /// Cards in your Ringside pile.
+    YourRingsideSize,
+    /// Cards in your opponent's Ringside pile.
+    OpponentRingsideSize,
+    /// Cards you have removed from the game.
+    YourRemoved,
+    /// Cards your opponent has removed from the game.
+    OpponentRemoved,
 }
 
 /// What happens after burying a hand.
@@ -893,6 +971,27 @@ pub enum Effect {
     AtEndOfTurn(Vec<Effect>),
     /// The card being played goes to the Ringside pile instead of the Ring.
     DiscardThis,
+    /// The card being played is removed from the game instead of going to the Ring.
+    RemoveThis,
+    /// The card whose effect this is moves to its owner's hand, Backlash deck
+    /// or Arsenal (shuffled), from wherever it is.
+    ReturnThis {
+        to: crate::state::Zone,
+    },
+    /// Remove `n` cards of the player's from the game. From the Arsenal the
+    /// top cards go; from the hand, Ring or Ringside pile `pick` says who
+    /// chooses (or random).
+    RemoveFromGame {
+        who: Who,
+        from: crate::state::Zone,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
+        #[serde(default = "chosen", skip_serializing_if = "is_chosen")]
+        pick: Pick,
+    },
     /// The card being played is shuffled into its owner's Arsenal instead of
     /// going to the Ring.
     ShuffleThisIntoArsenal,
@@ -1084,6 +1183,18 @@ fn one() -> u8 {
 
 fn is_one(n: &u8) -> bool {
     *n == 1
+}
+
+fn is_zero_i8(n: &i8) -> bool {
+    *n == 0
+}
+
+fn chosen() -> Pick {
+    Pick::Chosen
+}
+
+fn is_chosen(p: &Pick) -> bool {
+    *p == Pick::Chosen
 }
 
 /// Do two card titles name the same card? Case, spacing and punctuation are

@@ -63,6 +63,8 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::Trait(t) => format!("{t:?}"),
         CardFilter::DamageAtMost(n) => format!("de {n}D o menos"),
         CardFilter::DamageAtLeast(n) => format!("de {n}D o más"),
+        CardFilter::FortitudeAtMost(n) => format!("de {n}F o menos"),
+        CardFilter::FortitudeAtLeast(n) => format!("de {n}F o más"),
         CardFilter::DamageAtMostYourFortitude => "con D no mayor que tu Fortitude".into(),
         CardFilter::After(f) => format!("jugada después de {}", filter(f)),
         CardFilter::PlayerRingHas { filter: f, n } => format!("si hay {n} {} en su Ring", filter(f)),
@@ -175,6 +177,17 @@ pub fn effect(e: &Effect) -> String {
         Effect::SkipNextTurn { .. } => "el rival se salta su próximo turno".into(),
         Effect::AtEndOfTurn(es) => format!("al final del turno: {}", effects(es)),
         Effect::DiscardThis => "descarta esta carta".into(),
+        Effect::RemoveThis => "retira esta carta del juego".into(),
+        Effect::ReturnThis { to } => format!("pon esta carta en tu {}", zone(*to)),
+        Effect::RemoveFromGame { who: w, from, n, .. } => {
+            let zone = match from {
+                Zone::Arsenal => "de arriba del Arsenal",
+                Zone::Hand => "de la mano",
+                Zone::Ring => "del Ring",
+                _ => "del Ringside",
+            };
+            format!("retira del juego {} {zone} ({})", cards(*n), who(*w))
+        }
         Effect::ShuffleThisIntoArsenal => "baraja esta carta en tu Arsenal".into(),
         Effect::NextTurnAfterThis => "tu próxima carta cuenta como jugada después de esta".into(),
         Effect::WinGame => "ganas por descalificación".into(),
@@ -257,6 +270,7 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::HandToArsenal => "para barajar en el Arsenal",
         ChoicePurpose::ArsenalToRingside => "del Arsenal para mandar al Ringside",
         ChoicePurpose::RingToRingside => "del Ring para mandar al Ringside",
+        ChoicePurpose::RemoveFromGame => "para retirar del juego",
         ChoicePurpose::Arrange => "para poner arriba del Arsenal (la siguiente de arriba hacia abajo)",
         ChoicePurpose::DiscardMirror => "para descartar (el rival descartará las mismas)",
         ChoicePurpose::HandToArsenalTop => "para poner arriba del Arsenal",
@@ -287,6 +301,7 @@ fn zone(z: Zone) -> &'static str {
         Zone::Ring => "Ring",
         Zone::Ringside => "Ringside",
         Zone::Backlash => "Backlash",
+        Zone::Removed => "fuera del juego",
         Zone::InPlay => "juego",
     }
 }

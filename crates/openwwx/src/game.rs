@@ -471,6 +471,10 @@ impl Match {
         if r.clicked() {
             self.ringside = if self.ringside == Some(p) { None } else { Some(p) };
         }
+        let removed = self.state.player(p).removed.len();
+        if removed > 0 {
+            ui.small(format!("Fuera del juego: {removed}"));
+        }
     }
 
     fn superstar_card(&self, ui: &mut Ui, view: &PlayerView, p: PlayerId) {
@@ -616,6 +620,15 @@ impl Match {
                     }
                 }
                 for a in legal {
+                    if let Action::PlayCard { card, kind } = a
+                        && self.state.card(*card).zone == Zone::Ringside
+                    {
+                        let def = self.def_of(*card);
+                        let label = format!("Jugar {} desde el Ringside ({})", def.title, text::kind(*kind));
+                        if ui.button(label).on_hover_text(&def.text).clicked() {
+                            chosen = Some(a.clone());
+                        }
+                    }
                     if let Action::UseRingCard { card } = a {
                         let def = self.def_of(*card);
                         if ui.button(format!("Usar {}", def.title)).on_hover_text(&def.text).clicked() {

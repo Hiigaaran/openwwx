@@ -120,7 +120,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         };
         let def = db.card(idx);
         let forbidden = superstar.is_some_and(|s| {
-            let named = |names: &[String]| names.iter().any(|n| n.eq_ignore_ascii_case(&s.name));
+            let named = |names: &[String]| names.iter().any(|n| s.is(n));
             s.abilities.iter().any(|a| match a {
                 Ability::CannotPack(t) => t.eq_ignore_ascii_case(&def.title),
                 Ability::CannotPackTrait(t) => def.has_trait(*t),
@@ -189,6 +189,8 @@ pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
         CardFilter::Trait(t) => def.has_trait(*t),
         CardFilter::DamageAtMost(n) => def.damage <= *n,
         CardFilter::DamageAtLeast(n) => def.damage >= *n,
+        CardFilter::FortitudeAtMost(n) => def.fortitude <= *n,
+        CardFilter::FortitudeAtLeast(n) => def.fortitude >= *n,
         CardFilter::Keyword(w) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, w)),
         CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
         CardFilter::SuperstarSpecific => def.superstar.is_some(),
@@ -208,7 +210,9 @@ pub fn may_pack_logo(star: &SuperstarDef, logo: &str) -> bool {
     };
     same_superstar(logo, &star.id)
         || star.abilities.iter().any(|a| match a {
-            Ability::CountsAs(names) => names.iter().any(|n| same_superstar(logo, &slug(n))),
+            Ability::CountsAs(names) | Ability::PacksLogos(names) => {
+                names.iter().any(|n| same_superstar(logo, &slug(n)))
+            }
             _ => false,
         })
 }
