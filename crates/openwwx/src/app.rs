@@ -7,7 +7,7 @@ use eframe::egui::{self, RichText, Ui};
 use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, GameSetup, validate_deck};
 use serde::{Deserialize, Serialize};
 
-use crate::game::{Leave, Match};
+use crate::game::{Leave, Match, Speed};
 
 const SETTINGS_KEY: &str = "openwwx-settings";
 
@@ -18,6 +18,8 @@ struct Settings {
     superstars: [Option<String>; 2],
     decks: [Option<PathBuf>; 2],
     advanced: bool,
+    #[serde(default)]
+    speed: Speed,
 }
 
 pub struct App {
@@ -120,7 +122,9 @@ impl App {
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(1);
         match Engine::new(self.db.clone()).new_game(&setup, seed) {
-            Ok((state, events)) => self.game = Some(Match::new(self.db.clone(), state, events, seed)),
+            Ok((state, events)) => {
+                self.game = Some(Match::new(self.db.clone(), state, events, seed, self.settings.speed))
+            }
             Err(e) => self.error = Some(e.to_string()),
         }
     }
@@ -236,7 +240,9 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         if let Some(game) = &mut self.game {
-            match game.ui(ui) {
+            let leave = game.ui(ui);
+            self.settings.speed = game.speed;
+            match leave {
                 Leave::Stay => {}
                 Leave::Menu => self.game = None,
                 Leave::Rematch => self.start(),

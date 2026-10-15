@@ -19,7 +19,14 @@ interfaz de escritorio. El diseño completo está en
 ## Jugar
 
 Descarga la versión para tu sistema desde [Releases](https://github.com/Hiigaaran/openwwx/releases), descomprímela,
-pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`. Para compilarla tú mismo:
+pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`.
+
+La mesa repite cada jugada con animaciones: la carta vuela de la mano a "En juego", las cartas volteadas por daño
+caen al Ringside con un destello rojo, y los avisos grandes marcan turnos, reversals, daño recibido y manos mostradas.
+La velocidad se cambia arriba del relato (lentas, normales, rápidas o sin animaciones) y "Saltar" las termina al
+instante.
+
+Para compilarla tú mismo:
 
 ```sh
 cargo run --release -p openwwx
