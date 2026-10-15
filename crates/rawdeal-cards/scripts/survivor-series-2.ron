@@ -1,0 +1,29 @@
+// Hand-written scripts for Survivor Series 2 cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        // The opponent's extra draw and hiding Mankind or Cactus Jack in the Backstage
+        // are not supported yet.
+        "Dude Love": [
+            Activated(cost: [], effects: [RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique))))]),
+            DamageFor(filter: Maneuver, delta: -1),
+        ],
+    },
+    scripts: {
+        // Dude Love
+        "Feel the Love!": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [DiscardAll(who: Opponent, filter: Any)],
+            )),
+        ),
+        "Psychedelic Dance Fever": (
+            on_play: [HandToArsenal(who: You, n: 3), DrawUpTo(who: You, n: 6), EndTurn],
+        ),
+        "The Love Handle": (no_hand_reversal: true, after_damage: [EndTurn]),
+        // Revealing a hidden Superstar is not supported yet.
+        "Split Personalities Have Benefits": (requires: Some(Never)),
+        "Get Softcore!": (while_in_ring_all: [(applies_to: Maneuver, damage: -3)]),
+    },
+)

@@ -152,7 +152,7 @@
         ),
         "Step on Opponent's Noggin": (
             play_after: Some(ManeuverType(Grapple)),
-            not_reversed_by: Some(Title("Backlash")),
+            not_reversed_by: Some(Title("Backlash!")),
             on_play: [HandToArsenalTop(who: Opponent, n: 1, random: true)],
         ),
         "Into the Barricade": (
@@ -176,7 +176,7 @@
         // Approximation: the next card may ignore any "can only be played after" text.
         "Catapult": (
             play_after: Some(All([Maneuver, DamageAtLeast(3)])),
-            not_reversed_by: Some(Title("Backlash")),
+            not_reversed_by: Some(Title("Backlash!")),
             on_play: [
                 Discard(who: Opponent, n: 1, pick: Chosen),
                 Boost((applies_to: Any, duration: NextCard, ignore_play_after: true)),
@@ -246,13 +246,13 @@
         ),
         "Arm Grapevine": (
             play_after: Some(Maneuver),
-            not_reversed_by: Some(Title("Backlash")),
+            not_reversed_by: Some(Title("Backlash!")),
             on_play: [Optional([Search(filter: Title("Guillotine Stretch"))])],
         ),
         // "Can be reversed by Clean Break" is not supported yet.
         "Indian Deathlock": (
             play_after: Some(Maneuver),
-            not_reversed_by: Some(Title("Backlash")),
+            not_reversed_by: Some(Title("Backlash!")),
             reverses: Some((targets: ManeuverType(Submission))),
         ),
 
@@ -527,7 +527,7 @@
             on_play: [Search(filter: ManeuverType(TrademarkFinisher))],
             restricts_opponent: Some((
                 when: RingStunValueGreater,
-                filter: Title("When You Thought You Had All the Answers..."),
+                filter: Title("When You Thought You Had All the Answers ..."),
             )),
         ),
         "Ring Steps": (
@@ -862,7 +862,7 @@
         ),
         // "Can be reversed by Roll Out of the Way or Lift a Boot" is not supported yet.
         "Five Star Frog Splash": (
-            not_reversed_by: Some(Title("When You Thought You Had All the Answers...")),
+            not_reversed_by: Some(Title("When You Thought You Had All the Answers ...")),
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(ManeuverType(HighRisk))])),
         ),
@@ -962,7 +962,7 @@
 
         // Spike Dudley
         "Dudley Dog": (
-            not_reversed_by: Some(Title("When You Thought You Had All the Answers...")),
+            not_reversed_by: Some(Title("When You Thought You Had All the Answers ...")),
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
             reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(TrademarkFinisher)]))),
         ),

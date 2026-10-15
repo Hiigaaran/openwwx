@@ -71,7 +71,11 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                 .trim()
                 .to_string()
         };
-        let number = |key: &str| prop(key).parse::<u8>().unwrap_or(0);
+        // "1+" (a variable Hand Size) reads as its printed number.
+        let number = |key: &str| {
+            let v = prop(key);
+            v.trim_end_matches('+').trim().parse::<u8>().unwrap_or(0)
+        };
         let card_type = prop("CardType");
         let text = prop("Card Text");
         let id = format!("{prefix}/{}", slug(&title));
@@ -83,10 +87,10 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             }
             set.superstars.push(SuperstarDef {
                 id,
+                female: is_female(&title),
                 name: title,
                 hand_size: number("Hand Size"),
                 superstar_value: number("SSV"),
-                female: false,
                 text,
                 abilities,
                 source_id,
@@ -322,6 +326,76 @@ fn infer_reversal(rev: Option<ReversalType>, text: &str) -> Option<ReverseSpec> 
         ReversalDamage::Printed
     };
     Some(ReverseSpec::new(targets, damage))
+}
+
+/// OCTGN has no gender field, so women Superstars (and all-women teams) are listed by name.
+const FEMALE_SUPERSTARS: &[&str] = &[
+    "A.J. Lee",
+    "Alexa Bliss",
+    "Asuka",
+    "Babe of the Year",
+    "Bayley",
+    "Becky Lynch",
+    "Beth Phoenix",
+    "Bianca Belair",
+    "Brie Bella",
+    "Carmella",
+    "Charlotte",
+    "Christy",
+    "Chyna",
+    "Chyna Doll",
+    "Crimson Goddess",
+    "Dakota Kai",
+    "Damage CTRL",
+    "Ember Moon",
+    "Emma",
+    "Eve",
+    "Gail Kim",
+    "Gail Kim and Molly Holly",
+    "IYO SKY",
+    "Jacqueline",
+    "Kairi Sane",
+    "Lacey Evans",
+    "Lay-Cool",
+    "Lita",
+    "Liv Morgan",
+    "Mae Young",
+    "Mandy Rose",
+    "Maryse",
+    "Melina",
+    "Mickie James",
+    "Molly Holly",
+    "Naomi",
+    "Natalya",
+    "Nia Jax",
+    "Nidia",
+    "Nikki Bella",
+    "Paige",
+    "Rhea Ripley",
+    "Ronda Rousey",
+    "Sable",
+    "Sasha Banks",
+    "Shayna Baszler",
+    "Sherri Martel",
+    "Stacy Keibler",
+    "Stephanie McMahon",
+    "Summer Rae",
+    "The Bella Twins",
+    "The Fabulous Moolah",
+    "The Iiconics",
+    "The Legit Boss",
+    "The Man",
+    "Tiffany Stratton",
+    "Torrie Wilson",
+    "Toxic Attraction",
+    "Trish Stratus",
+    "Vickie Guerrero",
+    "Victoria",
+    "X-treme Diva",
+];
+
+fn is_female(name: &str) -> bool {
+    FEMALE_SUPERSTARS.iter().any(|n| n.eq_ignore_ascii_case(name))
 }
 
 #[cfg(test)]

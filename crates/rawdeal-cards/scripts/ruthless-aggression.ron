@@ -1,0 +1,193 @@
+// Hand-written scripts for Ruthless Aggression cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        // Drawing when the opponent draws, playing Handicap Match against Tag Teams and
+        // the Title Belt packing limit are not supported yet.
+        "Dangerous Alliance": [],
+        // Approximation: one hybrid card can count for two maneuver types, and with 3+
+        // types the maneuvers also cannot be reversed from the Backlash deck.
+        // Playing Handicap Match against Tag Teams and the Title Belt packing limit are not supported yet.
+        "The People's Team": [
+            StartOfTurn([
+                Boost((
+                    applies_to: All([
+                        Maneuver,
+                        Holds(
+                            AnyOf([
+                                All([
+                                    InYourRing(All([ManeuverType(Strike), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(Grapple), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(Submission), DamageAtLeast(3)])),
+                                ]),
+                                All([
+                                    InYourRing(All([ManeuverType(Strike), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(Grapple), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(HighRisk), DamageAtLeast(3)])),
+                                ]),
+                                All([
+                                    InYourRing(All([ManeuverType(Strike), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(Submission), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(HighRisk), DamageAtLeast(3)])),
+                                ]),
+                                All([
+                                    InYourRing(All([ManeuverType(Grapple), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(Submission), DamageAtLeast(3)])),
+                                    InYourRing(All([ManeuverType(HighRisk), DamageAtLeast(3)])),
+                                ]),
+                            ]),
+                        ),
+                    ]),
+                    duration: ThisTurn,
+                    no_hand_reversal: true,
+                )),
+            ]),
+        ],
+    },
+    scripts: {
+        // Actions
+        // The 3+ Stun Value requirement is not supported yet.
+        // Approximation: the opponent may overshoot the 4-card floor while looking for a Reversal.
+        "Do You Know Who I Am?": (
+            requires: Some(OpponentArsenalAtLeast(5)),
+            on_play: [
+                Mill(who: You, n: 3),
+                If(condition: OpponentArsenalAtLeast(5), effects: [MillUntil(who: Opponent, filter: Reversal)]),
+                If(condition: OpponentArsenalAtLeast(5), effects: [MillUntil(who: Opponent, filter: Reversal)]),
+                If(condition: OpponentArsenalAtLeast(5), effects: [MillUntil(who: Opponent, filter: Reversal)]),
+                If(condition: OpponentArsenalAtLeast(5), effects: [MillUntil(who: Opponent, filter: Reversal)]),
+                EndTurn,
+            ],
+        ),
+        // Searching when an opponent's effect removes it from the Ring is not supported yet.
+        "Look Into My Eyes ... Do You Trust Me?": (
+            ring_ability: Some((
+                cost: [RevealHand(who: You), Discard(who: You, n: 3, pick: Chosen)],
+                effects: [Search(filter: Any)],
+            )),
+        ),
+
+        // Reversals
+        // Removing the reversed card from the game is not supported yet.
+        "So Long ... Goodbye!": (
+            reverses: Some((targets: All([Action, Not(SuperstarSpecific)]), effects: [Mill(who: You, n: 3)])),
+        ),
+
+        // Pre-match
+        "Managed by Paul Heyman": (
+            extra_traits: [UniversallyUnique],
+            ring_ability: Some((
+                sacrifice: true,
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [
+                    RemoveFromRing(
+                        who: Opponent,
+                        n: 1,
+                        filter: All([AnyOf([Maneuver, Action, Reversal]), Not(Trait(MidMatch))]),
+                    ),
+                ],
+            )),
+        ),
+        // The smaller Pre-match limit is not supported yet.
+        // Approximation: blanking a Stipulation, the Title Belt and the extra Mid-match slot
+        // are one option that does nothing.
+        "Managed by Vince McMahon": (
+            extra_traits: [UniversallyUnique],
+            end_of_prematch: [
+                OpponentChooses(n: 2, options: [[], [RingsideToHand(who: You, n: 1, up_to: true)], [WinGame]]),
+            ],
+        ),
+
+        // Mid-match
+        "Settle Down, Son": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                DiscardMatching(
+                    who: Opponent,
+                    n: 3,
+                    filter: All([Maneuver, Not(Action), Not(Reversal)]),
+                    pick: Controller,
+                ),
+            ],
+        ),
+
+        // Dangerous Alliance
+        "You Can't Stop 'em": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 6, up_to: true),
+                Optional([RingsideToHand(who: You, n: 1, filter: Some(Action))]),
+            ],
+        ),
+        "Bad to the Bone": (
+            reverses: Some((
+                targets: AnyOf([Maneuver, Action]),
+                effects: [Optional([RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))])],
+            )),
+        ),
+        "Twelve Years of Terror": (on_play: [BacklashToRingside(who: Opponent, n: 1)]),
+        "Brock Lock": (reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(HighRisk)])))),
+        "I'll Make You Tap": (
+            on_play: [
+                Search(filter: All([ManeuverType(Submission), Not(Trait(Unique))])),
+                Choice([
+                    [RemoveFromRing(who: Opponent, n: 1, filter: Trait(MidMatch))],
+                    [Boost((applies_to: ManeuverType(Submission), duration: NextCard, irreversible: true))],
+                ]),
+            ],
+        ),
+
+        // The People's Team
+        "Mutual Respect": (
+            on_play: [
+                RevealHand(who: You),
+                RevealHand(who: Opponent),
+                DrawUpTo(who: You, n: 2),
+                Boost((
+                    applies_to: AnyOf([
+                        All([ManeuverType(Strike), Not(PlayerRingHas(filter: ManeuverType(Strike), n: 1))]),
+                        All([ManeuverType(Grapple), Not(PlayerRingHas(filter: ManeuverType(Grapple), n: 1))]),
+                        All([ManeuverType(Submission), Not(PlayerRingHas(filter: ManeuverType(Submission), n: 1))]),
+                        All([ManeuverType(HighRisk), Not(PlayerRingHas(filter: ManeuverType(HighRisk), n: 1))]),
+                        All([
+                            ManeuverType(TrademarkFinisher),
+                            Not(PlayerRingHas(filter: ManeuverType(TrademarkFinisher), n: 1)),
+                        ]),
+                    ]),
+                    duration: NextCard,
+                    irreversible: true,
+                )),
+            ],
+        ),
+        "Your Brush with Greatness is Over": (
+            requires: Some(InYourRing(All([Maneuver, DamageAtLeast(5)]))),
+            on_play: [
+                RemoveFromRing(who: You, n: 1, filter: All([Maneuver, DamageAtLeast(5)])),
+                RingsideToArsenal(who: You, n: 5),
+                Arrange(who: Opponent, n: 5),
+            ],
+        ),
+        "Rock's Spit Punch": (
+            play_after: Some(AnyOf([Maneuver, EarlierThisTurn(filter: Maneuver, n: 1)])),
+            no_hand_reversal: true,
+            on_play: [Mill(who: Opponent, n: 5)],
+        ),
+        "Original WWE Icon": (
+            reverses: Some((
+                targets: Action,
+                effects: [
+                    Choice([
+                        [],
+                        [RingsideToHand(who: You, n: 1, filter: Some(Maneuver))],
+                        [Search(filter: All([ManeuverType(Strike), Not(Trait(Unique))]))],
+                    ]),
+                ],
+            )),
+        ),
+        "Edge's Spear": (
+            irreversible_when: Some(After(Title("From the Top Rope"))),
+            play_after: Some(Maneuver),
+            reverses: Some((targets: After(Title("Irish Whip")))),
+        ),
+    },
+)

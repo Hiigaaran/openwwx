@@ -1,0 +1,189 @@
+// Hand-written scripts for Absolutely Raw and Ultimate Smackdown cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// Enforcer cards are skipped by the importer: Enforcers are not supported yet.
+// No Superstar is marked female, so "Female Superstar" is read from the names
+// Chyna, Lita, Stephanie McMahon and Mae Young.
+(
+    abilities: {
+        // Enforcers (and the Arsenal search that comes with revealing them) and blocking
+        // Stipulation cards are not supported yet.
+        "Eric Bischoff": [CannotPackMatching(TitleContains("McMahon"))],
+        // Enforcers (and the Arsenal search that comes with revealing them) and blocking
+        // Stipulation cards are not supported yet.
+        "Stephanie McMahon": [CountsAs(["Stephanie McMahon-Helmsley"])],
+        // The 45-card Arsenal and Puppies! Puppies! being a Set-up card are not supported yet.
+        "Mae Young": [
+            CannotPlayMatching(All([Maneuver, DamageAtLeast(3)])),
+            CardFortitude(title: "Puppies! Puppies!", delta: -10),
+            OnPlay(title: "Puppies! Puppies!", effects: [Mill(who: Opponent, n: 2), EndTurn]),
+        ],
+    },
+    scripts: {
+        // High Risk
+        "Suicide Lariat": (play_after: Some(Maneuver)),
+        "Atomic Knee Drop": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            no_hand_reversal: true,
+            on_play: [Optional([RingsideToHand(who: You, n: 1)])],
+        ),
+
+        // Strikes
+        // Approximation: Female Superstars are the ones named at the top of this file.
+        "Overhand Chairshot": (
+            not_packed_by: ["Chyna", "Lita", "Stephanie McMahon", "Mae Young"],
+            not_reversed_by: Some(Title("Back Rake")),
+            reverses_from_ring: Some((targets: AnyOf([Keyword("Foreign Object"), After(Title("Roll Out of the Ring"))]))),
+        ),
+
+        // Actions
+        "She's Got Legs": (
+            irreversible_when: Some(Superstar("Stacy Keibler")),
+            on_play: [
+                Counted(count: YourRingMatching(Trait(Raw)), effect: RingsideToArsenal(who: You, n: 0, up_to: true)),
+                Counted(
+                    count: YourRingMatching(Trait(Raw)),
+                    effect: Boost((applies_to: Maneuver, duration: ThisTurn, damage: 1)),
+                ),
+            ],
+        ),
+        "This Has Gone Over By ... Three Minutes": (on_play: [Discard(who: Opponent, n: 3, pick: Random)]),
+        // Approximation: Female Superstars are the ones named at the top of this file.
+        "Caution: Dangerous Curves Ahead": (
+            irreversible_when: Some(Superstar("Torrie Wilson")),
+            bonuses: [
+                (
+                    when: AnyOf([
+                        Superstar("Chyna"),
+                        Superstar("Lita"),
+                        Superstar("Stephanie McMahon"),
+                        Superstar("Mae Young"),
+                    ]),
+                    fortitude: -3,
+                ),
+            ],
+            on_play: [Mill(who: You, n: 6), RingsideToArsenal(who: You, n: 9, up_to: true), EndTurn],
+        ),
+        // Approximation: Female Superstars are the ones named at the top of this file.
+        "Divas! Divas! Divas!": (
+            irreversible_when: Some(
+                AnyOf([
+                    OpponentFemale,
+                    OpponentSuperstar("Chyna"),
+                    OpponentSuperstar("Lita"),
+                    OpponentSuperstar("Stephanie McMahon"),
+                    OpponentSuperstar("Mae Young"),
+                ]),
+            ),
+            on_play: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+        ),
+        // Approximation: it also stops Reversals from the Backlash deck.
+        // Moving it to the opponent's Ring when they reverse from hand is not supported yet.
+        "Redemption": (
+            irreversible_when: Some(InYourRing(Title("Backstage Politics"))),
+            while_in_ring_opponent: [(applies_to: Any, no_hand_reversal: true)],
+        ),
+        // Choosing a different Enforcer is not supported yet.
+        "You're Fired!": (
+            requires: Some(Never),
+            reverses: Some((targets: All([Action, AnyOf([Trait(Raw), Trait(SmackDown)])]))),
+        ),
+
+        // Reversals
+        // Approximation: no card is ever removed from the game, so # is 0.
+        "Get Out of Here!": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher)), DamageAtMost(0)]),
+                effects: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Title("Get the 'F'Out")))])],
+            )),
+        ),
+        // Discarding it in place of Escape Move or Step Aside is not supported yet.
+        "Escape to the Side": (
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]), overturned_only: true)),
+        ),
+
+        // Pre-match
+        // Changing the Pre-match and Mid-match limits is not supported yet.
+        "Elimination Chamber": (requires: Some(Never)),
+        // Approximation: the opponent shuffles 1 card of the starting hand back into the Arsenal.
+        // Putting cards reversed from the opponent's hand on the bottom of your Arsenal is not supported yet.
+        "Banned from Ringside": (end_of_prematch: [HandToArsenal(who: Opponent, n: 1)]),
+        // Approximation: it can only be used during your own turn.
+        "Vince McMahon Interferes!": (
+            extra_traits: [UniversallyUnique],
+            requires: Some(All([SuperstarValueAtLeast(3), Not(SuperstarValueAtMostOpponent)])),
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Boost((applies_to: Not(Trait(Unique)), duration: NextMatching, fortitude: -12))],
+            )),
+        ),
+
+        // Mid-match
+        // Blanking a card in the opponent's Ring is not supported yet.
+        "Raw Deal!": (
+            on_play: [
+                Discard(who: You, n: 1, pick: Chosen),
+                Boost((applies_to: Trait(Raw), duration: NextCard, irreversible: true)),
+            ],
+        ),
+        // Reversing after the maneuver has done its damage is not supported yet.
+        "Undermine the Competition": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: Female Superstars are the ones named at the top of this file.
+        "There Can Only Be One Dominant Female in WWE": (
+            requires: Some(
+                AnyOf([Superstar("Chyna"), Superstar("Lita"), Superstar("Stephanie McMahon"), Superstar("Mae Young")]),
+            ),
+            irreversible_when: Some(Superstar("Stephanie McMahon")),
+            on_play: [
+                If(
+                    condition: AnyOf([
+                        OpponentFemale,
+                        OpponentSuperstar("Chyna"),
+                        OpponentSuperstar("Lita"),
+                        OpponentSuperstar("Stephanie McMahon"),
+                        OpponentSuperstar("Mae Young"),
+                    ]),
+                    effects: [
+                        Discard(who: Opponent, n: 3, pick: Chosen),
+                        Counted(count: SuperstarValue, effect: Mill(who: Opponent, n: 0)),
+                    ],
+                ),
+                If(
+                    condition: Not(
+                        AnyOf([
+                            OpponentFemale,
+                            OpponentSuperstar("Chyna"),
+                            OpponentSuperstar("Lita"),
+                            OpponentSuperstar("Stephanie McMahon"),
+                            OpponentSuperstar("Mae Young"),
+                        ]),
+                    ),
+                    effects: [
+                        Counted(count: SuperstarValue, effect: RingsideToArsenal(who: You, n: 0, up_to: true)),
+                        DrawUpTo(who: You, n: 2),
+                    ],
+                ),
+            ],
+        ),
+        "Layin' the Smacketh Down!": (
+            irreversible_when: Some(AnyOf([Superstar("The Rock"), Superstar("The People's Champ")])),
+            on_play: [
+                Search(filter: All([AnyOf([Maneuver, Action]), Not(Trait(Unique)), Trait(SmackDown)]), n: 2, up_to: true),
+            ],
+        ),
+        "Get Off My Program!": (
+            as_action: Some((fortitude: Some(0), on_play: [DiscardThis, Draw(who: You, n: 1)])),
+            reverses: Some((
+                targets: EarlierThisTurn(filter: Any, n: 1),
+                requires: Some(
+                    AnyOf([
+                        All([InYourRing(Trait(Raw)), OpponentRingHas(filter: Trait(Raw), n: 1)]),
+                        All([InYourRing(Trait(SmackDown)), OpponentRingHas(filter: Trait(SmackDown), n: 1)]),
+                    ]),
+                ),
+            )),
+        ),
+        // Reversing after the maneuver has done its damage and keeping cards under it are not supported yet.
+        "Hitting the G-Spot": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+    },
+)

@@ -2503,7 +2503,7 @@ impl Engine {
 
     fn matches_printed(&self, def: &CardDef, filter: &CardFilter, fortitude: impl Fn() -> u16) -> bool {
         match filter {
-            CardFilter::Title(title) => def.title.eq_ignore_ascii_case(title),
+            CardFilter::Title(title) => crate::card::same_title(&def.title, title),
             CardFilter::TitleContains(word) => def.title.to_lowercase().contains(&word.to_lowercase()),
             CardFilter::Trait(t) => def.has_trait(*t),
             CardFilter::DamageAtMostYourFortitude => def.damage as u16 <= fortitude(),
@@ -2697,7 +2697,7 @@ fn forces_discard(e: &Effect) -> bool {
 /// Does `filter` mention the card titled `title` by name?
 fn names_title(filter: &CardFilter, title: &str) -> bool {
     match filter {
-        CardFilter::Title(t) => t.eq_ignore_ascii_case(title),
+        CardFilter::Title(t) => crate::card::same_title(t, title),
         CardFilter::All(fs) | CardFilter::AnyOf(fs) => fs.iter().any(|f| names_title(f, title)),
         _ => false,
     }

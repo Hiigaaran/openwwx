@@ -1085,3 +1085,20 @@ fn one() -> u8 {
 fn is_one(n: &u8) -> bool {
     *n == 1
 }
+
+/// Do two card titles name the same card? Case, spacing and punctuation are
+/// ignored, so "Backlash" in a card's text matches the card "Backlash!".
+pub fn same_title(a: &str, b: &str) -> bool {
+    let norm = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>();
+    norm(a) == norm(b)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn titles_match_without_case_or_punctuation() {
+        assert!(super::same_title("Backlash!", "Backlash"));
+        assert!(super::same_title("All the Answers ...", "all the answers..."));
+        assert!(!super::same_title("Lock Up", "Lock-Down"));
+    }
+}

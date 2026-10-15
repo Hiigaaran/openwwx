@@ -184,7 +184,7 @@ pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
         CardFilter::ManeuverType(t) => def.kinds.contains(&CardKind::Maneuver(*t)),
         CardFilter::Action => def.kinds.contains(&CardKind::Action),
         CardFilter::Reversal => def.is_reversal(),
-        CardFilter::Title(t) => def.title.eq_ignore_ascii_case(t),
+        CardFilter::Title(t) => crate::card::same_title(&def.title, t),
         CardFilter::TitleContains(w) => def.title.to_lowercase().contains(&w.to_lowercase()),
         CardFilter::Trait(t) => def.has_trait(*t),
         CardFilter::DamageAtMost(n) => def.damage <= *n,
