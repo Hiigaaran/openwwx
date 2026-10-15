@@ -164,6 +164,11 @@ pub enum Ability {
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         once_per_game: bool,
     },
+    /// You count as these Superstars for card effects and may pack cards with
+    /// their logos.
+    CountsAs(Vec<String>),
+    /// Effects at the end of the Pre-match phase.
+    EndOfPrematch(Vec<Effect>),
     /// Draw this many cards in your Draw Segment instead of 1.
     DrawSegment(u8),
     /// Damage from cards your opponent plays is reduced by this much.
@@ -310,6 +315,13 @@ pub struct CardScript {
     /// These Superstars cannot pack the card.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub not_packed_by: Vec<String>,
+    /// While in your Ring: your opponent's Superstar ability is blank.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub blanks_opponent_ability: bool,
+    /// While in your Ring and your opponent's Fortitude is lower than yours:
+    /// the text of the maneuvers they play is blank.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub blanks_opponent_maneuvers: bool,
     /// Cards with these titles cannot share a deck with this card.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub not_with: Vec<String>,
@@ -808,6 +820,12 @@ pub enum Effect {
     /// the last card the controller played; an empty Arsenal is a pinfall.
     OverturnUntilReversal {
         who: Who,
+        /// Stop after this many such Reversals (default 1).
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        n: u8,
+        /// Stop when only this many cards are left in the Arsenal.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        keep: u8,
     },
     Boost(Boost),
     /// The controller's turn ends after the current card.
@@ -934,7 +952,19 @@ pub enum Effect {
     BacklashToRingside {
         who: Who,
         n: u8,
+        /// The cards are picked at random instead of by the controller.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        random: bool,
     },
+    /// The opponent picks `n` different lists, one at a time; the effects
+    /// still belong to the controller.
+    OpponentChooses {
+        n: u8,
+        options: Vec<Vec<Effect>>,
+    },
+    /// Effects controlled by the controller's opponent (used by
+    /// `OpponentChooses` to hand the effects back to the card's controller).
+    AsOpponent(Vec<Effect>),
     /// Shuffle up to `n` cards from hand into the Arsenal and draw as many.
     Mulligan {
         n: u8,

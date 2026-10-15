@@ -62,7 +62,10 @@ fn user_sets_every_card_in_random_piles() {
         let pool = |f: &dyn Fn(&rawdeal_core::CardDef) -> bool| -> Vec<String> {
             db.cards()
                 .iter()
-                .filter(|c| c.superstar.is_none() || c.logos().any(|s| rawdeal_core::same_superstar(s, star)))
+                .filter(|c| {
+                    let def = db.superstar(db.superstar_by_id(star).unwrap());
+                    c.superstar.is_none() || c.logos().any(|s| rawdeal_core::may_pack_logo(def, s))
+                })
                 .filter(|c| f(c))
                 .map(|c| c.id.clone())
                 .collect()

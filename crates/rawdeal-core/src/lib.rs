@@ -22,7 +22,7 @@ pub use card::{
 };
 pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
-pub use deck::{DeckList, DeckProblem, same_superstar, validate_deck};
+pub use deck::{DeckList, DeckProblem, may_pack_logo, same_superstar, validate_deck};
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
 pub use state::{

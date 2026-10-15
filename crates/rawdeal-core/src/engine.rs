@@ -156,6 +156,10 @@ pub(crate) enum Step {
     OverturnUntil {
         player: PlayerId,
         target: Played,
+        /// Reversals still to find.
+        left: u8,
+        /// Stop when the Arsenal is down to this many cards.
+        keep: u8,
     },
     LevelFortitude,
     /// A large choice asked one card at a time: `remaining` more picks.
@@ -811,6 +815,9 @@ impl Engine {
                     (Some(action), CardKind::Action) => action.on_play.clone(),
                     _ => def.script.on_play.clone(),
                 };
+                if matches!(played.kind, CardKind::Maneuver(_)) && self.maneuvers_blanked(state, played.player) {
+                    effects.clear();
+                }
                 for ability in self.abilities(state, played.player) {
                     match ability {
                         Ability::OnPlay { title, effects: extra } if title.eq_ignore_ascii_case(&def.title) => {
@@ -869,6 +876,9 @@ impl Engine {
             Step::AfterDamage => {
                 let played = state.in_play.expect("card in play");
                 let mut effects = self.def(state, played.card).script.after_damage.clone();
+                if matches!(played.kind, CardKind::Maneuver(_)) && self.maneuvers_blanked(state, played.player) {
+                    effects.clear();
+                }
                 if let Some(watch) = state.in_play_watch.take() {
                     effects.extend(watch.on_success);
                 }
@@ -1007,7 +1017,10 @@ impl Engine {
                     });
                 }
             }
-            Step::OverturnUntil { player, target } => {
+            Step::OverturnUntil { player, target, left, keep } => {
+                if keep > 0 && state.player(player).arsenal.len() <= keep as usize {
+                    return;
+                }
                 let Some(&card) = state.player(player).arsenal.last() else {
                     self.finish(state, Outcome::Win { winner: player.opponent(), method: WinMethod::Pinfall }, events);
                     return;
@@ -1019,8 +1032,9 @@ impl Engine {
                         && self.def(state, card).is_reversal()
                         && self.matches(state, &spec.targets, target)
                 });
-                if !found {
-                    state.pending.push(Step::OverturnUntil { player, target });
+                let left = if found { left.saturating_sub(1) } else { left };
+                if left > 0 {
+                    state.pending.push(Step::OverturnUntil { player, target, left, keep });
                 }
             }
             Step::AskMore { decider, options, remaining, up_to, purpose } => {
@@ -1104,6 +1118,11 @@ impl Engine {
                 state.pending.push(Step::DecideFirst { starter });
                 // The starter's end-of-Pre-match effects resolve first.
                 for p in [starter.opponent(), starter] {
+                    for ability in self.abilities(state, p).iter().rev() {
+                        if let Ability::EndOfPrematch(effects) = ability {
+                            schedule_effects(state, effects, p, Source::Superstar(p));
+                        }
+                    }
                     for c in state.player(p).ring.clone().into_iter().rev() {
                         let effects = if state.lapsed.contains(&c) {
                             vec![Effect::SacrificeThis]
@@ -1410,9 +1429,9 @@ impl Engine {
                 ask(state, controller, options, n, false, ChoicePurpose::RingToRingside);
             }
             Effect::LevelFortitude => state.pending.push(Step::LevelFortitude),
-            Effect::OverturnUntilReversal { who } => {
+            Effect::OverturnUntilReversal { who, n, keep } => {
                 if let Some(target_card) = state.last_played.filter(|l| l.player == controller) {
-                    state.pending.push(Step::OverturnUntil { player: target(who), target: target_card });
+                    state.pending.push(Step::OverturnUntil { player: target(who), target: target_card, left: n, keep });
                 }
             }
             Effect::Boost(boost) => state.boosts.push((controller, boost)),
@@ -1623,10 +1642,41 @@ impl Engine {
                     .collect();
                 ask(state, p, options, n, false, ChoicePurpose::RingsideToBacklash);
             }
-            Effect::BacklashToRingside { who, n } => {
-                let options = state.player(target(who)).backlash.clone();
-                ask(state, controller, options, n, false, ChoicePurpose::RingToRingside);
+            Effect::BacklashToRingside { who, n, random } => {
+                let p = target(who);
+                if random {
+                    for _ in 0..n {
+                        let len = state.player(p).backlash.len();
+                        if len == 0 {
+                            break;
+                        }
+                        let i = state.rng.random_range(0..len);
+                        let c = state.player(p).backlash[i];
+                        self.move_card(state, c, Zone::Ringside, events);
+                    }
+                } else {
+                    let options = state.player(p).backlash.clone();
+                    ask(state, controller, options, n, false, ChoicePurpose::RingToRingside);
+                }
             }
+            Effect::OpponentChooses { n, options } => {
+                if n == 0 || options.is_empty() {
+                    return;
+                }
+                let lists: Vec<Vec<Effect>> = (0..options.len())
+                    .map(|i| {
+                        let mut rest = options.clone();
+                        let mut picked = rest.remove(i);
+                        picked.push(Effect::OpponentChooses { n: n - 1, options: rest });
+                        vec![Effect::AsOpponent(picked)]
+                    })
+                    .collect();
+                state.decision = Some(Decision {
+                    player: controller.opponent(),
+                    kind: DecisionKind::ChooseOption { options: lists, source },
+                });
+            }
+            Effect::AsOpponent(effects) => schedule_effects(state, &effects, controller.opponent(), source),
             Effect::Mulligan { n } => {
                 let options = state.player(controller).hand.clone();
                 ask(state, controller, options, n, true, ChoicePurpose::Mulligan);
@@ -1978,9 +2028,7 @@ impl Engine {
             Condition::FortitudeAtLeastOpponent => {
                 self.fortitude(state, player) >= self.fortitude(state, player.opponent())
             }
-            Condition::Superstar(name) => {
-                self.db.superstar(state.player(player).superstar).name.eq_ignore_ascii_case(name)
-            }
+            Condition::Superstar(name) => self.is_superstar(state, player, name),
             Condition::OpponentRingHas { filter, n } => {
                 self.count_in_ring_matching(state, player.opponent(), filter) >= *n as usize
             }
@@ -1993,9 +2041,7 @@ impl Engine {
             Condition::ReversedLastTurn(f) => {
                 state.reversed_last[player.index()].is_some_and(|r| self.matches(state, f, r))
             }
-            Condition::OpponentSuperstar(name) => {
-                self.db.superstar(state.player(player.opponent()).superstar).name.eq_ignore_ascii_case(name)
-            }
+            Condition::OpponentSuperstar(name) => self.is_superstar(state, player.opponent(), name),
             Condition::SuperstarValueAtMost(n) => self.superstar_value(state, player) <= *n,
             Condition::SuperstarValueAtLeast(n) => self.superstar_value(state, player) >= *n,
             Condition::SuperstarValueAtMostOpponent => {
@@ -2074,7 +2120,27 @@ impl Engine {
     }
 
     fn abilities<'a>(&'a self, state: &GameState, p: PlayerId) -> &'a [Ability] {
+        let blanked =
+            self.ring_cards(state, p.opponent()).iter().any(|&c| self.def(state, c).script.blanks_opponent_ability);
+        if blanked {
+            return &[];
+        }
         &self.db.superstar(state.player(p).superstar).abilities
+    }
+
+    /// Is `p`'s Superstar `name`, or does it count as `name`?
+    fn is_superstar(&self, state: &GameState, p: PlayerId, name: &str) -> bool {
+        self.db.superstar(state.player(p).superstar).name.eq_ignore_ascii_case(name)
+            || self.abilities(state, p).iter().any(|a| match a {
+                Ability::CountsAs(names) => names.iter().any(|n| same_name(n, name)),
+                _ => false,
+            })
+    }
+
+    /// Is the text of the maneuvers `p` plays blank?
+    fn maneuvers_blanked(&self, state: &GameState, p: PlayerId) -> bool {
+        self.ring_cards(state, p.opponent()).iter().any(|&c| self.def(state, c).script.blanks_opponent_maneuvers)
+            && self.fortitude(state, p) < self.fortitude(state, p.opponent())
     }
 
     fn activated_ability<'a>(&'a self, state: &GameState, p: PlayerId) -> Option<(&'a [Effect], &'a [Effect], bool)> {
@@ -2279,9 +2345,7 @@ impl Engine {
             CardFilter::DamageAtLeast(n) => def.damage >= *n,
             CardFilter::After(_) | CardFilter::PlayerRingHas { .. } | CardFilter::EarlierThisTurn { .. } => false,
             CardFilter::Keyword(_) => self.matches_printed(def, filter, || 0),
-            CardFilter::PlayedBy(name) => {
-                self.db.superstar(state.player(controller).superstar).name.eq_ignore_ascii_case(name)
-            }
+            CardFilter::PlayedBy(name) => self.is_superstar(state, controller, name),
             CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
             CardFilter::Draws => {
                 effects_any(&def.script.on_play, &draws)
@@ -2462,7 +2526,9 @@ fn effects_any(effects: &[Effect], f: &dyn Fn(&Effect) -> bool) -> bool {
             Effect::Optional(inner) | Effect::AtEndOfTurn(inner) | Effect::If { effects: inner, .. } => {
                 effects_any(inner, f)
             }
-            Effect::Choice(options) => options.iter().any(|o| effects_any(o, f)),
+            Effect::Choice(options) | Effect::OpponentChooses { options, .. } => {
+                options.iter().any(|o| effects_any(o, f))
+            }
             _ => false,
         }
     })
@@ -2497,4 +2563,10 @@ fn names_title(filter: &CardFilter, title: &str) -> bool {
         CardFilter::All(fs) | CardFilter::AnyOf(fs) => fs.iter().any(|f| names_title(f, title)),
         _ => false,
     }
+}
+
+/// Names match ignoring case and punctuation ("Deadman Inc." is "Deadman Inc").
+fn same_name(a: &str, b: &str) -> bool {
+    let key = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect::<String>();
+    key(a) == key(b)
 }

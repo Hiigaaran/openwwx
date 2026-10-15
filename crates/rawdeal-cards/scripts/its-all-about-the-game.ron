@@ -1,0 +1,188 @@
+// Hand-written scripts for It's All About The Game cards, merged by the OCTGN
+// importer. Keys are card titles. Only the parts of the text the engine can
+// express are scripted; cards marked `requires: Some(Never)` cannot be played yet.
+(
+    abilities: {
+        // Foil cards are not tracked: every card with those logos may be packed.
+        "Two-Man Power Trip": [
+            CountsAs(["Stone Cold Steve Austin", "Triple H"]),
+            EndOfPrematch([If(condition: Not(SuperstarValueAtMostOpponent), effects: [DrawUpTo(who: You, n: 3)])]),
+        ],
+        "Brothers of Destruction": [
+            CountsAs(["Undertaker", "Deadman Inc", "Kane"]),
+            DrawSegmentOption([Mill(who: You, n: 2), RingsideToHand(who: You, n: 1)]),
+        ],
+    },
+    scripts: {
+        // Stone Cold Steve Austin
+        "And That's the Bottom Line ...": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                fortitude_when: Some((Superstar("Two-Man Power Trip"), 9)),
+                effects: [Search(filter: Title("...'Cause Stone Cold Said So!"), ringside: true)],
+            )),
+        ),
+        "...'Cause Stone Cold Said So!": (
+            requires: Some(InYourRing(Title("And That's the Bottom Line ..."))),
+            on_play: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Action)])],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Boost((applies_to: Any, duration: NextCard, fortitude: -100))],
+            )),
+        ),
+
+        // Triple H
+        "It's Time to Play the Game": (
+            on_play: [
+                If(
+                    condition: FortitudeAboveOpponent,
+                    effects: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+                ),
+                If(
+                    condition: All([FortitudeAtMostOpponent, FortitudeAtLeastOpponent]),
+                    effects: [RemoveFromRing(who: Opponent, n: 1, filter: Any)],
+                ),
+                If(condition: FortitudeBelowOpponent, effects: [RingsideToArsenal(who: You, n: 4)]),
+            ],
+        ),
+        "Flip Over the Corner Ringpost": (
+            on_play: [
+                ShuffleThisIntoArsenal,
+                RingsideToArsenal(who: You, n: 1),
+                Draw(who: You, n: 2),
+                Discard(who: You, n: 1, pick: Chosen),
+            ],
+            reverses: Some((
+                targets: Title("Throw Into the Corner Turnbuckle"),
+                effects: [Mill(who: Opponent, n: 3), RingsideToHand(who: You, n: 3)],
+            )),
+        ),
+
+        // Two-Man Power Trip
+        "Ambush Finale": (
+            play_after: Some(All([Maneuver, Trait(Heel)])),
+            on_play: [Optional([RemoveFromRing(who: Opponent, n: 2, filter: Any)])],
+        ),
+
+        // Undertaker, Deadman Inc and Brothers of Destruction
+        // Approximation: the bonus goes to your next maneuver of that type, not
+        // only to the card found.
+        "Rollin' - Rollin' - Rollin'!": (
+            play_after: Some(Maneuver),
+            on_play: [
+                If(
+                    condition: After(ManeuverType(Strike)),
+                    effects: [
+                        Search(filter: All([ManeuverType(Strike), Not(Trait(Unique))]), ringside: true),
+                        Boost((applies_to: ManeuverType(Strike), duration: NextCard, damage: 2, irreversible: true)),
+                    ],
+                ),
+                If(
+                    condition: After(ManeuverType(Grapple)),
+                    effects: [
+                        Search(filter: All([ManeuverType(Grapple), Not(Trait(Unique))]), ringside: true),
+                        Boost((applies_to: ManeuverType(Grapple), duration: NextCard, damage: 2, irreversible: true)),
+                    ],
+                ),
+                If(
+                    condition: After(ManeuverType(Submission)),
+                    effects: [
+                        Search(filter: All([ManeuverType(Submission), Not(Trait(Unique))]), ringside: true),
+                        Boost((applies_to: ManeuverType(Submission), duration: NextCard, damage: 2, irreversible: true)),
+                    ],
+                ),
+                If(
+                    condition: After(ManeuverType(HighRisk)),
+                    effects: [
+                        Search(filter: All([ManeuverType(HighRisk), Not(Trait(Unique))]), ringside: true),
+                        Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, damage: 2, irreversible: true)),
+                    ],
+                ),
+                If(
+                    condition: After(ManeuverType(TrademarkFinisher)),
+                    effects: [
+                        Search(filter: All([ManeuverType(TrademarkFinisher), Not(Trait(Unique))]), ringside: true),
+                        Boost((
+                            applies_to: ManeuverType(TrademarkFinisher),
+                            duration: NextCard,
+                            damage: 2,
+                            irreversible: true,
+                        )),
+                    ],
+                ),
+            ],
+        ),
+        // Played as a Strike or as a Grapple.
+        "Throttled Within an Inch of Your Life": (
+            no_hand_reversal: true,
+            on_play: [OverturnUntilReversal(who: Opponent, n: 2, keep: 1)],
+        ),
+
+        // Kane and Brothers of Destruction
+        "Chains of Destruction": (
+            in_ring_start_of_turn: [
+                Mill(who: Opponent, n: 1),
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                Mill(who: You, n: 1),
+            ],
+        ),
+        "Boot to the Face": (
+            reverses: Some((targets: AnyOf([Title("Throw Into the Corner Turnbuckle"), Title("Irish Whip")]))),
+        ),
+        "Chokeslam to Hell": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                requires: Some(FortitudeBelowOpponent),
+            )),
+        ),
+
+        // Pre-match
+        // "Play with his hand face up until the second turn" only shows the hand once.
+        "Backed by Mr. McMahon": (
+            end_of_prematch: [
+                If(
+                    condition: Not(SuperstarValueAtMostOpponent),
+                    effects: [
+                        OpponentChooses(
+                            n: 2,
+                            options: [
+                                [Discard(who: Opponent, n: 2, pick: Chosen)],
+                                [Draw(who: You, n: 2)],
+                                [Mill(who: Opponent, n: 7)],
+                                [RevealHand(who: Opponent)],
+                                [SkipNextTurn(who: Opponent)],
+                                [WinGame],
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        // Watching the opponent's next Pre-match card is not supported yet.
+        "Calling You Out": (requires: Some(Never)),
+
+        // Mid-match
+        "Debilitating Injury: Arm/Elbow": (
+            requires: Some(LastPlayedThisTurn(filter: All([Maneuver, DamageAtLeast(4)]), n: 2)),
+            blanks_opponent_maneuvers: true,
+        ),
+        "Debilitating Injury: Knee/Leg": (
+            requires: Some(LastPlayedThisTurn(filter: All([Maneuver, DamageAtLeast(6)]), n: 2)),
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
+            reverses_from_ring: Some((targets: Action, fortitude: Some(0))),
+        ),
+
+        // Generic
+        "The Bigger They Are, the Harder They Fall": (
+            play_after: Some(Maneuver),
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [MillChosen(who: Opponent, n: 3, filter: Some(Reversal)), Shuffle(who: Opponent)],
+        ),
+        "Critical Injury": (play_after: Some(All([Maneuver, DamageAtLeast(5)])), blanks_opponent_ability: true),
+        "Chain Lashing": (
+            requires: Some(FortitudeAboveOpponent),
+            on_play: [BacklashToRingside(who: Opponent, n: 1, random: true)],
+        ),
+        "Piledriver": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+    },
+)

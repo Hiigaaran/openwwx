@@ -100,7 +100,8 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let mut unknown = None;
         // Backlash cards: "Pre-match Event", "Mid-match Reversal: Special".
         let mut mid_match = false;
-        for part in card_type.split(" / ").map(str::trim) {
+        // "Strike + Grapple" can be played as either type.
+        for part in card_type.split(" / ").flat_map(|p| p.split(" + ")).map(str::trim) {
             let part = match part.strip_prefix("Mid-match ") {
                 Some(rest) => {
                     mid_match = true;

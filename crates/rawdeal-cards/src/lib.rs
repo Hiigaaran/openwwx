@@ -104,7 +104,7 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
         !c.is_backlash()
             && packable(c)
             && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
-            && (c.superstar.is_none() || c.logos().any(|s| rawdeal_core::same_superstar(s, superstar)))
+            && (c.superstar.is_none() || c.logos().any(|s| rawdeal_core::may_pack_logo(star, s)))
     };
     let own = db.cards().iter().filter(usable).filter(|c| c.superstar.is_some());
     let generic = db.cards().iter().filter(usable).filter(|c| c.superstar.is_none());

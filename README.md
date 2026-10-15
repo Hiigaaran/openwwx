@@ -2,8 +2,8 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded, Backlash y
-Survivor Series con sus efectos programados. El diseño completo está en
+Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded, Backlash,
+Survivor Series e It's All About The Game con sus efectos programados. El diseño completo está en
 [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ## Crates
@@ -95,6 +95,11 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   set (incluida la que anula la próxima carta Pre-match del rival).
 - Survivor Series: Cactus Jack, Deadman Inc y sus 10 cartas, y Stephanie Interferes (Triple H), que no puede ir en
   el mismo mazo que Chyna Interferes.
+- It's All About The Game: Superstars que cuentan como otras (Two-Man Power Trip es Stone Cold y Triple H;
+  Brothers of Destruction es Undertaker, Deadman Inc y Kane) para los efectos y para armar el mazo, efectos de
+  Superstar al terminar el Pre-match, cartas del Ring que dejan en blanco la habilidad de la Superstar rival
+  (Critical Injury) o el texto de sus maniobras (Debilitating Injury: Arm/Elbow), opciones que elige el rival
+  (Backed by Mr. McMahon) y maniobras Strike + Grapple.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -138,6 +143,11 @@ Study the Tapes, Student of the Sport y Big Slide Into the Ring están simplific
 
 Survivor Series: todas sus cartas se juegan. Dead Man Walking manda 4 cartas del Arsenal rival al Ringside sin
 contarlas como daño.
+
+It's All About The Game: no se puede jugar todavía Calling You Out. Se juegan simplificadas: Two-Man Power Trip
+(puede llevar todas las cartas de Stone Cold y Triple H, no solo las Foil), Rollin' - Rollin' - Rollin'! (el +2D va a
+tu próxima maniobra de ese tipo, no solo a la carta buscada), Throttled Within an Inch of Your Life (se juega como
+Strike o como Grapple) y Backed by Mr. McMahon (la mano boca arriba solo se muestra una vez).
 
 ## Cartas y arte
 

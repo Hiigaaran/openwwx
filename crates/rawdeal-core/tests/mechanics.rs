@@ -21,6 +21,8 @@ const SET: &str = r#"(
         (id: "m/twice", name: "Twice", hand_size: 0, superstar_value: 1,
             abilities: [HandSizeFromOpponentValue(times: 2, min: 6)]),
         (id: "m/censor", name: "Censor", hand_size: 6, superstar_value: 1, abilities: [ReverseByDiscardingAny(Action)]),
+        (id: "m/team", name: "Team", hand_size: 6, superstar_value: 5, abilities: [CountsAs(["First"])]),
+        (id: "m/tough", name: "Tough", hand_size: 6, superstar_value: 1, abilities: [ReduceDamage(2)]),
     ],
     cards: [
         (id: "m/filler", title: "Filler", kinds: [Action], fortitude: 0, damage: 0),
@@ -57,6 +59,15 @@ const SET: &str = r#"(
             script: (on_play: [NextCardMustBe(Title("Hit"))])),
         (id: "m/twin", title: "Twin", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [Boost((applies_to: Maneuver, duration: NextCards(2), damage: 1))])),
+        (id: "m/ego", title: "Ego", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [If(condition: Superstar("First"), effects: [Draw(who: You, n: 2)])])),
+        (id: "m/injury", title: "Injury", kinds: [Action], fortitude: 0, damage: 0,
+            script: (blanks_opponent_ability: true)),
+        (id: "m/arm", title: "Arm", kinds: [Action], fortitude: 0, damage: 0,
+            script: (blanks_opponent_maneuvers: true)),
+        (id: "m/backed", title: "Backed", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [OpponentChooses(n: 2, options: [[Draw(who: You, n: 1)], [Mill(who: Opponent, n: 1)],
+                [Draw(who: You, n: 3)]])])),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
             also_superstars: ["m/second"]),
     ],
@@ -402,4 +413,66 @@ fn cards_with_several_logos_go_in_either_deck() {
 fn shortened_logos_still_match() {
     assert!(same_superstar("set-b/billy-gunn", "set-a/b-a-billy-gunn"));
     assert!(!same_superstar("set-b/gunn", "set-a/b-a-billy-gunnx"));
+}
+
+#[test]
+fn a_team_counts_as_its_members() {
+    let e = engine();
+    let deck = DeckList { superstar: "m/team".into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+    let problems = validate_deck(e.db(), &deck);
+    assert!(!problems.iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })), "{problems:?}");
+    let mut s = start(&e, "team", &["ego"], "second", &[]);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "ego");
+    assert_eq!(s.player(P1).hand.len(), hand - 1 + 2);
+}
+
+#[test]
+fn a_ring_card_can_blank_the_opponents_ability() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "injury", "hit"], "tough", &[]);
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).ringside.len(), 0, "Tough reduces the damage to 0");
+    play(&e, &mut s, P1, "injury");
+    no_reversal(&e, &mut s);
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).ringside.len(), 2);
+}
+
+#[test]
+fn a_ring_card_can_blank_the_opponents_maneuvers() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "arm"], "second", &["follow"]);
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    play(&e, &mut s, P1, "arm");
+    no_reversal(&e, &mut s);
+    end_turn(&e, &mut s);
+    let hand = s.player(P2).hand.len();
+    play(&e, &mut s, P2, "follow");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).hand.len(), hand - 1, "Follow draws nothing");
+}
+
+#[test]
+fn the_opponent_picks_two_different_options() {
+    let e = engine();
+    let mut s = start(&e, "first", &["backed"], "second", &[]);
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "backed");
+    no_reversal(&e, &mut s);
+    let Some(Decision { player: P2, kind: DecisionKind::ChooseOption { options, .. } }) = s.decision.clone() else {
+        panic!("P2 chooses, got {:?}", s.decision)
+    };
+    assert_eq!(options.len(), 3);
+    apply(&e, &mut s, P2, Action::ChooseOption(0));
+    let Some(Decision { player: P2, kind: DecisionKind::ChooseOption { options, .. } }) = s.decision.clone() else {
+        panic!("P2 chooses again, got {:?}", s.decision)
+    };
+    assert_eq!(options.len(), 2);
+    apply(&e, &mut s, P2, Action::ChooseOption(0));
+    assert_eq!(s.player(P1).hand.len(), hand - 1 + 1, "P1 drew 1");
+    assert_eq!(s.player(P2).ringside.len(), 1, "P2 overturned 1");
 }

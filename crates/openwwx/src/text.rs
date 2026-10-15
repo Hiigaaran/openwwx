@@ -35,10 +35,15 @@ fn maneuver(t: ManeuverType) -> &'static str {
     }
 }
 
+thread_local! {
+    /// Set while describing effects controlled by the other player.
+    static SWAPPED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 fn who(w: Who) -> &'static str {
-    match w {
-        Who::You => "tú",
-        Who::Opponent => "el rival",
+    match (w, SWAPPED.with(|s| s.get())) {
+        (Who::You, false) | (Who::Opponent, true) => "tú",
+        _ => "el rival",
     }
 }
 
@@ -208,6 +213,15 @@ pub fn effect(e: &Effect) -> String {
         Effect::ShuffleRingsideIntoArsenal { who: w } => format!("baraja todo el Ringside en el Arsenal ({})", who(*w)),
         Effect::NextPlayWatch { filter: f, .. } => format!("según cómo salga tu próxima {}", filter(f)),
         Effect::DrawRingCards { less } => format!("roba 1 por cada carta en los Rings, menos {less}"),
+        Effect::OpponentChooses { n, .. } => format!("el rival elige {n} opciones"),
+        Effect::AsOpponent(es) => {
+            let shown: Vec<Effect> =
+                es.iter().filter(|e| !matches!(e, Effect::OpponentChooses { .. })).cloned().collect();
+            let before = SWAPPED.with(|s| s.replace(!s.get()));
+            let text = effects(&shown);
+            SWAPPED.with(|s| s.set(before));
+            text
+        }
     }
 }
 

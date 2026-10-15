@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::card::{Ability, Trait};
+use crate::card::{Ability, SuperstarDef, Trait};
 use crate::db::CardDb;
 
 pub const ARSENAL_SIZE: usize = 60;
@@ -144,7 +144,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
         match &def.superstar {
             // Superstar-specific cards ignore trait conflicts.
-            Some(_) if !def.logos().any(|s| same_superstar(s, &deck.superstar)) => {
+            Some(_) if !superstar.is_some_and(|star| def.logos().any(|s| may_pack_logo(star, s))) => {
                 problems.push(DeckProblem::WrongSuperstar { card: id.to_string() })
             }
             Some(_) => {}
@@ -172,6 +172,20 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
     }
     problems
+}
+
+/// May `star` pack cards with this logo, as itself or as a Superstar it
+/// counts as?
+pub fn may_pack_logo(star: &SuperstarDef, logo: &str) -> bool {
+    let slug = |name: &str| {
+        let s: String = name.chars().map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
+        s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-")
+    };
+    same_superstar(logo, &star.id)
+        || star.abilities.iter().any(|a| match a {
+            Ability::CountsAs(names) => names.iter().any(|n| same_superstar(logo, &slug(n))),
+            _ => false,
+        })
 }
 
 /// Does a card's Superstar logo (`"set/slug"`) name this Superstar? Logos
