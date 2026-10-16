@@ -20,6 +20,9 @@ pub struct DeckList {
     /// Optional Backlash deck for Advanced matches.
     #[serde(default)]
     pub backlash: Vec<String>,
+    /// Backstage Area: Enforcer cards, for Superstars that may reveal them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub backstage: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +55,11 @@ pub enum DeckProblem {
     TooManyMidMatch(usize),
     /// The Superstar cannot pack this card.
     Forbidden {
+        card: String,
+    },
+    /// Enforcer cards go only in the Backstage Area, one copy each, and only
+    /// for a Superstar that may reveal them.
+    Backstage {
         card: String,
     },
     /// Two cards that cannot share a deck.
@@ -96,6 +104,19 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
     for id in &deck.arsenal {
         if db.card_by_id(id).is_some_and(|i| db.card(i).is_backlash()) {
             problems.push(DeckProblem::BacklashCardInArsenal { card: id.clone() });
+        }
+    }
+    let reveals = superstar.is_some_and(|s| s.abilities.iter().any(|a| matches!(a, Ability::RevealEnforcers(_))));
+    for id in deck.arsenal.iter().chain(&deck.backlash) {
+        if db.card_by_id(id).is_some_and(|i| db.card(i).is_backstage()) {
+            problems.push(DeckProblem::Backstage { card: id.clone() });
+        }
+    }
+    for (i, id) in deck.backstage.iter().enumerate() {
+        match db.card_by_id(id).map(|c| db.card(c)) {
+            Some(def) if def.is_backstage() && reveals && !deck.backstage[..i].contains(id) => {}
+            Some(_) => problems.push(DeckProblem::Backstage { card: id.clone() }),
+            None => problems.push(DeckProblem::UnknownCard(id.clone())),
         }
     }
 

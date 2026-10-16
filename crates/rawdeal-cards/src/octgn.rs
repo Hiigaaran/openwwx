@@ -9,7 +9,8 @@ use std::collections::BTreeMap;
 
 use rawdeal_core::card::ReversalDamage;
 use rawdeal_core::{
-    Ability, CardDef, CardFilter, CardKind, CardScript, ManeuverType, PreMatchType, ReverseSpec, SuperstarDef, Trait,
+    Ability, CardDef, CardFilter, CardKind, CardScript, EnforcerDef, ManeuverType, PreMatchType, ReverseSpec,
+    SuperstarDef, Trait,
 };
 use serde::{Deserialize, Serialize};
 
@@ -158,7 +159,13 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             }
         }
 
+        let enforcers = if kinds.contains(&CardKind::Enforcer) {
+            parse_enforcers(&title, &text, std::mem::take(&mut script.enforcer_abilities))
+        } else {
+            vec![]
+        };
         set.cards.push(CardDef {
+            enforcers,
             id,
             title,
             kinds,
@@ -199,6 +206,42 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
     Ok((set, report))
 }
 
+/// The Enforcers printed on an Enforcer card. The title names them ("Stone
+/// Cold, Triple H, or ... Christian?") and the text has one "Hand Size: +n
+/// Superstar Value: +n Superstar Ability: +text" block each.
+fn parse_enforcers(title: &str, text: &str, mut abilities: Vec<Vec<Ability>>) -> Vec<EnforcerDef> {
+    let names: Vec<String> = title
+        .trim_end_matches('?')
+        .replace(", or", ",")
+        .replace(" or ", ",")
+        .split(',')
+        .map(|n| n.trim().trim_start_matches('.').trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect();
+    let blocks: Vec<&str> = text.split("Hand Size:").skip(1).collect();
+    let number = |s: &str| -> u8 {
+        let digits: String = s.trim().trim_start_matches('+').chars().take_while(|c| c.is_ascii_digit()).collect();
+        digits.parse().unwrap_or(0)
+    };
+    blocks
+        .iter()
+        .enumerate()
+        .map(|(i, block)| {
+            let block = block.trim().trim_end_matches('≥').trim();
+            let (hand, rest) = block.split_once("Superstar Value:").unwrap_or((block, ""));
+            let (value, ability) = rest.split_once("Superstar Ability:").unwrap_or((rest, ""));
+            let name = if names.len() == blocks.len() { names[i].clone() } else { format!("Enforcer {}", i + 1) };
+            EnforcerDef {
+                name,
+                hand_size: number(hand),
+                superstar_value: number(value),
+                text: ability.trim().trim_start_matches('+').trim().trim_end_matches('≥').trim().to_string(),
+                abilities: if i < abilities.len() { std::mem::take(&mut abilities[i]) } else { vec![] },
+            }
+        })
+        .collect()
+}
+
 /// What a Reversal's printed type says it reverses.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ReversalType {
@@ -217,6 +260,7 @@ fn parse_kind(part: &str) -> Option<(CardKind, Option<ReversalType>)> {
         "High Risk" => maneuver(ManeuverType::HighRisk),
         "Trademark Finisher" => maneuver(ManeuverType::TrademarkFinisher),
         "Action" => Some((CardKind::Action, None)),
+        "Enforcer" => Some((CardKind::Enforcer, None)),
         "Pre-match Venue" => Some((CardKind::PreMatch(PreMatchType::Venue), None)),
         "Pre-match Feud" => Some((CardKind::PreMatch(PreMatchType::Feud), None)),
         "Pre-match Stipulation" => Some((CardKind::PreMatch(PreMatchType::Stipulation), None)),

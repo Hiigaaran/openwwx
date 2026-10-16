@@ -21,6 +21,9 @@ pub enum CardKind {
     Reversal,
     /// Backlash card played only during the Pre-match phase.
     PreMatch(PreMatchType),
+    /// Revealed from the Backstage Area at the start of the game; it is never
+    /// played. Its Enforcers are in [`CardDef::enforcers`].
+    Enforcer,
 }
 
 /// Pre-match cards. The first four are played in their own step, one each per
@@ -38,7 +41,7 @@ pub enum PreMatchType {
 impl CardKind {
     /// Kinds that can be played from hand during your own Main Segment.
     pub fn playable_on_own_turn(self) -> bool {
-        !matches!(self, CardKind::Reversal | CardKind::PreMatch(_))
+        !matches!(self, CardKind::Reversal | CardKind::PreMatch(_) | CardKind::Enforcer)
     }
 }
 
@@ -103,9 +106,33 @@ pub struct CardDef {
     pub source_id: Option<String>,
     #[serde(default)]
     pub script: CardScript,
+    /// The Enforcers printed on an Enforcer card.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enforcers: Vec<EnforcerDef>,
+}
+
+/// One Enforcer printed on an Enforcer card: once chosen, it adds to the
+/// Superstar's Starting Hand Size, Superstar Value and Superstar Ability.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EnforcerDef {
+    pub name: String,
+    #[serde(default)]
+    pub hand_size: u8,
+    #[serde(default)]
+    pub superstar_value: u8,
+    /// Printed ability text, for display only.
+    #[serde(default)]
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub abilities: Vec<Ability>,
 }
 
 impl CardDef {
+    /// Enforcer cards go in the Backstage Area, not in an Arsenal or Backlash deck.
+    pub fn is_backstage(&self) -> bool {
+        self.kinds.contains(&CardKind::Enforcer)
+    }
+
     /// Does the card print the keyword trait `word` ("Heat", "Volley", ...)?
     pub fn has_keyword(&self, word: &str) -> bool {
         self.other_traits.iter().any(|t| keyword_matches(t, word))
@@ -235,6 +262,10 @@ pub enum Ability {
     DrawSegmentOption(Vec<Effect>),
     /// Extra effects when you successfully play a card matching `filter`.
     OnPlayMatching { filter: CardFilter, effects: Vec<Effect> },
+    /// "You may pack Enforcers in your Backstage area. Reveal ... Enforcer
+    /// cards and choose 1 Enforcer": before the match you reveal the matching
+    /// Enforcer cards packed in your Backstage Area and choose 1 Enforcer.
+    RevealEnforcers(CardFilter),
     /// Hand Size is `times` your opponent's Superstar Value, at least `min`.
     HandSizeFromOpponentValue { times: u8, min: u8 },
     /// Card-drawing effects on cards your opponent plays do nothing (Stun
@@ -391,6 +422,10 @@ pub struct CardScript {
     /// Ring (Ref KO'd!).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answers_reversal: Option<CardFilter>,
+    /// Enforcer cards: the abilities of each printed Enforcer, in order (the
+    /// importer moves them into [`CardDef::enforcers`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enforcer_abilities: Vec<Vec<Ability>>,
     /// Where the cards under this card go when it leaves your Ring (default
     /// your Ringside pile).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -550,6 +585,8 @@ pub enum Condition {
     Always,
     /// Tag Team only cards, which the engine does not support yet.
     Never,
+    /// `who` has an Enforcer chosen.
+    HasEnforcer(Who),
     /// The last card you successfully played this turn matches.
     After(CardFilter),
     /// A card in your Ring matches.
@@ -1223,6 +1260,12 @@ pub enum Effect {
     /// turn"). Use in `on_opponent_reverses` and similar reversal triggers,
     /// or in a Reversal's effects.
     ContinueTurn,
+    /// "Choose 1 different Enforcer": `who`'s Superstar switches to another
+    /// Enforcer on their revealed Enforcer cards; the effect's controller
+    /// chooses. Wrap it in `Optional` for "you may".
+    ChooseEnforcer {
+        who: Who,
+    },
     /// "Choose one": the controller picks one of the lists.
     Choice(Vec<Vec<Effect>>),
     /// Effects that only happen if `condition` holds for the controller.

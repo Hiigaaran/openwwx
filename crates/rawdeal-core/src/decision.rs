@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::card::{CardKind, Effect};
+use crate::db::DefIdx;
 use crate::state::{CardId, PlayerId, Source};
 
 /// The engine is paused until `player` answers.
@@ -29,6 +30,9 @@ pub enum DecisionKind {
     /// with one of `options` (a Reversal that reverses Reversals, or an
     /// Action that cancels them).
     CounterReversal { reversal: CardId, options: Vec<CardId> },
+    /// Choose an Enforcer for `who` (answer with `ChooseOption`): an Enforcer
+    /// card and the index of the Enforcer on it.
+    ChooseEnforcer { who: PlayerId, options: Vec<(DefIdx, u8)> },
     /// Pick between `min` and `max` cards from `options`.
     ChooseCards { options: Vec<CardId>, min: u8, max: u8, purpose: ChoicePurpose },
     /// Answer yes or no.

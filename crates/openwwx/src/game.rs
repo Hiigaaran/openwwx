@@ -496,6 +496,14 @@ impl Match {
         let r = ui.horizontal(|ui| {
             let label = if p == self.me { "Tú" } else { "Rival" };
             ui.label(RichText::new(format!("{label}: {}", star.name)).strong().size(16.0));
+            if let Some((card, index)) = info.enforcer
+                && let Some(e) = self.db().card(card).enforcers.get(index as usize)
+            {
+                ui.label(format!("Enforcer: {}", e.name)).on_hover_text(format!(
+                    "Mano +{}, Superstar Value +{}. {}",
+                    e.hand_size, e.superstar_value, e.text
+                ));
+            }
             ui.separator();
             ui.label(RichText::new(format!("Fortitude {fortitude}")).color(Color32::from_rgb(255, 210, 90)));
             ui.separator();
@@ -696,6 +704,18 @@ impl Match {
                 }
                 if ui.button("No revertir").clicked() {
                     chosen = Some(Action::DeclineReversal);
+                }
+            }
+            DecisionKind::ChooseEnforcer { who, options } => {
+                let whose = if *who == self.me { "tu Superstar" } else { "el rival" };
+                ui.label(RichText::new(format!("Elige un Enforcer para {whose}:")).strong());
+                for (i, (card, index)) in options.iter().enumerate() {
+                    if let Some(e) = self.db().card(*card).enforcers.get(*index as usize) {
+                        let label = format!("{} (mano +{}, valor +{})", e.name, e.hand_size, e.superstar_value);
+                        if ui.button(label).on_hover_text(&e.text).clicked() {
+                            chosen = Some(Action::ChooseOption(i as u8));
+                        }
+                    }
                 }
             }
             DecisionKind::CounterReversal { reversal, .. } => {

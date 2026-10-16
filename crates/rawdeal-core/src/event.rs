@@ -4,6 +4,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::card::CardKind;
+use crate::db::DefIdx;
 use crate::state::{CardId, Outcome, PlayerId, Zone};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -13,6 +14,12 @@ pub enum Event {
         first: PlayerId,
     },
     PreMatchEnded,
+    /// `player`'s Superstar now has the Enforcer `index` of the Enforcer card `card`.
+    EnforcerChosen {
+        player: PlayerId,
+        card: DefIdx,
+        index: u8,
+    },
     /// The match proper begins.
     GameStarted {
         first: PlayerId,

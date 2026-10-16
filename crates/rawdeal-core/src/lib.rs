@@ -17,8 +17,8 @@ pub mod view;
 
 pub use card::{
     Ability, ActionScript, Bonus, Boost, BuryThen, CardDef, CardFilter, CardKind, CardScript, Condition, Count,
-    Duration, Effect, ManeuverType, Pick, PreMatchType, ReversalDamage, ReverseSpec, RingTrigger, SuperstarDef, Trait,
-    Who,
+    Duration, Effect, EnforcerDef, ManeuverType, Pick, PreMatchType, ReversalDamage, ReverseSpec, RingTrigger,
+    SuperstarDef, Trait, Who,
 };
 pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};

@@ -17,6 +17,9 @@ pub struct PublicPlayer {
     pub ring: Vec<CardId>,
     pub ringside: Vec<CardId>,
     pub fortitude: u16,
+    /// The chosen Enforcer (public): Enforcer card and index on it.
+    #[serde(default)]
+    pub enforcer: Option<(DefIdx, u8)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +55,7 @@ impl PlayerView {
                 ring: ps.ring.clone(),
                 ringside: ps.ringside.clone(),
                 fortitude: engine.fortitude(state, p),
+                enforcer: ps.enforcer,
             }
         });
         let hand = state.player(me).hand.clone();

@@ -11,6 +11,7 @@ pub fn kind(k: CardKind) -> String {
         CardKind::Maneuver(t) => format!("Maniobra {}", maneuver(t)),
         CardKind::Action => "Acción".into(),
         CardKind::Reversal => "Reversal".into(),
+        CardKind::Enforcer => "Enforcer".into(),
         CardKind::PreMatch(t) => format!(
             "Pre-match {}",
             match t {
@@ -176,6 +177,10 @@ pub fn effect(e: &Effect) -> String {
         Effect::Boost(b) => boost(b),
         Effect::EndTurn => "termina tu turno".into(),
         Effect::ContinueTurn => "el turno sigue después del Reversal".into(),
+        Effect::ChooseEnforcer { who } => match who {
+            Who::You => "eliges otro Enforcer".into(),
+            Who::Opponent => "eliges otro Enforcer para el rival".into(),
+        },
         Effect::SkipNextTurn { .. } => "el rival se salta su próximo turno".into(),
         Effect::AtEndOfTurn(es) => format!("al final del turno: {}", effects(es)),
         Effect::DiscardThis => "descarta esta carta".into(),
@@ -404,6 +409,7 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
             say(*p, "Rechazas el Count Out y vas por el pin.".into(), "rechaza el Count Out y va por el pin.".into())
         }
         Event::TurnEnded { player: p } => say(*p, "Terminas el turno.".into(), "termina el turno.".into()),
+        Event::EnforcerChosen { player: p, .. } => say(*p, "Eliges tu Enforcer.".into(), "elige su Enforcer.".into()),
         Event::TurnContinues { player: p } => say(*p, "Sigues con tu turno.".into(), "sigue con su turno.".into()),
         Event::GameOver(o) => outcome(o, me),
         _ => return None,

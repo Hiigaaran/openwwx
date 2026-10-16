@@ -17,7 +17,7 @@ fn engine() -> Engine {
 fn stack(superstar: &str, cards: &[&str], len: usize) -> DeckList {
     let mut arsenal: Vec<String> = cards.iter().map(|c| format!("test/{c}")).collect();
     arsenal.resize(len.max(cards.len()), "test/lock-up".to_string());
-    DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![] }
+    DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![], backstage: vec![] }
 }
 
 fn start(e: &Engine, p1: DeckList, p2: DeckList) -> GameState {

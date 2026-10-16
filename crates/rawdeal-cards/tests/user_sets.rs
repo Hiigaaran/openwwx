@@ -70,7 +70,7 @@ fn user_sets_every_card_in_random_piles() {
                 .map(|c| c.id.clone())
                 .collect()
         };
-        let main = pool(&|c| !c.is_backlash());
+        let main = pool(&|c| !c.is_backlash() && !c.is_backstage());
         let pre = pool(&|c| c.is_pre_match());
         let mid = pool(&|c| c.is_backlash() && !c.is_pre_match());
         let arsenal = (0..60).map(|_| main.choose(rng).unwrap().clone()).collect();
@@ -80,7 +80,8 @@ fn user_sets_every_card_in_random_piles() {
                 backlash.extend((0..10).map(|_| list.choose(rng).unwrap().clone()));
             }
         }
-        DeckList { superstar: star.to_string(), arsenal, backlash }
+        let backstage = rawdeal_cards::backstage(db, db.superstar(db.superstar_by_id(star).unwrap()));
+        DeckList { superstar: star.to_string(), arsenal, backlash, backstage }
     };
     let mut played = std::collections::BTreeSet::new();
     let seeds = std::env::var("OPENWWX_SEEDS").ok().and_then(|s| s.parse().ok()).unwrap_or(5000u64);

@@ -32,6 +32,7 @@ const SET: &str = r#"(
             abilities: [OnOpponentReverses([ContinueTurn])]),
         (id: "m/smug", name: "Smug", hand_size: 6, superstar_value: 1,
             abilities: [OnYouReverse([If(condition: YouReversedFrom([Hand]), effects: [Draw(who: You, n: 1)])])]),
+        (id: "m/boss", name: "Boss", hand_size: 4, superstar_value: 1, abilities: [RevealEnforcers(Any)]),
         (id: "m/watcher", name: "Watcher", hand_size: 6, superstar_value: 1,
             abilities: [OnOpponentPlayMatching(filter: Maneuver, effects: [Draw(who: You, n: 1)])]),
     ],
@@ -142,6 +143,11 @@ const SET: &str = r#"(
             script: (answers_reversal: Some(Title("Slap Back")), on_play: [Draw(who: You, n: 1)])),
         (id: "m/dq", title: "DQ", kinds: [Reversal], fortitude: 0, damage: 0,
             script: (reverses: Some((targets: Reversal, reverses_reversals: true, effects: [WinGame])))),
+        (id: "m/goons", title: "Big or Small?", kinds: [Enforcer], fortitude: 0, damage: 0, enforcers: [
+            (name: "Big", hand_size: 3, superstar_value: 5),
+            (name: "Small", hand_size: 1, superstar_value: 0, abilities: [DrawSegment(2)])]),
+        (id: "m/swap", title: "Swap", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [ChooseEnforcer(who: You)])),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
             also_superstars: ["m/second"]),
     ],
@@ -156,7 +162,7 @@ fn engine() -> Engine {
 fn stack(superstar: &str, cards: &[&str]) -> DeckList {
     let mut arsenal: Vec<String> = cards.iter().map(|c| format!("m/{c}")).collect();
     arsenal.resize(30.max(cards.len()), "m/filler".to_string());
-    DeckList { superstar: format!("m/{superstar}"), arsenal, backlash: vec![] }
+    DeckList { superstar: format!("m/{superstar}"), arsenal, backlash: vec![], backstage: vec![] }
 }
 
 /// P1 (`first`, going first) and P2 (`second`) with stacked Arsenals.
@@ -475,11 +481,13 @@ fn any_card_can_be_discarded_to_reverse_matching_cards() {
 fn cards_with_several_logos_go_in_either_deck() {
     let e = engine();
     for star in ["m/first", "m/second"] {
-        let deck = DeckList { superstar: star.into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+        let deck =
+            DeckList { superstar: star.into(), arsenal: vec!["m/duo".into()], backlash: vec![], backstage: vec![] };
         let problems = validate_deck(e.db(), &deck);
         assert!(!problems.iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })), "{star}: {problems:?}");
     }
-    let deck = DeckList { superstar: "m/flyer".into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+    let deck =
+        DeckList { superstar: "m/flyer".into(), arsenal: vec!["m/duo".into()], backlash: vec![], backstage: vec![] };
     assert!(validate_deck(e.db(), &deck).iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })));
 }
 
@@ -492,7 +500,8 @@ fn shortened_logos_still_match() {
 #[test]
 fn a_team_counts_as_its_members() {
     let e = engine();
-    let deck = DeckList { superstar: "m/team".into(), arsenal: vec!["m/duo".into()], backlash: vec![] };
+    let deck =
+        DeckList { superstar: "m/team".into(), arsenal: vec!["m/duo".into()], backlash: vec![], backstage: vec![] };
     let problems = validate_deck(e.db(), &deck);
     assert!(!problems.iter().any(|p| matches!(p, DeckProblem::WrongSuperstar { .. })), "{problems:?}");
     let mut s = start(&e, "team", &["ego"], "second", &[]);
@@ -995,4 +1004,40 @@ fn reversals_cannot_be_answered_without_an_answer_card() {
     let slap = in_hand(&e, &s, P2, "slap-back");
     apply(&e, &mut s, P2, Action::Reverse { card: slap });
     assert_eq!(s.active, P2);
+}
+
+#[test]
+fn enforcers_add_to_the_superstar_and_can_be_switched() {
+    let e = engine();
+    let mut boss = stack("boss", &["swap"]);
+    boss.backstage = vec!["m/goons".into()];
+    let setup = GameSetup {
+        decks: [stack("second", &[]), boss],
+        enforce_deck_rules: false,
+        shuffle_arsenals: false,
+        mode: Mode::QuickStart,
+    };
+    let mut s = e.new_game(&setup, 1).expect("valid setup").0;
+    match &s.decision {
+        Some(Decision { player: P2, kind: DecisionKind::ChooseEnforcer { options, .. } }) => {
+            assert_eq!(options.len(), 2)
+        }
+        other => panic!("expected an Enforcer choice, got {other:?}"),
+    }
+    apply(&e, &mut s, P2, Action::ChooseOption(0));
+    // Big: Superstar Value 1 + 5 beats Second's 1, Hand Size 4 + 3.
+    assert_eq!(s.active, P2);
+    assert_eq!(e.superstar_value(&s, P2), 6);
+    assert_eq!(e.hand_size(&s, P2), 7);
+    play(&e, &mut s, P2, "swap");
+    no_reversal(&e, &mut s);
+    match &s.decision {
+        Some(Decision { player: P2, kind: DecisionKind::ChooseEnforcer { options, .. } }) => {
+            assert_eq!(options.len(), 1)
+        }
+        other => panic!("expected an Enforcer switch, got {other:?}"),
+    }
+    apply(&e, &mut s, P2, Action::ChooseOption(0));
+    assert_eq!(e.enforcer(&s, P2).map(|x| x.name.as_str()), Some("Small"));
+    assert_eq!(e.superstar_value(&s, P2), 1);
 }

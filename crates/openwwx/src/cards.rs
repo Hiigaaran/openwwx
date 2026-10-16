@@ -48,6 +48,7 @@ fn color(kind: CardKind) -> Color32 {
         CardKind::Action => Color32::from_rgb(62, 104, 172),
         CardKind::Reversal => Color32::from_rgb(166, 56, 56),
         CardKind::PreMatch(_) => Color32::from_rgb(120, 72, 150),
+        CardKind::Enforcer => Color32::from_rgb(60, 140, 110),
     }
 }
 
@@ -410,6 +411,7 @@ impl Icon {
             CardKind::Action => Icon::Action,
             CardKind::Reversal => Icon::Reversal,
             CardKind::PreMatch(_) => Icon::PreMatch,
+            CardKind::Enforcer => Icon::Superstar,
         }
     }
 }

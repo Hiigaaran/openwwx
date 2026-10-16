@@ -12,7 +12,7 @@ use crate::card::{
     Ability, Boost, BuryThen, CardDef, CardFilter, CardKind, Condition, Count, Duration, Effect, Pick, PreMatchType,
     ReversalDamage, ReverseSpec, Trait, Who,
 };
-use crate::db::CardDb;
+use crate::db::{CardDb, DefIdx};
 use crate::decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
 use crate::deck::{DeckList, DeckProblem, validate_deck};
 use crate::event::Event;
@@ -93,6 +93,14 @@ impl std::error::Error for RuleError {}
 /// element runs next.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub(crate) enum Step {
+    /// Decides who goes first and starts the match or the Pre-match phase.
+    Begin,
+    /// `decider` chooses an Enforcer for `who` (a different one with `change`).
+    PickEnforcer {
+        who: PlayerId,
+        decider: PlayerId,
+        change: bool,
+    },
     StartTurn,
     DrawSegment,
     Main,
@@ -235,6 +243,11 @@ impl Engine {
                     .collect()
             };
             let mut arsenal = add(&deck.arsenal, Zone::Arsenal)?;
+            let backstage = deck
+                .backstage
+                .iter()
+                .map(|id| self.db.card_by_id(id).ok_or_else(|| SetupError::UnknownCard(id.clone())))
+                .collect::<Result<Vec<_>, _>>()?;
             let backlash = match setup.mode {
                 Mode::Advanced => add(&deck.backlash, Zone::Backlash)?,
                 Mode::QuickStart => vec![],
@@ -253,17 +266,14 @@ impl Engine {
                 backlash,
                 removed: vec![],
                 under: vec![],
+                backstage,
+                enforcer: None,
                 ability_used: false,
             });
         }
         let players: [PlayerState; 2] = players.try_into().expect("two decks");
 
-        let values = players.each_ref().map(|p| self.db.superstar(p.superstar).superstar_value);
-        let first = match values[0].cmp(&values[1]) {
-            std::cmp::Ordering::Greater => PlayerId::ONE,
-            std::cmp::Ordering::Less => PlayerId::TWO,
-            std::cmp::Ordering::Equal => PlayerId(rng.random_range(0..2u8)),
-        };
+        let first = PlayerId::ONE;
 
         let mut state = GameState {
             cards,
@@ -308,19 +318,10 @@ impl Engine {
         if setup.shuffle_arsenals {
             events.extend([PlayerId::ONE, PlayerId::TWO].map(|player| Event::ArsenalShuffled { player }));
         }
-        match setup.mode {
-            Mode::QuickStart => {
-                events.push(Event::GameStarted { first });
-                for p in [first, first.opponent()] {
-                    let n = self.hand_size(&state, p);
-                    self.draw(&mut state, p, n, &mut events);
-                }
-                state.pending.push(Step::StartTurn);
-            }
-            Mode::Advanced => {
-                events.push(Event::PreMatchStarted { first });
-                state.pending.push(Step::PreMatch { step: 0, actor: first, passes: 0, starter: first });
-            }
+        // Enforcers are chosen first: they change Hand Size and Superstar Value.
+        state.pending.push(Step::Begin);
+        for p in [PlayerId::TWO, PlayerId::ONE] {
+            state.pending.push(Step::PickEnforcer { who: p, decider: p, change: false });
         }
         self.run(&mut state, &mut events);
         Ok((state, events))
@@ -351,6 +352,7 @@ impl Engine {
     /// Hand Size, after Superstar abilities that change it.
     pub fn hand_size(&self, state: &GameState, p: PlayerId) -> u8 {
         let printed = self.db.superstar(state.player(p).superstar).hand_size;
+        let printed = printed.saturating_add(self.enforcer(state, p).map_or(0, |e| e.hand_size));
         let opponent_value = self.superstar_value(state, p.opponent());
         let bonus: u8 = self.ring_cards(state, p).iter().map(|&c| self.def(state, c).script.hand_size_bonus).sum();
         let theirs: i16 = self
@@ -426,6 +428,9 @@ impl Engine {
             DecisionKind::YesNo { .. } => vec![Action::Yes, Action::No],
             DecisionKind::StunDraw { max } => (0..=*max).map(Action::DrawCards).collect(),
             DecisionKind::ChooseOption { options, .. } => (0..options.len() as u8).map(Action::ChooseOption).collect(),
+            DecisionKind::ChooseEnforcer { options, .. } => {
+                (0..options.len() as u8).map(Action::ChooseOption).collect()
+            }
             DecisionKind::PreMatch { step, .. } => self
                 .pre_match_options(state, player, *step)
                 .into_iter()
@@ -490,6 +495,7 @@ impl Engine {
             (DecisionKind::YesNo { .. }, Action::Yes | Action::No) => true,
             (DecisionKind::StunDraw { max }, Action::DrawCards(n)) => n <= max,
             (DecisionKind::ChooseOption { options, .. }, Action::ChooseOption(i)) => (*i as usize) < options.len(),
+            (DecisionKind::ChooseEnforcer { options, .. }, Action::ChooseOption(i)) => (*i as usize) < options.len(),
             (DecisionKind::PreMatch { step, .. }, Action::PlayCard { card, kind }) => {
                 self.pre_match_options(state, p, *step).contains(&(*card, *kind))
             }
@@ -668,6 +674,11 @@ impl Engine {
                 }
             }
             (DecisionKind::StunDraw { .. }, Action::DrawCards(n)) => self.draw(state, p, n, events),
+            (DecisionKind::ChooseEnforcer { who, options }, Action::ChooseOption(i)) => {
+                let (card, index) = options[i as usize];
+                state.player_mut(who).enforcer = Some((card, index));
+                events.push(Event::EnforcerChosen { player: who, card, index });
+            }
             (DecisionKind::ChooseOption { options, source }, Action::ChooseOption(i)) => {
                 schedule_effects(state, &options[i as usize], p, source);
             }
@@ -878,6 +889,36 @@ impl Engine {
             _ => state.effect_ctx = None,
         }
         match step {
+            Step::Begin => {
+                let values = [PlayerId::ONE, PlayerId::TWO].map(|p| self.superstar_value(state, p));
+                let first = match values[0].cmp(&values[1]) {
+                    std::cmp::Ordering::Greater => PlayerId::ONE,
+                    std::cmp::Ordering::Less => PlayerId::TWO,
+                    std::cmp::Ordering::Equal => PlayerId(state.rng.random_range(0..2u8)),
+                };
+                state.active = first;
+                match state.mode {
+                    Mode::QuickStart => {
+                        events.push(Event::GameStarted { first });
+                        for p in [first, first.opponent()] {
+                            let n = self.hand_size(state, p);
+                            self.draw(state, p, n, events);
+                        }
+                        state.pending.push(Step::StartTurn);
+                    }
+                    Mode::Advanced => {
+                        events.push(Event::PreMatchStarted { first });
+                        state.pending.push(Step::PreMatch { step: 0, actor: first, passes: 0, starter: first });
+                    }
+                }
+            }
+            Step::PickEnforcer { who, decider, change } => {
+                let options = self.enforcer_options(state, who, change);
+                if !options.is_empty() {
+                    state.decision =
+                        Some(Decision { player: decider, kind: DecisionKind::ChooseEnforcer { who, options } });
+                }
+            }
             Step::StartTurn => {
                 state.turn += 1;
                 let p = state.active;
@@ -1626,7 +1667,7 @@ impl Engine {
         };
         // Christian: cards played by his opponent cannot make their player draw.
         if matches!(source, Source::Card(_))
-            && self.abilities(state, controller.opponent()).contains(&Ability::BlankOpponentCardDraws)
+            && self.abilities(state, controller.opponent()).contains(&&Ability::BlankOpponentCardDraws)
             && matches!(
                 effect,
                 Effect::Draw { who: Who::You, .. }
@@ -1785,6 +1826,9 @@ impl Engine {
             Effect::Boost(boost) => state.boosts.push((controller, boost)),
             Effect::EndTurn => state.end_turn_after_play = true,
             Effect::ContinueTurn => state.continue_turn = true,
+            Effect::ChooseEnforcer { who } => {
+                state.pending.push(Step::PickEnforcer { who: target(who), decider: controller, change: true })
+            }
             Effect::SkipNextTurn { who } => state.skip_turn[target(who).index()] = true,
             Effect::AtEndOfTurn(effects) => state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e))),
             Effect::DiscardThis => state.in_play_to = Some(Zone::Ringside),
@@ -2701,6 +2745,10 @@ impl Engine {
         match cond {
             Condition::Always => true,
             Condition::Never => false,
+            Condition::HasEnforcer(who) => {
+                let p = if *who == Who::You { player } else { player.opponent() };
+                state.player(p).enforcer.is_some()
+            }
             Condition::After(f) => state.last_played.is_some_and(|last| self.matches(state, f, last)),
             Condition::InYourRing(f) => self.count_in_ring_matching(state, player, f) > 0,
             Condition::FortitudeBelowOpponent => {
@@ -2799,7 +2847,8 @@ impl Engine {
 
     /// Superstar Value, after Ring cards that change it.
     pub fn superstar_value(&self, state: &GameState, p: PlayerId) -> u8 {
-        let printed = self.db.superstar(state.player(p).superstar).superstar_value as i16;
+        let printed = self.db.superstar(state.player(p).superstar).superstar_value as i16
+            + self.enforcer(state, p).map_or(0, |e| e.superstar_value as i16);
         let mine: i16 = self.ring_cards(state, p).iter().map(|&c| self.def(state, c).script.value_bonus as i16).sum();
         let theirs: i16 = self
             .ring_cards(state, p.opponent())
@@ -2872,16 +2921,51 @@ impl Engine {
         out
     }
 
-    fn abilities<'a>(&'a self, state: &GameState, p: PlayerId) -> &'a [Ability] {
+    fn abilities<'a>(&'a self, state: &GameState, p: PlayerId) -> Vec<&'a Ability> {
         let blanked = self.ring_cards(state, p.opponent()).iter().any(|&c| {
             let script = &self.def(state, c).script;
             script.blanks_opponent_ability
                 && script.blanks_when.as_ref().is_none_or(|w| self.holds(state, w, p.opponent()))
         });
         if blanked {
-            return &[];
+            return vec![];
         }
-        &self.db.superstar(state.player(p).superstar).abilities
+        let enforcer = self.enforcer(state, p).map(|e| e.abilities.as_slice()).unwrap_or_default();
+        self.db.superstar(state.player(p).superstar).abilities.iter().chain(enforcer).collect()
+    }
+
+    /// `p`'s chosen Enforcer.
+    pub fn enforcer<'a>(&'a self, state: &GameState, p: PlayerId) -> Option<&'a crate::card::EnforcerDef> {
+        let (card, index) = state.player(p).enforcer?;
+        self.db.card(card).enforcers.get(index as usize)
+    }
+
+    /// Enforcers `p` may choose: those on the Enforcer cards in their
+    /// Backstage Area their Superstar may reveal (not the current one with `change`).
+    fn enforcer_options(&self, state: &GameState, p: PlayerId, change: bool) -> Vec<(DefIdx, u8)> {
+        let star = self.db.superstar(state.player(p).superstar);
+        let filters: Vec<&CardFilter> = star
+            .abilities
+            .iter()
+            .filter_map(|a| if let Ability::RevealEnforcers(f) = a { Some(f) } else { None })
+            .collect();
+        let current = state.player(p).enforcer;
+        if filters.is_empty() || (change && current.is_none()) {
+            return vec![];
+        }
+        let mut out = vec![];
+        for &card in &state.player(p).backstage {
+            let def = self.db.card(card);
+            if !filters.iter().any(|f| crate::deck::printed_match(def, f)) {
+                continue;
+            }
+            for i in 0..def.enforcers.len() as u8 {
+                if !(change && current == Some((card, i))) {
+                    out.push((card, i));
+                }
+            }
+        }
+        out
     }
 
     /// Is `p`'s Superstar `name`, or does it count as `name`?
@@ -3016,7 +3100,7 @@ impl Engine {
     fn can_discard_reverse(&self, state: &GameState, player: PlayerId, card: CardId, played: Played) -> bool {
         let same_type = match played.kind {
             CardKind::Maneuver(t) => {
-                self.abilities(state, player).contains(&Ability::ReverseByDiscardingSameType)
+                self.abilities(state, player).contains(&&Ability::ReverseByDiscardingSameType)
                     && self.def(state, card).kinds.contains(&CardKind::Maneuver(t))
             }
             _ => false,

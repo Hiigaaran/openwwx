@@ -7,7 +7,7 @@ pub mod octgn;
 
 use std::path::{Path, PathBuf};
 
-use rawdeal_core::{CardDb, CardDef, DeckList, SuperstarDef};
+use rawdeal_core::{CardDb, CardDef, CardFilter, DeckList, SuperstarDef};
 use serde::{Deserialize, Serialize};
 
 /// A card data file: one set of Superstars and cards.
@@ -103,6 +103,7 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
     };
     let usable = |c: &&CardDef| {
         !c.is_backlash()
+            && !c.is_backstage()
             && packable(c)
             && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
             && (c.superstar.is_none() || c.logos().any(|s| rawdeal_core::may_pack_logo(star, s)))
@@ -133,7 +134,8 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
         if let Some(setup) = generic.clone().find(|c| c.has_trait(Trait::SetUp) && !c.has_trait(avoid)) {
             arsenal.resize(60, setup.id.clone());
         }
-        let deck = DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![] };
+        let deck =
+            DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![], backstage: backstage(db, star) };
         if rawdeal_core::validate_deck(db, &deck).is_empty() {
             return Some(deck);
         }
@@ -163,7 +165,21 @@ pub fn test_deck(superstar: &str) -> DeckList {
     let backlash = backlash.iter().map(|c| c.id.clone()).collect();
     assert!(arsenal.len() <= 60, "test set has too many Arsenal cards");
     arsenal.resize(60, "test/lock-up".to_string());
-    DeckList { superstar: superstar.to_string(), arsenal, backlash }
+    DeckList { superstar: superstar.to_string(), arsenal, backlash, backstage: vec![] }
+}
+
+/// Every Enforcer card in `db` that `star` may reveal, for its Backstage Area.
+pub fn backstage(db: &CardDb, star: &SuperstarDef) -> Vec<String> {
+    let filters: Vec<&CardFilter> = star
+        .abilities
+        .iter()
+        .filter_map(|a| if let rawdeal_core::Ability::RevealEnforcers(f) = a { Some(f) } else { None })
+        .collect();
+    db.cards()
+        .iter()
+        .filter(|c| c.is_backstage() && filters.iter().any(|f| rawdeal_core::printed_match(c, f)))
+        .map(|c| c.id.clone())
+        .collect()
 }
 
 #[cfg(test)]

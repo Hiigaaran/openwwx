@@ -86,6 +86,13 @@ pub struct PlayerState {
     /// Cards put under other cards (see `CardInstance::host`).
     #[serde(default)]
     pub under: Vec<CardId>,
+    /// Enforcer cards packed in the Backstage Area (public).
+    #[serde(default)]
+    pub backstage: Vec<DefIdx>,
+    /// The chosen Enforcer: an Enforcer card of `backstage` and the index of
+    /// the Enforcer on it.
+    #[serde(default)]
+    pub enforcer: Option<(DefIdx, u8)>,
     /// The Superstar's activated ability was used this turn.
     pub ability_used: bool,
 }
