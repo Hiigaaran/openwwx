@@ -429,11 +429,10 @@
             )),
         ),
         "Omaha, Nebraska": (value_bonus: -2, opponent_value_bonus: -3),
-        // Approximation: a Chain card reversed by overturning it from his Arsenal also counts.
         "Calgary, Alberta, Canada": (
             on_opponent_reverses: [
                 If(
-                    condition: LastPlayedThisTurn(filter: Trait(Chain), n: 1),
+                    condition: All([OpponentReversed(Trait(Chain)), OpponentReversedFrom([Hand, Backlash])]),
                     effects: [Optional([RingsideToArsenal(who: You, n: 2)])],
                 ),
             ],
@@ -513,10 +512,14 @@
         // Effects when you play a Reversal are not supported yet.
         "The Beautiful People": (requires: Some(Never)),
         // The reversal part (reversing effects that change your Reversals) is not supported yet.
-        // Approximation: a card of yours reversed by overturning from his Arsenal also counts as him playing a reversal.
         "Grab the Ref": (
             reverses: Some((targets: Not(Any))),
-            on_opponent_reverses: [Optional([Draw(who: You, n: 1), Discard(who: You, n: 1, pick: Chosen)])],
+            on_opponent_reverses: [
+                If(
+                    condition: OpponentReversedFrom([Hand, Backlash, Ringside]),
+                    effects: [Optional([Draw(who: You, n: 1), Discard(who: You, n: 1, pick: Chosen)])],
+                ),
+            ],
         ),
         // Tag Team matches are not supported yet.
         "Desperate Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),

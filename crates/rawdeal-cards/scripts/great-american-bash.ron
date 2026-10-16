@@ -555,11 +555,13 @@
             on_play: [Boost((applies_to: All([Maneuver, FortitudeAtMost(0)]), duration: NextCard, irreversible: true))],
             on_forced_discard: [Draw(who: You, n: 2)],
         ),
-        // Approximation: it also triggers when he reverses with a card overturned from his Arsenal.
         "Managed by Shane O'Mac": (
             extra_traits: [UniversallyUnique],
             on_opponent_reverses: [
-                If(condition: All([OpponentHandLarger, FortitudeBelowOpponent]), effects: [Search(filter: Trait(Unique))]),
+                If(
+                    condition: All([OpponentReversedFrom([Hand, Backlash]), OpponentHandLarger, FortitudeBelowOpponent]),
+                    effects: [Search(filter: Trait(Unique))],
+                ),
             ],
         ),
 

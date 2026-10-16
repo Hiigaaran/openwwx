@@ -181,12 +181,18 @@
         ],
         // Removing Ringside cards to reduce the damage of the opponent's card and Title Belts are not supported yet.
         "Los Guerreros": [PacksLogos(["Eddie Guerrero"])],
-        // The opponent discarding when your Grapple or Submission is reversed is not supported yet.
+        // The Title Belt part is not supported yet.
         "Team Angle": [
             OnPlayMatching(
                 filter: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]),
                 effects: [Optional([RingsideToArsenalBottom(who: You, n: 1)])],
             ),
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversed(AnyOf([ManeuverType(Grapple), ManeuverType(Submission)])),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+            ]),
         ],
         // The deck building rules and the Managed by Stacy Keibler part are not supported yet.
         "Test": [
@@ -762,11 +768,15 @@
         "Show Me Something!": (
             in_ring_start_of_turn: [If(condition: Not(OpponentHandAtLeast(4)), effects: [Mill(who: Opponent, n: 1)])],
         ),
-        // Approximation: a reversal from the Arsenal (overturned) counts too, and the Ringside ability is used in
-        // your Main Segment, not before your Draw Segment.
+        // Approximation: the Ringside ability is used in your Main Segment, not before your Draw Segment.
         "Chief Morley Says...": (
             requires: Some(CountBelow(a: YourRingMatching(Reversal), b: OpponentRingMatching(Reversal))),
-            on_opponent_reverses: [Optional([SacrificeThis, ReversedCardTo(to: Hand)])],
+            on_opponent_reverses: [
+                If(
+                    condition: OpponentReversedFrom([Hand, Backlash]),
+                    effects: [Optional([SacrificeThis, ReversedCardTo(to: Hand)])],
+                ),
+            ],
             ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),
         ),
         // Approximation: the up to 5 maneuvers all come from the Arsenal or all from the Ringside pile, and the

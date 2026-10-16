@@ -48,8 +48,10 @@
             FortitudeFor(filter: Action, delta: -3),
             OpponentCannotPlay("Enter the Stratus-phere"),
         ],
-        // Drawing when the opponent reverses from hand and Title Belts are not supported yet.
-        "Billy and Chuck": [],
+        // The Title Belt part is not supported yet.
+        "Billy and Chuck": [
+            OnOpponentReverses([If(condition: OpponentReversedFrom([Hand]), effects: [DrawUpTo(who: You, n: 1)])]),
+        ],
         // The No Sell Maneuver part is not supported yet; getting Head back from the Ringside pile is on Head.
         "Al Snow": [Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [LookAtHand(who: Opponent)])],
         "Tajiri": [
@@ -369,10 +371,9 @@
             irreversible_when: Some(AnyOf([Superstar("Mankind"), Superstar("Cactus Jack"), Superstar("Dude Love")])),
             on_play: [LookAtHand(who: Opponent), DiscardMatching(who: Opponent, n: 1, filter: Maneuver, pick: Controller)],
         ),
-        // Approximation: reversals from the Backlash deck and overturned ones count too.
         "Play the Game!": (
             bonuses: [(when: Superstar("Triple H"), fortitude: -3)],
-            on_opponent_reverses: [Mill(who: Opponent, n: 1)],
+            on_opponent_reverses: [If(condition: OpponentReversedFrom([Hand]), effects: [Mill(who: Opponent, n: 1)])],
         ),
         // Approximation: every Maneuver card in your hand counts (at most 4), without being shown.
         "Give It All I Got": (
@@ -443,8 +444,13 @@
         "That's Enough Out of You!": (
             reverses: Some((targets: EarlierThisTurn(filter: Any, n: 2), requires: Some(FortitudeBelowOpponent))),
         ),
-        // The opponent drawing cards equal to the reversed card's F is not supported yet.
-        "There Are Two Things You Can Do: Nothing, and Like It": (reverses: Some((targets: Action))),
+        // As the opponent's effect, OpponentReversedFortitude is the printed F of the Action this card reversed.
+        "There Are Two Things You Can Do: Nothing, and Like It": (
+            reverses: Some((
+                targets: Action,
+                effects: [AsOpponent([Counted(count: OpponentReversedFortitude, effect: DrawUpTo(who: You, n: 0))])],
+            )),
+        ),
         "...I Change the Questions": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
@@ -990,11 +996,10 @@
                 )),
             ],
         ),
-        // Minus(HandPlus(7), HandSize) is the number 7.
         "The Mood Is About to Change": (
             on_play: [
                 Counted(
-                    count: Minus(OpponentHandSize, Minus(HandPlus(7), HandSize)),
+                    count: Minus(OpponentHandSize, Const(7)),
                     effect: Discard(who: Opponent, n: 0, pick: Chosen),
                 ),
                 Counted(count: HandSize, effect: HandToArsenal(who: You, n: 0)),

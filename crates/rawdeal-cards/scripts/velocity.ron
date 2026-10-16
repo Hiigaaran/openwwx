@@ -690,8 +690,12 @@
         ),
 
         // Rey Mysterio
-        // Reacting to a reversal from the Arsenal is not supported yet.
-        "Luche Libre Extravaganza": (requires: Some(Never)),
+        // The "continue your turn" choice is not supported yet.
+        "Luche Libre Extravaganza": (
+            on_opponent_reverses: [
+                If(condition: OpponentReversedFrom([Arsenal]), effects: [Optional([SacrificeThis, DrawUpTo(who: You, n: 3)])]),
+            ],
+        ),
         // Approximation: any Reversal that ended the opponent's last turn counts.
         "The West Coast Pop": (
             play_after: Some(All([Maneuver, DamageAtLeast(6)])),
@@ -735,9 +739,18 @@
             )),
         ),
         "I'm Jamie Noble, Boy!": (on_play: [DrawUpTo(who: You, n: 4)]),
-        // Approximation: a reversal from the Arsenal counts too.
         "Go On - Give 'im Some Sugar!": (
-            on_play: [NextPlayWatch(filter: Maneuver, on_reversed: [DiscardAll(who: Opponent, filter: Any)])],
+            on_play: [
+                NextPlayWatch(
+                    filter: Maneuver,
+                    on_reversed: [
+                        If(
+                            condition: OpponentReversedFrom([Hand, Backlash]),
+                            effects: [DiscardAll(who: Opponent, filter: Any)],
+                        ),
+                    ],
+                ),
+            ],
         ),
 
         // Cards for earlier Superstars

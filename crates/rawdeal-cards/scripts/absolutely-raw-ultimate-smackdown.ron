@@ -117,10 +117,14 @@
 
         // Pre-match
         "Elimination Chamber": (pre_match_limit: -2, mid_match_limit: -3, opponent_mid_match_limit: -3),
-        // Approximation: reversals from the Backlash deck and overturned ones count too.
         "Banned from Ringside": (
             opponent_hand_size_bonus: -1,
-            on_opponent_reverses: [Optional([ReversedCardTo(to: Arsenal, bottom: true)])],
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversedFrom([Hand]), OpponentReversed(AnyOf([Action, Maneuver]))]),
+                    effects: [Optional([ReversedCardTo(to: Arsenal, bottom: true)])],
+                ),
+            ],
         ),
         // Approximation: it can only be used during your own turn.
         "Vince McMahon Interferes!": (

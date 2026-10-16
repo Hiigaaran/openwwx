@@ -57,17 +57,17 @@ Raven's Shopping Cart (cartas debajo de otra). Se juegan sin una parte de su tex
 Trap, Managed by Torrie Wilson y Managed by Terri Runnels (revertir cartas que miran tu mano, quitan cartas del Ring
 o buscan en el Arsenal), Knife-Edge Chop (límite tras Irish Whip), Springboard (Strike como High Risk), Mind Games
 (las copias del Arsenal), Beating the Odds (dejar revertir maniobras que no se pueden revertir), Go For the Cover!
-(Kick Out!), There Are Two Things You Can Do y Whatchoo Talkin' 'bout, Ese? (la F de la acción revertida), Head y Do YOU Live By the Three I's? (Permanent),
+(Kick Out!), Whatchoo Talkin' 'bout, Ese? (el turno siguiente según la F de la acción revertida), Head y Do YOU Live By the Three I's? (Permanent),
 Managed by Stephanie McMahon-Helmsley (dejar en blanco una Stipulation), Lethal nWo Poison (volver al Ringside si
 acabas el turno sin intentar una maniobra), Glass Ceiling (no impide que suba el Superstar Value), Hardcore 'Til the
-End, To Be the Man, Stratusfaction Bulldog y Tell Me... (Title Belts), y los Superstars Ric Flair, Hall and Nash, Billy and Chuck y
+End, To Be the Man, Stratusfaction Bulldog y Tell Me... (Title Belts), y los Superstars Ric Flair, Hall and Nash, Billy and Chuck (Title Belts) y
 Al Snow. Están simplificadas: las Feuds Do You Know What My Watch Says? e I'm the Biggest Dog on This Block!
 (añaden la habilidad nueva sin quitar la propia), los cambios de mano inicial (se aplican al final del Pre-match),
 Pick Your Spots (dura toda la partida), It's Showtime! (el rival roba antes de perder el turno), Ring General
 (devuelve las 2 cartas antes de robar), Atomic Back Body Drop, Tilt-a-Whirl Powerslam y Caped Body Press (las
 Reversals permitidas van por título), Not According to the Fine Print! (revierte cualquier carta), Edge-acution y Head (vuelven desde el Ringside en el
 Main Segment, no antes del Draw Segment), Give It All I Got (cuenta todas las maniobras de la mano, sin
-enseñarlas), Play the Game! (también cuentan las Reversals del Backlash y las del Arsenal),
+enseñarlas),
 Get What You're Expectin' (enseña toda la mano) y la habilidad de Hurricane (se usa tras la maniobra, en el Main
 Segment).
 
@@ -81,7 +81,7 @@ Velocity: no se pueden jugar todavía I'm the Champ - Nothin's Gonna Change That
 Title Belts aún), Hot Tag! (Tag Team), Backstage Warm-up Routine (cambia la mano inicial según el Superstar Value),
 A Victim of the Crippler (cambia la habilidad del Superstar), Hold the Phone!, Ring Psychology: Neck, Pay-Per-View
 Main Event, Raw or Smackdown - Pick a Brand!, See How It Feels, The Ref Got in the Way!, Hold On! It's Not Time to
-Show Yet!, Beg For Mercy y Luche Libre Extravaganza. Se juegan sin una parte de su texto: Rey Mysterio (seguir el
+Show Yet! y Beg For Mercy. Se juegan sin una parte de su texto: Rey Mysterio y Luche Libre Extravaganza (seguir el
 turno tras un Reversal), 3 Minute Warning y Jamie Noble (Title Belts y Rico Enters!), Raisin' the Roof (I Did It For
 You), Roll Up y Lunging Choke Hold (su tipo no es Reversal, así que no revierten), Waist Lock y Singapore Cane (no dejan texto en blanco), Gettin' Beat Like a Government Mule
 (no repite el daño), Get the 'F' Out! (no revierte del todo una Multi), Back-and-Forth Action, Defensive Stance,
@@ -91,8 +91,7 @@ Splash, Now I'm Gonna Get Some Respect, Yo, Ese, I Know You, Homes!, Dudley Toug
 Five Time! Five Time! Five Time! Five Time!. Están simplificadas: Big Freak'n
 Machine y The Fire Still Burns (los Reversals del Backlash tampoco valen), Breather Hold (juegas con la Fortitude
 del rival, no con una menos), Lariat Takedown (3 cartas al azar del Backlash), I Aims ta be Startin' Sump'tin', He's as Crazy as a Pet Raccoon, Measure Him, Unorthodox Style of Wrestling, Check This Out!, It's All About
-Control (va al Ringside al usarla), Remove the People's Elbow Pad, The Next Big Thing, The West Coast Pop y Go On -
-Give 'im Some Sugar!.
+Control (va al Ringside al usarla), Remove the People's Elbow Pad, The Next Big Thing y The West Coast Pop.
 
 Survivor Series 2: no se puede jugar todavía Split Personalities Have Benefits (Superstars ocultos en el Backstage). Se
 juega sin una parte de su texto la habilidad de Dude Love (el robo extra del rival y llevar a Mankind o Cactus Jack
@@ -113,14 +112,14 @@ One, Man of 1000 Holds, Backstage Politics, Holla If Ya Hear Me! (mirar el Backl
 (buscarla como High Risk), Dudleyz3 (tres Reversals), Don't Cross a McMahon y You Can't Manhandle the Big Show (límites
 que dependen de otra carta o del rival), Stacy Keibler, Marketing Manager (Keibler's Cookies Permanent y no Active), You're a Human Vacuum Cleaner ... (Title Belts y el límite de Pre-match), No Gimmicks Needed (anular la
 habilidad rival), Electrifying (doblar números), 3 Minutes and We're Out (sin Tag Team), y las
-habilidades de The Rattlesnake, Los Guerreros, Team Angle, Test (reglas de mazo) y Shawn Michaels. Están simplificadas:
+habilidades de The Rattlesnake, Los Guerreros, Team Angle (Title Belts), Test (reglas de mazo) y Shawn Michaels. Están simplificadas:
 Series of Punches, Crowd Pleaser, Perplex Opponent, Backstage Donnybrook, Chase Off Manager,
 The Big, Bad Booty Daddy is Your Hook Up, Rabid Attack in the Corner, The Manbeast, Inverted Leg Lock
 (como mucho 5 cartas), The Ref Takes Control, Dude ... Whatever y Nidia Interferes (volver al Arsenal desde el Ringside
 en el Main Segment), I'm the Underdog! (siempre +1), Mangled Intro by Lillian Garcia (límite de Pre-match -4), You're a
 Human Vacuum Cleaner ... (solo contra Superstar Value 2 o menos), Real Predictable... (las 5 maniobras salen todas del
-Arsenal o todas del Ringside, y su habilidad se usa en el Main Segment), Chief Morley Says... (también vale si la
-Reversal sale del Arsenal, y vuelve al Backlash en el Main Segment) y las habilidades de Big Poppa Pump y Rhyno.
+Arsenal o todas del Ringside, y su habilidad se usa en el Main Segment), Chief Morley Says... (vuelve al Backlash en el
+Main Segment) y las habilidades de Big Poppa Pump y Rhyno.
 
 Absolutely Raw and Ultimate Smackdown: no se pueden jugar todavía las 4 cartas Enforcer (el importador las salta),
 Undermine the Competition y Hitting the G-Spot (revertir después del daño de la maniobra), ni You're Fired! como Action
@@ -129,8 +128,7 @@ Undermine the Competition y Hitting the G-Spot (revertir después del daño de l
 (pasar al Ring rival), Escape to the Side
 (descartarla en lugar de Escape Move o Step Aside) y Raw Deal! (anular una carta del Ring rival). Están simplificadas:
 Get Out of Here! (# cuenta como mucho 30 cartas quitadas del juego), Vince McMahon
-Interferes! (solo en tu turno), Redemption (también impide revertir desde el Backlash) y Banned from Ringside (también vale con
-Reversals del Backlash y del Arsenal).
+Interferes! (solo en tu turno) y Redemption (también impide revertir desde el Backlash).
 
 Divas Overload: no se pueden jugar todavía Don't Be Shy (elegir la próxima carta del rival), Get a Look at These
 (voltear tantas cartas como el daño de las descartadas), Took That on the Chin, Showdown! y The Flair Flop (revertir
@@ -149,9 +147,7 @@ del primer turno), For the Women that Want to Be Me... (elegir otro Enforcer), D
 el Ringside pile y con Managed by Vince McMahon), Once You Go Test... (ponerla antes del Pre-match), Divas Overload!
 (empacarla ignorando la habilidad), y los Enforcers de Stacy Keibler y Sable (su Hand Size impreso es 0+). Están
 simplificadas: la habilidad de Sable se usa una vez por turno, So Solly! So Sorey! acepta cualquier reversal del turno
-anterior, Perennial Fan Favorites la empacan las Superstars Tag Team, Dare to Take a Challenge hace una sola ronda,
-I'm Gonna Break You cuenta mal las cartas de Pre-match si el rival tiene muchas en
-su Ringside pile, Distractingly Divalicious solo afecta al primer turno, I'm Always on Top... se comprueba al inicio del turno
+anterior, Perennial Fan Favorites la empacan las Superstars Tag Team, Dare to Take a Challenge hace una sola ronda, Distractingly Divalicious solo afecta al primer turno, I'm Always on Top... se comprueba al inicio del turno
 siguiente, Asset Retrieval y Divas Overload! reconocen las cartas "packed by a Female/Diva Superstar" de esta
 expansión, Backstage Interview with Terri sólo devuelve al Ring las cartas Trash Talkin' Interview, y los cambios de
 mano inicial (You Should Cover Your Eyes, Gregory Helms, Ace Reporter) se aplican al final del Pre-match.
@@ -192,8 +188,7 @@ Unscrupulous S.O.B. (cartas con Activated Card Effect), J.R. Style Donnybrook (s
 J.R. Style Authentic BBQ Sauce! (revelar cartas), Enough With the Trash Talk (revertir búsquedas en el Arsenal),
 Managed by Paul Bearer (el segundo uso de Undertaker), Roll the Footage, Monkeys! (buscar la misma carta), To All My
 Peeps Around the World... (el daño por la carta elegida), Test's Top Rope Double Axe Handle y Las Vegas, Nevada (el
-texto añadido a Raw Roulette Wheel y sortear quién empieza). Están simplificadas: Calgary, Alberta, Canada también cuenta las cartas Chain revertidas
-desde el Arsenal, Now or Never salta como mucho un
+texto añadido a Raw Roulette Wheel y sortear quién empieza). Están simplificadas: Now or Never salta como mucho un
 turno, Ringside Assistance voltea de 3 en 3, Raleigh, North Carolina y Springfield, Illinois cambian el límite de
 cartas aunque tu Superstar Value no sea menor, Know Your Role and Shut Your Mouth sólo sube el límite Pre-match en 1,
 When Hell Freezes Over! revierte las dos clases de cartas desde la mano o el Ringside pile y como Action sólo se juega
@@ -230,12 +225,11 @@ después de Irish Whip), All Alone in the Night (Enforcers) y Evening Gown Match
 revertir por completo una carta Multi (Takin' Care of Business), el coste de la Reversal de
 Volley This!, el bonus por las Strikes retiradas de Flurry of Strikes, que New Orleans, Louisiana se retire al ir al
 Ringside pile, dejar en blanco el texto de una carta (Solarplex Knife Chop, Rest Hold, There Is No Forgiveness This
-Time, Anybody Can Be King of This Town!), Captain Charisma Strikes (Heat), robar según la Fortaleza de la carta
-revertida (Anything and Hate It, The Pride of the Family), seguir el turno (Here Comes The Coach, You'll Really Be
+Time, Anybody Can Be King of This Town!), Captain Charisma Strikes (Heat), seguir el turno (Here Comes The Coach, You'll Really Be
 Stunned), el texto añadido a las demás cartas de
 Pre-match y Mid-match de Dudleyville, USA y The Phenom, las copias y logos que pueden empaquetar The Phenom, Eugene y
 Rene Dupree, el Superstar Value variable de Eugene, el cambio de tipo de Atomic Driver, Randy Orton e I'm Making This
-Up As I Go Along, el Unique extra de I'm Special, la parte de Shelton Benjamin cuando el rival revierte, la Reversal
+Up As I Go Along, el Unique extra de I'm Special, que Shelton Benjamin pueda llevar It's All About the Benjamins, la Reversal
 desde la mano de Ensugiri y las reglas de Volley, Heat y Throwback. Están simplificadas: Mean Streets of Greenwich, CT (el límite de Pre-match de todos sube siempre 1), If You
 Want To Play You Gotta Pay (una sola ronda), Shelton Benjamin (retira la carta superior del Arsenal rival en vez de
 elegir entre 5), Like a Bat Out of Hell (la carta retirada del juego va a la mano y no tiene que ser la siguiente
@@ -257,12 +251,12 @@ Over Sell: Hot Rod Style (dejar en blanco una maniobra), Not In Front of the Kid
 las maniobras de todos) y The Hurri-Friends' Armory (cartas debajo de otra). Las Backstage Cards (Feathered Boa, Super
 Masks and Super Capes, World Tour '05) y el Enforcer Your Freaking Hero or John Cena? no se importan. Se juegan sin
 una parte de su texto: Batista (los Reversals rivales siguen haciendo daño), Rowdy Roddy Piper (sin habilidad: no se
-mira el texto de las cartas), The Immortal One (no roba ni descarta con los Reversals, no puede llevar No Sell
+mira el texto de las cartas), The Immortal One (no descarta al jugar sus Reversals, no puede llevar No Sell
 Maneuver), SmackDown! GM Theodore Long y Uncle Eric's Karate Kick (Enforcers, Arsenal de 50), Missile Dropkick (formato Tag Team), Gene Snitsky (la regla
 de las cartas Heat no existe), MNM (los 10 Pre-match extra), Sit Out
 Powerbomb (-7F enterrando la mano), Precision Leg Lock (no da la vuelta a tantas cartas como descarta), German Suplex,
 Boston Crab y Tornado DDT (límites de Reversal con condición), Small Package (jugar la Reversal sin descartar por
-Chain), Spot Adjustment (el -#F), A Revolution of the Mind (quitarse del juego solo al
+Chain), A Revolution of the Mind (quitarse del juego solo al
 revertir dada la vuelta), I am a Real American (elegir Hand Size y Superstar Value), Marking Out (las maniobras rivales no cuentan como
 Actions), Spinning Leg Drop (Big Show no puede llevarla), Wrist Breaker (no mira el
 Backlash), Rochester, New York (solo la usa su dueño), Backstage Shenanigans (solo la acción), Hello, Ladies! y The
@@ -281,8 +275,7 @@ las Irreversible), Temecula, California (no mira el Venue rival), MNM (se puede 
 Bear Hug, Trash Talkin' Interview, I'm Just Hitting My
 Stride, Redheaded Sparkplug, A-List Attack, Unleash Hell, You Have Tasty Toes, Hot Rod, In My Day, a Maneuver Was a
 Maneuver, Managed by Melina, The Super Storm Front, Finally... The Rock Has Come Back To..., Addicted to the Heat y
-Gentlemen's Establishment y Orlando Jordan: Chief of Staff (recupera la carta revertida también si la Reversal se
-da la vuelta desde el Arsenal).
+Gentlemen's Establishment.
 
 Royal Rumble: no se pueden jugar todavía Unrelenting Assault y Volley Barrier (Volley), Heat Barrier (Heat), Chain Barrier (coste de revertir Chain), Product Endorsements (Superstar Value calculado
 y texto añadido a otra carta), Sit Right Here and Bide My Time y Future Considerations (cartas debajo de otra) y
@@ -290,8 +283,7 @@ Hulkin' Up (fuera de la ventana de reversal). Se juegan sin una parte de su text
 (We're Not Mexicans ... We're Mexicools!), reducir el daño retirando cartas (The Motor Pool), Slam, Entangle in the
 Ropes, Feel the Fire, Sparks of Glory y Too Hot to Handle (Heat), I Waited Long Enough (su valor de Volley), Big Splash in the Corner (lo puede empaquetar todo Superstar masculino), Hair Pull (Diva contra Superstar
 femenina), USA! USA! USA! (Multi para Tag Team), How Many Do
-You Need? (efectos activados), Once is Enough (revertir Multi de una vez y Sloppy... Very Sloppy), Never Back Down -
-Never Quit (volver desde el Ringside), I Know Cool ... (Spit at Opponent
+You Need? (efectos activados), Once is Enough (revertir Multi de una vez y Sloppy... Very Sloppy), I Know Cool ... (Spit at Opponent
 Multi), Let's Get It On! (prohibir Pre-match), Technical Drop Kick (no volver a jugarla como
 Action en el turno) y The Home Team y The Heat Seekers (compañero). Están simplificadas: Boot
 Camp Match (sus dos habilidades comparten el uso por turno), Hollywood's Big Boot (solo vuelven Mid-match al
@@ -299,7 +291,7 @@ Backlash), Ankle Breaker (daño
 aparte), When
 Hulkamania Runs Wild on You! (solo se retira la carta elegida, no todas las de ese título), The Proper Punch (nunca se
 revierte desde el Backlash), Quick Poke (la maniobra se toma del Ringside), Argue With Tony Chimel y Let's Get It On!
-(mano inicial ajustada al final del Pre-match), You Feeling Lucky? (cualquier reversal), Gimme Ten, Maggot! (el rival
+(mano inicial ajustada al final del Pre-match), You Feeling Lucky? (vigila tu siguiente maniobra que no sea del tipo nombrado), Gimme Ten, Maggot! (el rival
 elige de 0 a 10) y Take Your Own Medicine (sin Objects).
 
 No Way Out: no se pueden jugar todavía Denville, New Jersey (contar cartas del Arsenal rival y perder la partida),
@@ -345,7 +337,7 @@ Divided You Fall, 16-Time Heavyweight Champion (4 copias), Diva of the Decade y 
 simplificadas: los Managers se reconocen por "Managed by" en el título y solo se retiran del Ring, Leaping DDT vuelve
 en el Main Segment, Blindside Elbow Drop hace los +3D como daño aparte, Quick Snap Suplex (como mucho 3 cartas), I
 Wish Monsoon Was Here y Backed by Virgil (como mucho 5 cartas), Who's Under the Paint? (cada parte es opcional),
-Managed by Shane O'Mac (también salta con Reversals volteados de su Arsenal), Give me an S... (las otras cartas pueden ser de
+Give me an S... (las otras cartas pueden ser de
 cualquier tipo), ...And I'm Coming To Getcha! (la victoria con 3 copias se comprueba al empezar tu turno y es por
 descalificación), Precision Reverse Neck Breaker manda al Ringside las cartas que voltea, Precision Figure Four y
 16-Time Heavyweight Champion descartan cualquier carta para bajar su F, Not On My Broadcast puede retirar la carta

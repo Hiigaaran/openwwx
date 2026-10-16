@@ -34,8 +34,13 @@
             CannotPackMatching(All([Maneuver, DamageAtLeast(3)])),
             OnPlayMatching(filter: Action, effects: [Optional([RingsideToArsenalBottom(who: You, n: 3)])]),
         ],
-        // Drawing or discarding when a Reversal is played and packing No Sell Maneuver are not supported yet.
-        "The Immortal One": [PacksLogos(["Hollywood Hulk Hogan"])],
+        // Discarding when you play a Reversal and packing No Sell Maneuver are not supported yet.
+        "The Immortal One": [
+            PacksLogos(["Hollywood Hulk Hogan"]),
+            OnOpponentReverses([
+                If(condition: OpponentReversedFrom([Hand, Backlash, Ringside]), effects: [Optional([Draw(who: You, n: 1)])]),
+            ]),
+        ],
         // Checking a card's text for the word 'reverse' is not supported yet.
         "Rowdy Roddy Piper": [],
         // Enforcers, the 50-card Arsenal and blocking Stipulation cards are not supported yet.
@@ -401,12 +406,20 @@
                 effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
             )),
         ),
-        // The -#F on your first card next turn is not supported yet.
         "Spot Adjustment": (
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique))]),
                 from_hand_only: true,
                 requires: Some(FortitudeBelowOpponent),
+                // Counted as the opponent (the Fortitude of his reversed maneuver); the boost is yours.
+                effects: [
+                    AsOpponent([
+                        Counted(
+                            count: OpponentReversedFortitude,
+                            effect: BoostOpponent((applies_to: Any, duration: NextTurnFirstCard, fortitude: -1)),
+                        ),
+                    ]),
+                ],
             )),
         ),
         // Removing it from the game when it reverses while overturned is not supported yet.
@@ -1296,9 +1309,13 @@
                 (whose: Some(Opponent), filter: Maneuver, effects: [HandToArsenalBottom(who: Opponent, n: 1)]),
             ],
         ),
-        // Approximation: it also works when the card is reversed by an overturned Reversal from the Arsenal.
         "Orlando Jordan: Chief of Staff": (
-            on_opponent_reverses: [Optional([ReturnThis(to: Ringside), ReversedCardTo(to: Hand)])],
+            on_opponent_reverses: [
+                If(
+                    condition: OpponentReversedFrom([Hand, Backlash]),
+                    effects: [Optional([ReturnThis(to: Ringside), ReversedCardTo(to: Hand)])],
+                ),
+            ],
             ringside_ability: Some((
                 cost: [Draw(who: Opponent, n: 3)],
                 effects: [

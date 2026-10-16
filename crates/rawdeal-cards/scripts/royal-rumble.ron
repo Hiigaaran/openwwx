@@ -66,10 +66,17 @@
         // Over Sell Maneuver cannot be played yet, so its restriction is left out.
         "Handcuffed": (
             on_play: [DrawUpTo(who: You, n: 3)],
-            on_reversed_from_hand: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            on_reversed_from_hand: [If(condition: OpponentReversedFrom([Hand]), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
             in_ring_on_play: [(whose: Some(Opponent), filter: Trait(Face), effects: [Discard(who: You, n: 1, pick: Chosen)])],
         ),
-        "Fisticuffs": (on_reversed_from_hand: [RemoveFromGame(who: Opponent, from: Ringside, n: 4, pick: Controller)]),
+        "Fisticuffs": (
+            on_reversed_from_hand: [
+                If(
+                    condition: OpponentReversedFrom([Hand]),
+                    effects: [RemoveFromGame(who: Opponent, from: Ringside, n: 4, pick: Controller)],
+                ),
+            ],
+        ),
         "Armed and Dangerous": (
             on_play: [
                 LookAtHand(who: Opponent),
@@ -273,7 +280,7 @@
                 Counted(count: SuperstarValue, effect: Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 1))),
             ],
         ),
-        // Approximation: it watches your next maneuver not of the named type, and works however it is reversed.
+        // Approximation: it watches your next maneuver not of the named type.
         "You Feeling Lucky?": (
             on_play: [
                 OpponentChooses(
@@ -282,19 +289,34 @@
                         [
                             NextPlayWatch(
                                 filter: All([Maneuver, Not(ManeuverType(Strike))]),
-                                on_reversed: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                on_reversed: [
+                                    If(
+                                        condition: OpponentReversedFrom([Hand, Backlash]),
+                                        effects: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                    ),
+                                ],
                             ),
                         ],
                         [
                             NextPlayWatch(
                                 filter: All([Maneuver, Not(ManeuverType(Grapple))]),
-                                on_reversed: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                on_reversed: [
+                                    If(
+                                        condition: OpponentReversedFrom([Hand, Backlash]),
+                                        effects: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                    ),
+                                ],
                             ),
                         ],
                         [
                             NextPlayWatch(
                                 filter: All([Maneuver, Not(ManeuverType(Submission))]),
-                                on_reversed: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                on_reversed: [
+                                    If(
+                                        condition: OpponentReversedFrom([Hand, Backlash]),
+                                        effects: [Discard(who: You, n: 2, pick: Chosen), DiscardAll(who: Opponent, filter: Any)],
+                                    ),
+                                ],
                             ),
                         ],
                     ],
@@ -612,10 +634,15 @@
             extra_traits: [FanFavorite],
             on_play: [Optional([RingsideToArsenal(who: You, n: 1)]), Optional([RingsideToBacklash(who: You, n: 1)])],
         ),
-        // Coming back from the Ringside pile is not supported yet.
         "Never Back Down - Never Quit": (
             extra_traits: [FanFavorite],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+            ringside_on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversed(Maneuver), OpponentReversedFrom([Hand])]),
+                    effects: [Optional([ReturnThis(to: Hand)])],
+                ),
+            ],
         ),
         "I Will Not Die": (
             extra_traits: [FanFavorite],

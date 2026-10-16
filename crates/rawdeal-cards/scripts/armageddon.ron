@@ -30,10 +30,10 @@
                 Boost((applies_to: All([ManeuverType(HighRisk), After(Any)]), duration: ThisTurn, ignore_play_after: true)),
             ]),
         ],
-        // Shuffling a card back when the opponent reverses and packing It's All About the Benjamins are not
-        // supported yet. Approximation: the opponent's top Arsenal card is removed from the game instead of
-        // one chosen from his top 5.
+        // Packing It's All About the Benjamins is not supported yet. Approximation: the opponent's top Arsenal
+        // card is removed from the game instead of one chosen from his top 5.
         "Shelton Benjamin": [
+            OnOpponentReverses([Optional([RingsideToArsenal(who: You, n: 1)])]),
             OnPlayMatching(filter: Maneuver, effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)]),
         ],
         // Packing other Superstars' maneuvers and the Superstar Value (opponent's - 1) are not supported yet.
@@ -221,9 +221,13 @@
         "Figure Four Leg Lock": (play_after: Some(Maneuver), not_reversed_by: Some(Trait(MidMatch))),
 
         // Reversals
-        // Letting the opponent draw as many cards as the maneuver's Fortitude is not supported yet.
         "Anything and Hate It": (
-            reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique))]),
+                from_hand_only: true,
+                // As the opponent: the Fortitude of his card that was reversed.
+                effects: [AsOpponent([Counted(count: OpponentReversedFortitude, effect: DrawUpTo(who: You, n: 0))])],
+            )),
         ),
         "I Gotta Say, Out of Play": (
             reverses: Some((targets: AnyOf([Keyword("Throwback"), Keyword("Volley")]), reversed_removed: true)),
@@ -948,7 +952,12 @@
         ),
         "Leap of Faith": (
             play_after: Some(Any),
-            on_reversed_from_hand: [Discard(who: You, n: 6, pick: Chosen), Discard(who: Opponent, n: 6, pick: Chosen)],
+            on_reversed_from_hand: [
+                If(
+                    condition: OpponentReversedFrom([Hand]),
+                    effects: [Discard(who: You, n: 6, pick: Chosen), Discard(who: Opponent, n: 6, pick: Chosen)],
+                ),
+            ],
         ),
 
         // Shelton Benjamin
@@ -983,8 +992,13 @@
             while_in_ring: [(applies_to: Maneuver, damage: 3)],
         ),
         "The Jacket's Coming Off...": (on_play: [Search(filter: All([Maneuver, Not(Action), Not(Reversal)]))]),
-        // Drawing as many cards as the reversed card's Fortitude is not supported yet.
-        "The Pride of the Family": (reverses: Some((targets: All([Action, Not(Trait(SetUp))])))),
+        "The Pride of the Family": (
+            reverses: Some((
+                targets: All([Action, Not(Trait(SetUp))]),
+                // Counted as the opponent (the Fortitude of his reversed card), drawn by you.
+                effects: [AsOpponent([Counted(count: OpponentReversedFortitude, effect: DrawUpTo(who: Opponent, n: 0))])],
+            )),
+        ),
         "The Dream Lives On": (
             on_play: [RingsideToArsenalCount(who: You, count: AtMost(OpponentFortitude, 12))],
             reverses: Some((targets: Not(Trait(Unique)), overturned_only: true)),

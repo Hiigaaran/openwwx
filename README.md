@@ -130,6 +130,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Cuarto lote: cartas del Ring que reaccionan cuando el rival revierte (por ejemplo, recuperar la carta revertida),
   mover cartas encima del Arsenal y aritmética de conteos (restar, mitad, tope). Unas 25 cartas más quedan
   completas o jugables.
+- Quinto lote: saber de dónde vino el Reversal del rival (mano, Backlash, Ringside o volteado del Arsenal) y qué
+  carta revirtió, reacciones a los Reversals también en Superstars y en el Ringside, y sumas de conteos. Unas 15
+  cartas más quedan completas.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

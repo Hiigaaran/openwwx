@@ -187,7 +187,9 @@
         "Suicide Strike": (
             not_packed_by: ["Female"],
             on_play: [RemoveFromGame(who: You, from: Arsenal, n: 10)],
-            on_reversed_from_hand: [Mill(who: You, n: 5), Mill(who: Opponent, n: 5)],
+            on_reversed_from_hand: [
+                If(condition: OpponentReversedFrom([Hand, Backlash]), effects: [Mill(who: You, n: 5), Mill(who: Opponent, n: 5)]),
+            ],
         ),
         // Removing a maneuver in your Ring from the game to reverse a maneuver of the same type is not supported yet.
         "Counterproductive Ambitions": (requires: Some(Never)),
