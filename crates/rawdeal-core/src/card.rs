@@ -361,6 +361,10 @@ pub struct CardScript {
     /// Effects when an effect your opponent controls takes this card out of your Ring.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_removed_by_opponent: Vec<Effect>,
+    /// Effects while this card is in your Ring, when your opponent reverses a
+    /// card you played (from hand, Ringside or overturned).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on_opponent_reverses: Vec<Effect>,
     /// The card cannot be reversed by cards from the Backlash deck.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub no_backlash_reversal: bool,
@@ -875,6 +879,14 @@ pub enum Count {
     YourRingAndRingsideMatching(CardFilter),
     /// Half your hand, rounded down.
     HalfYourHand,
+    /// Half your opponent's hand, rounded down.
+    HalfOpponentHand,
+    /// `a` minus `b`, at least 0.
+    Minus(Box<Count>, Box<Count>),
+    /// Half the count, rounded down.
+    Half(Box<Count>),
+    /// The count, but at most `max`.
+    AtMost(Box<Count>, u8),
 }
 
 /// What happens after burying a hand.
@@ -1060,6 +1072,17 @@ pub enum Effect {
         filter: Option<CardFilter>,
         #[serde(default = "chosen", skip_serializing_if = "is_chosen")]
         pick: Pick,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        bottom: bool,
+        /// Into the Arsenal: on top, not shuffled in.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        top: bool,
+    },
+    /// The card of yours your opponent just reversed moves to `to` (on the
+    /// bottom of the Arsenal with `bottom`, else shuffled in), from wherever
+    /// it landed. Use in `on_opponent_reverses` or `on_reversed_from_hand`.
+    ReversedCardTo {
+        to: crate::state::Zone,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         bottom: bool,
     },

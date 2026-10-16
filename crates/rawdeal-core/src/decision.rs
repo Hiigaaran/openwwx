@@ -51,6 +51,8 @@ pub enum ChoicePurpose {
     MoveTo(crate::state::Zone),
     /// Put on the bottom of the owner's Arsenal, no shuffle.
     ToArsenalBottom,
+    /// Put on top of the owner's Arsenal, no shuffle.
+    ToArsenalTop,
     HandToArsenalBottom,
     RingsideToArsenalBottom,
     /// Search your Arsenal: the card is revealed and goes to your hand.

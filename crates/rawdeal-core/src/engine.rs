@@ -761,6 +761,15 @@ impl Engine {
                     self.shuffle_arsenal(state, owner, events);
                 }
             }
+            ChoicePurpose::ToArsenalTop => {
+                for c in chosen {
+                    let from_ring = state.card(c).zone == Zone::Ring;
+                    self.move_card(state, c, Zone::Arsenal, events);
+                    if from_ring {
+                        self.removed_from_ring(state, c, p);
+                    }
+                }
+            }
             ChoicePurpose::ToArsenalBottom => {
                 for c in chosen {
                     let from_ring = state.card(c).zone == Zone::Ring;
@@ -1314,6 +1323,7 @@ impl Engine {
             if let Some(watch) = state.in_play_watch.take() {
                 schedule_effects(state, &watch.on_reversed, played.player, Source::Card(played.card));
             }
+            self.schedule_reversed_triggers(state, played.player);
             if let Some(spec) = self.def(state, card).script.reverses.clone() {
                 if spec.reversed_removed {
                     state.in_play_to = Some(Zone::Removed);
@@ -1391,6 +1401,7 @@ impl Engine {
 
         state.pending.clear();
         schedule(state, [Step::EndTurn]);
+        self.schedule_reversed_triggers(state, played.player);
         if damage > 0 {
             state.pending.push(Step::Overturn { player: played.player, remaining: damage, source: None });
         }
@@ -1608,23 +1619,23 @@ impl Engine {
                     }
                 }
             }
-            Effect::MoveCards { who, from, to, n, up_to, filter, pick, bottom } => {
+            Effect::MoveCards { who, from, to, n, up_to, filter, pick, bottom, top } => {
                 if matches!(to, Zone::InPlay) || matches!(from, Zone::InPlay) {
                     return;
                 }
                 let p = target(who);
-                let purpose = if bottom && to == Zone::Arsenal {
-                    ChoicePurpose::ToArsenalBottom
-                } else {
-                    ChoicePurpose::MoveTo(to)
+                let purpose = match (to, bottom, top) {
+                    (Zone::Arsenal, true, _) => ChoicePurpose::ToArsenalBottom,
+                    (Zone::Arsenal, _, true) => ChoicePurpose::ToArsenalTop,
+                    _ => ChoicePurpose::MoveTo(to),
                 };
                 if from == Zone::Arsenal && filter.is_none() {
                     for _ in 0..n {
                         let Some(&c) = state.player(p).arsenal.last() else { break };
-                        if purpose == ChoicePurpose::ToArsenalBottom {
-                            self.move_card_to_bottom(state, c, events);
-                        } else {
-                            self.move_card(state, c, to, events);
+                        match purpose {
+                            ChoicePurpose::ToArsenalBottom => self.move_card_to_bottom(state, c, events),
+                            ChoicePurpose::ToArsenalTop => {}
+                            _ => self.move_card(state, c, to, events),
                         }
                     }
                     return;
@@ -1992,6 +2003,21 @@ impl Engine {
                 let n = (hand.len().min(u8::MAX as usize) as u8).max(min);
                 self.draw(state, controller, n, events);
             }
+            Effect::ReversedCardTo { to, bottom } => {
+                let Some(reversed) = state.reversed_last[controller.opponent().index()] else { return };
+                let c = reversed.card;
+                if state.card(c).owner != controller || matches!(state.card(c).zone, Zone::InPlay | Zone::Removed) {
+                    return;
+                }
+                if to == Zone::Arsenal && bottom {
+                    self.move_card_to_bottom(state, c, events);
+                } else {
+                    self.move_card(state, c, to, events);
+                    if to == Zone::Arsenal {
+                        self.shuffle_arsenal(state, controller, events);
+                    }
+                }
+            }
             Effect::PurgeReversedTitle => {
                 let opponent = controller.opponent();
                 let Some(reversed) = state.reversed_last[controller.index()] else { return };
@@ -2070,6 +2096,10 @@ impl Engine {
                 self.count_matching(state, p, p, Zone::Ring, &f) + self.count_matching(state, p, p, Zone::Ringside, &f)
             }
             Count::HalfYourHand => state.player(p).hand.len() / 2,
+            Count::HalfOpponentHand => state.player(p.opponent()).hand.len() / 2,
+            Count::Minus(a, b) => self.count(state, p, *a).saturating_sub(self.count(state, p, *b)) as usize,
+            Count::Half(c) => self.count(state, p, *c) as usize / 2,
+            Count::AtMost(c, max) => self.count(state, p, *c).min(max) as usize,
             Count::HandPlus(k) => state.player(p).hand.len() + k as usize,
             Count::OpponentValueTimes(k) => value(p.opponent()) as usize * k as usize,
             Count::HalfOpponentFortitude => (self.fortitude(state, p.opponent()) as usize).div_ceil(2),
@@ -2238,6 +2268,14 @@ impl Engine {
     }
 
     /// Cards in `p`'s Ring whose effects still apply.
+    /// Ring cards of `attacker` that react to the opponent reversing.
+    fn schedule_reversed_triggers(&self, state: &mut GameState, attacker: PlayerId) {
+        for c in self.ring_cards(state, attacker).into_iter().rev() {
+            let effects = self.def(state, c).script.on_opponent_reverses.clone();
+            schedule_effects(state, &effects, attacker, Source::Card(c));
+        }
+    }
+
     fn ring_cards(&self, state: &GameState, p: PlayerId) -> Vec<CardId> {
         state.player(p).ring.iter().copied().filter(|c| !state.lapsed.contains(c)).collect()
     }

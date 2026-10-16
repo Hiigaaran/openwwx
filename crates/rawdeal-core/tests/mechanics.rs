@@ -104,6 +104,11 @@ const SET: &str = r#"(
             script: (on_play: [ThisToArsenal(bottom: true)])),
         (id: "m/float", title: "Float", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [ThisToArsenal(bottom: false)])),
+        (id: "m/rebound", title: "Rebound", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_opponent_reverses: [ReversedCardTo(to: Hand)])),
+        (id: "m/margin", title: "Margin", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [If(condition: CountAtLeast(count: Minus(OpponentHandSize, HandSize), n: 1),
+                effects: [Draw(who: You, n: 1)])])),
         (id: "m/bury", title: "Bury", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Title("Hit")), bottom: true)])),
         (id: "m/behind", title: "Behind", kinds: [Action], fortitude: 0, damage: 0,
@@ -755,4 +760,28 @@ fn a_played_card_can_go_on_top_of_the_arsenal() {
     play(&e, &mut s, P1, "float");
     no_reversal(&e, &mut s);
     assert_eq!(s.player(P1).arsenal.last(), Some(&float));
+}
+
+#[test]
+fn ring_cards_can_react_to_a_reversal() {
+    let e = engine();
+    let mut s = start(&e, "first", &["rebound", "hit"], "second", &["counter"]);
+    play(&e, &mut s, P1, "rebound");
+    no_reversal(&e, &mut s);
+    let hit = in_hand(&e, &s, P1, "hit");
+    play(&e, &mut s, P1, "hit");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    assert!(s.player(P1).hand.contains(&hit));
+}
+
+#[test]
+fn counts_can_be_subtracted() {
+    let e = engine();
+    let mut s = start(&e, "first", &["margin"], "second", &[]);
+    let before = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "margin");
+    no_reversal(&e, &mut s);
+    // 6 cards were left against the opponent's 6: no difference, no draw.
+    assert_eq!(s.player(P1).hand.len(), before - 1);
 }
