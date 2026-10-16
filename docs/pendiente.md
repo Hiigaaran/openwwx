@@ -4,13 +4,12 @@ Qué cartas de cada set no se pueden jugar todavía, cuáles se juegan sin una p
 simplificadas.
 
 Premiere: no se pueden jugar todavía Cheap Shot From the Corner, Tag in Partner, Double Team, Trip y Partner
-Interference (Tag Team: son para combates por parejas, que el juego no tiene). Se juegan sin una parte de su texto: Combination Attack (el compañero inactivo) y
-Disqualification! (solo revierte maniobras HEEL; revertir un Reversal todavía no existe).
+Interference (Tag Team: son para combates por parejas, que el juego no tiene). Se juegan sin una parte de su texto: Combination Attack (el compañero inactivo).
 
 Fully Loaded: no se pueden jugar todavía Surprise Hit y Double Clothesline (Tag Team: son para combates por parejas, que el juego no tiene), Stare Down
 Opponent, Doing the Job, Defensive Posture, Inferno Match, Kick Out! y Let's Make Some Noise .... Se juegan sin una parte de su texto: Trash Can (volver a usarla desde el
 Ring), Series of Suplexes (repetirla), Small Package (ganar con tres seguidas), Attitude Adjustment (el -#F del turno
-siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Rabid Wolverine (solo sigue el turno si acaba por un Reversal), Ref KO'd! y That's Gonna Cost You! (revertir Reversals). Están simplificadas: Masked Vengeance (descarta al
+siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Rabid Wolverine (solo sigue el turno si acaba por un Reversal) y Ref KO'd! (su efecto en el Ring sobre Disqualification). Están simplificadas: Masked Vengeance (descarta al
 azar de toda la mano) y Do You Like Pie? (eliges tú qué carta va a la mano, no el rival).
 
 Backlash: no se pueden jugar todavía Pop the Guy On the Apron, Tandem Atomic Drop, Propel Partner y Jump the Bell

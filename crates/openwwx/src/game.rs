@@ -698,6 +698,21 @@ impl Match {
                     chosen = Some(Action::DeclineReversal);
                 }
             }
+            DecisionKind::CounterReversal { reversal, .. } => {
+                let title = self.def_of(*reversal).title.clone();
+                ui.label(RichText::new(format!("El rival te revierte con {title}. Puedes responder:")).strong());
+                for a in legal {
+                    if let Action::Reverse { card } = a {
+                        let def = self.def_of(*card);
+                        if ui.button(format!("Responder con {}", def.title)).on_hover_text(&def.text).clicked() {
+                            chosen = Some(a.clone());
+                        }
+                    }
+                }
+                if ui.button("No responder").clicked() {
+                    chosen = Some(Action::DeclineReversal);
+                }
+            }
             DecisionKind::ChooseCards { .. } => {
                 ui.label(RichText::new("Elige cartas en la ventana.").strong());
             }

@@ -285,8 +285,13 @@
             )),
         ),
         "Lift a Boot": (reverses: Some((targets: ManeuverType(HighRisk), from_hand_only: true))),
-        // Needs reversals of reversals.
-        "Ref KO'd!": (),
+        // Played right after the opponent reverses with one of the three titles from his hand.
+        // Missing: the Ring effect that blanks Disqualification from the opponent's hand.
+        "Ref KO'd!": (
+            requires: Some(Never),
+            answers_reversal: Some(AnyOf([Title("Step Aside"), Title("Escape Move"), Title("That's Gonna Cost You!")])),
+            on_play: [Optional([Draw(who: You, n: 1)])],
+        ),
         // The "-#F next turn" part is not supported yet.
         "Attitude Adjustment": (
             reverses: Some((
@@ -789,6 +794,11 @@
             play_after: Some(Title("Throw Opponent Out of the Ring")),
             reverses: Some((targets: Title("Roll Out of the Ring"))),
         ),
-        "That's Gonna Cost You!": (),
+        "That's Gonna Cost You!": (
+            reverses: Some((
+                targets: All([AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]), DamageAtLeast(8)]),
+                damage: SameAsReversed,
+            )),
+        ),
     },
 )

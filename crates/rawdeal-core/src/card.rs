@@ -385,6 +385,12 @@ pub struct CardScript {
     /// played as if they were in your hand (also as Reversals).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub play_from_under: Option<CardFilter>,
+    /// An Action you may play from hand right after your opponent reverses
+    /// your card from his hand with a matching Reversal: neither card deals
+    /// damage and your turn goes on; then this card resolves and goes to your
+    /// Ring (Ref KO'd!).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub answers_reversal: Option<CardFilter>,
     /// Where the cards under this card go when it leaves your Ring (default
     /// your Ringside pile).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -773,6 +779,12 @@ pub struct ReverseSpec {
     /// While the condition holds, this Fortitude is needed instead.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fortitude_when: Option<(Condition, u8)>,
+    /// On your own turn, it can also reverse the Reversal your opponent just
+    /// played from hand, Backlash deck or Ringside pile against your card
+    /// (`targets` sees that Reversal as a played Reversal): Disqualification!.
+    /// Neither earlier card deals damage and your turn goes on.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reverses_reversals: bool,
 }
 
 impl ReverseSpec {
@@ -795,6 +807,7 @@ impl ReverseSpec {
             ignores_irreversible: false,
             reversed_to_arsenal: false,
             fortitude_when: None,
+            reverses_reversals: false,
         }
     }
 }

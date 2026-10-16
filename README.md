@@ -144,6 +144,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   las cartas Volley se pueden revertir retirando # cartas al azar del Ringside; las cartas Permanent y las
   Stipulations solo salen del Ring por su propio texto; los Title Belts son Universally Unique. Unas 25 cartas nuevas
   se juegan o quedan completas (por ejemplo Messing With the Champ, Here I Stand: The Champion y Double Axe Handle).
+- Responder a un Reversal: justo después de que el rival revierta tu carta, puedes revertir su Reversal
+  (Disqualification! contra Reversals HEEL) o anularlo con una Action como Ref KO'd! (ni tu carta ni su Reversal hacen
+  daño y tu turno sigue). That's Gonna Cost You! también se juega ya.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

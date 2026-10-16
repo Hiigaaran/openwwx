@@ -122,10 +122,11 @@
             )),
         ),
         "Manager Interferes": (reverses: Some((targets: Maneuver, effects: [Draw(who: You, n: 1)]))),
-        // Reversing a Reversal is not supported yet, so only HEEL maneuvers.
+        // HEEL Reversals are reversed on your own turn, right after they reverse your card.
         "Disqualification!": (
             reverses: Some((
-                targets: All([Maneuver, Trait(Heel), PlayerRingHas(filter: Trait(Heel), n: 5)]),
+                targets: All([AnyOf([Maneuver, Reversal]), Trait(Heel), PlayerRingHas(filter: Trait(Heel), n: 5)]),
+                reverses_reversals: true,
                 effects: [WinGame],
             )),
         ),

@@ -176,6 +176,11 @@ pub(crate) enum Step {
         n: u8,
     },
     /// The looked-at cards still on the Arsenal go to its bottom.
+    /// The attacker may answer the Reversal the defender just played.
+    CounterWindow {
+        attacker: PlayerId,
+        reversal: CardId,
+    },
     DigRest {
         cards: Vec<CardId>,
     },
@@ -408,6 +413,9 @@ impl Engine {
                 .chain(volley.then_some(Action::ReverseByVolley))
                 .chain([Action::DeclineReversal])
                 .collect(),
+            DecisionKind::CounterReversal { options, .. } => {
+                options.iter().map(|&card| Action::Reverse { card }).chain([Action::DeclineReversal]).collect()
+            }
             DecisionKind::ChooseCards { options, min, max, .. } => {
                 let mut out = Vec::new();
                 for k in *min..=*max {
@@ -468,6 +476,8 @@ impl Engine {
             }
             (DecisionKind::Reversal { options, .. }, Action::Reverse { card }) => options.contains(card),
             (DecisionKind::Reversal { .. }, Action::DeclineReversal) => true,
+            (DecisionKind::CounterReversal { options, .. }, Action::Reverse { card }) => options.contains(card),
+            (DecisionKind::CounterReversal { .. }, Action::DeclineReversal) => true,
             (DecisionKind::Reversal { volley, .. }, Action::ReverseByVolley) => *volley,
             (DecisionKind::ChooseCards { options, min, max, .. }, Action::ChooseCards(chosen)) => {
                 let mut dedup = chosen.clone();
@@ -619,6 +629,10 @@ impl Engine {
                 }
             }
             (DecisionKind::Reversal { .. }, _) => {}
+            (DecisionKind::CounterReversal { reversal, .. }, Action::Reverse { card }) => {
+                self.counter_reverse(state, p, card, reversal, events)
+            }
+            (DecisionKind::CounterReversal { .. }, _) => {}
             (DecisionKind::ChooseCards { purpose, .. }, Action::ChooseCards(chosen)) => {
                 if let Some(Step::AskMore { options, remaining, .. }) = state.pending.last_mut() {
                     options.retain(|c| !chosen.contains(c));
@@ -1228,6 +1242,13 @@ impl Engine {
                 }
             }
             Step::ReverseFromHand { defender, reversal } => self.reverse_from_hand(state, defender, reversal, events),
+            Step::CounterWindow { attacker, reversal } => {
+                let options = self.counter_options(state, attacker, reversal);
+                if !options.is_empty() {
+                    state.decision =
+                        Some(Decision { player: attacker, kind: DecisionKind::CounterReversal { reversal, options } });
+                }
+            }
             Step::Arrange { chooser, owner, left, mut done } => {
                 if left.len() <= 1 {
                     done.extend(left);
@@ -1506,6 +1527,85 @@ impl Engine {
         if spec.discard_cost > 0 {
             let cost = [Effect::Discard { who: Who::You, n: spec.discard_cost, pick: Pick::Chosen }];
             schedule_effects(state, &cost, defender, Source::Card(reversal));
+        }
+        if !from_ring {
+            state.pending.push(Step::CounterWindow { attacker: played.player, reversal });
+        }
+    }
+
+    /// Cards in `attacker`'s hand that answer the Reversal `reversal` just
+    /// played against their card.
+    fn counter_options(&self, state: &GameState, attacker: PlayerId, reversal: CardId) -> Vec<CardId> {
+        let defender = attacker.opponent();
+        if state.card(reversal).zone != Zone::Ring || state.active != attacker {
+            return vec![];
+        }
+        let from_hand = state.reversed_from[defender.index()] == Some(Zone::Hand);
+        let as_played = Played::new(reversal, defender, CardKind::Reversal);
+        state
+            .player(attacker)
+            .hand
+            .iter()
+            .copied()
+            .filter(|&c| {
+                let script = &self.def(state, c).script;
+                let cancels = from_hand
+                    && script.answers_reversal.as_ref().is_some_and(|f| self.matches_def(state, f, reversal, attacker));
+                let reverses = script.reverses.as_ref().is_some_and(|spec| {
+                    spec.reverses_reversals
+                        && self.def(state, c).is_reversal()
+                        && self.can_reverse_with(state, attacker, c, spec, as_played, true)
+                });
+                cancels || reverses
+            })
+            .collect()
+    }
+
+    /// `attacker` answers the Reversal against their card with `card`: the
+    /// reversal's damage and effects are dropped and the turn goes on.
+    fn counter_reverse(
+        &self,
+        state: &mut GameState,
+        attacker: PlayerId,
+        card: CardId,
+        reversal: CardId,
+        events: &mut Vec<Event>,
+    ) {
+        let defender = attacker.opponent();
+        state.pending.clear();
+        state.reversed_last[defender.index()] = None;
+        state.reversed_from[defender.index()] = None;
+        state.continue_turn = false;
+        state.end_turn_after_play = false;
+        state.volley_lock = None;
+        state.pending.push(Step::Main);
+        let def = self.def(state, card);
+        if def.script.answers_reversal.is_some() {
+            let effects = def.script.on_play.clone();
+            self.move_card(state, card, Zone::Ring, events);
+            events.push(Event::CardPlayed { player: attacker, card, kind: CardKind::Action });
+            schedule_effects(state, &effects, attacker, Source::Card(card));
+            return;
+        }
+        let spec = def.script.reverses.clone().expect("validated reversal");
+        let as_played = Played::new(reversal, defender, CardKind::Reversal);
+        let damage = match spec.damage {
+            ReversalDamage::Printed => def.damage as u16,
+            ReversalDamage::None => 0,
+            ReversalDamage::Fixed(n) => n as u16,
+            ReversalDamage::SameAsReversed => self.card_damage(state, as_played),
+        };
+        events.push(Event::Reversed { player: attacker, reversal: card, reversed: reversal, from_hand: true });
+        self.move_card(state, reversal, Zone::Ringside, events);
+        self.move_card(state, card, Zone::Ring, events);
+        if damage > 0 {
+            state.pending.push(Step::Overturn { player: defender, remaining: damage, source: None });
+        }
+        let effects: Vec<Effect> = spec.effects.iter().chain(&spec.on_reverse).cloned().collect();
+        schedule_effects(state, &effects, attacker, Source::Card(card));
+        if spec.discard_cost > 0 {
+            let cost = [Effect::Discard { who: Who::You, n: spec.discard_cost, pick: Pick::Chosen }];
+            schedule_effects(state, &cost, attacker, Source::Card(card));
         }
     }
 

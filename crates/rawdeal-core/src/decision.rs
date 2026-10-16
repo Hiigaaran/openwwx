@@ -25,6 +25,10 @@ pub enum DecisionKind {
         #[serde(default)]
         volley: bool,
     },
+    /// Your opponent reversed your card with `reversal`; you may answer it
+    /// with one of `options` (a Reversal that reverses Reversals, or an
+    /// Action that cancels them).
+    CounterReversal { reversal: CardId, options: Vec<CardId> },
     /// Pick between `min` and `max` cards from `options`.
     ChooseCards { options: Vec<CardId>, min: u8, max: u8, purpose: ChoicePurpose },
     /// Answer yes or no.

@@ -136,6 +136,12 @@ const SET: &str = r#"(
         (id: "m/volleyer", title: "Volleyer", kinds: [Maneuver(Strike)], fortitude: 0, damage: 2,
             other_traits: ["Volley: 2"]),
         (id: "m/rooted", title: "Rooted", kinds: [Action], fortitude: 0, damage: 0, other_traits: ["Permanent"]),
+        (id: "m/slap-back", title: "Slap Back", kinds: [Reversal], fortitude: 0, damage: 3,
+            script: (reverses: Some((targets: Maneuver)))),
+        (id: "m/ref", title: "Ref", kinds: [Action], fortitude: 0, damage: 0,
+            script: (answers_reversal: Some(Title("Slap Back")), on_play: [Draw(who: You, n: 1)])),
+        (id: "m/dq", title: "DQ", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses: Some((targets: Reversal, reverses_reversals: true, effects: [WinGame])))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
             also_superstars: ["m/second"]),
     ],
@@ -948,4 +954,45 @@ fn permanent_cards_stay_in_the_ring() {
         assert!(options.is_empty());
     }
     assert!(find(&e, &s, &s.player(P2).ring, "rooted").is_some());
+}
+
+#[test]
+fn an_action_can_cancel_the_reversal_of_your_card() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "ref"], "second", &["slap-back"]);
+    play(&e, &mut s, P1, "hit");
+    let slap = in_hand(&e, &s, P2, "slap-back");
+    apply(&e, &mut s, P2, Action::Reverse { card: slap });
+    let arsenal = s.player(P1).arsenal.len();
+    let ref_card = in_hand(&e, &s, P1, "ref");
+    assert!(matches!(&s.decision, Some(Decision { player: P1, kind: DecisionKind::CounterReversal { options, .. } })
+        if options == &vec![ref_card]));
+    apply(&e, &mut s, P1, Action::Reverse { card: ref_card });
+    // No damage from the Reversal, the turn goes on and Ref draws 1.
+    assert_eq!(s.active, P1);
+    assert_eq!(s.player(P1).arsenal.len(), arsenal - 1);
+    assert!(matches!(s.decision, Some(Decision { player: P1, kind: DecisionKind::Main })));
+    assert!(find(&e, &s, &s.player(P1).ring, "ref").is_some());
+}
+
+#[test]
+fn a_reversal_can_reverse_the_reversal_of_your_card() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "dq"], "second", &["slap-back"]);
+    play(&e, &mut s, P1, "hit");
+    let slap = in_hand(&e, &s, P2, "slap-back");
+    apply(&e, &mut s, P2, Action::Reverse { card: slap });
+    let dq = in_hand(&e, &s, P1, "dq");
+    apply(&e, &mut s, P1, Action::Reverse { card: dq });
+    assert!(matches!(s.outcome, Some(Outcome::Win { winner: P1, .. })));
+}
+
+#[test]
+fn reversals_cannot_be_answered_without_an_answer_card() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "counter"], "second", &["slap-back"]);
+    play(&e, &mut s, P1, "hit");
+    let slap = in_hand(&e, &s, P2, "slap-back");
+    apply(&e, &mut s, P2, Action::Reverse { card: slap });
+    assert_eq!(s.active, P2);
 }
