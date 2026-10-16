@@ -241,6 +241,8 @@ pub enum Ability {
     OnOpponentPlayMatching { filter: CardFilter, effects: Vec<Effect> },
     /// Effects for you when your opponent reverses a card you played.
     OnOpponentReverses(Vec<Effect>),
+    /// Effects for you when you reverse a card your opponent played.
+    OnYouReverse(Vec<Effect>),
 }
 
 /// Interpretable description of a card's text.
@@ -370,6 +372,10 @@ pub struct CardScript {
     /// Same, while this card is in your Ringside pile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ringside_on_opponent_reverses: Vec<Effect>,
+    /// Effects while this card is in your Ring, when you reverse a card your
+    /// opponent played.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on_you_reverse: Vec<Effect>,
     /// The card cannot be reversed by cards from the Backlash deck.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub no_backlash_reversal: bool,
@@ -574,6 +580,9 @@ pub enum Condition {
     /// `Backlash`, `Ringside`, `Ring` (put from the Ring into the Ringside
     /// pile) or `Arsenal` (overturned while taking damage).
     OpponentReversedFrom(Vec<crate::state::Zone>),
+    /// Your own last Reversal (this turn, or to end your opponent's last
+    /// turn) came from one of these zones.
+    YouReversedFrom(Vec<crate::state::Zone>),
     /// Your opponent's Superstar has this name.
     OpponentSuperstar(String),
     SuperstarValueAtMost(u8),
@@ -1139,6 +1148,11 @@ pub enum Effect {
     WinGame,
     /// "You may …": the controller decides whether to apply the inner effects.
     Optional(Vec<Effect>),
+    /// The active player's turn, about to end because a card was reversed,
+    /// continues instead ("continue your turn", "your opponent continues his
+    /// turn"). Use in `on_opponent_reverses` and similar reversal triggers,
+    /// or in a Reversal's effects.
+    ContinueTurn,
     /// "Choose one": the controller picks one of the lists.
     Choice(Vec<Vec<Effect>>),
     /// Effects that only happen if `condition` holds for the controller.

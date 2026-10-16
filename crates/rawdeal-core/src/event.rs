@@ -83,6 +83,10 @@ pub enum Event {
     TurnEnded {
         player: PlayerId,
     },
+    /// The player's turn goes on although their card was reversed.
+    TurnContinues {
+        player: PlayerId,
+    },
     GameOver(Outcome),
 }
 

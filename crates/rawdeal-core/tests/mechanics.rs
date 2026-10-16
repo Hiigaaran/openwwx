@@ -28,6 +28,10 @@ const SET: &str = r#"(
             OpponentDamageCap(filter: ManeuverType(Grapple), max: 1)]),
         (id: "m/sore", name: "Sore", hand_size: 6, superstar_value: 5,
             abilities: [OnOpponentReverses([If(condition: OpponentReversedFrom([Hand]), effects: [Draw(who: You, n: 2)])])]),
+        (id: "m/stubborn", name: "Stubborn", hand_size: 6, superstar_value: 5,
+            abilities: [OnOpponentReverses([ContinueTurn])]),
+        (id: "m/smug", name: "Smug", hand_size: 6, superstar_value: 1,
+            abilities: [OnYouReverse([If(condition: YouReversedFrom([Hand]), effects: [Draw(who: You, n: 1)])])]),
         (id: "m/watcher", name: "Watcher", hand_size: 6, superstar_value: 1,
             abilities: [OnOpponentPlayMatching(filter: Maneuver, effects: [Draw(who: You, n: 1)])]),
     ],
@@ -797,4 +801,28 @@ fn a_superstar_can_react_to_a_reversal_from_hand() {
     let counter = in_hand(&e, &s, P2, "counter");
     apply(&e, &mut s, P2, Action::Reverse { card: counter });
     assert_eq!(s.player(P1).hand.len(), before + 1);
+}
+
+#[test]
+fn a_turn_can_go_on_after_a_reversal() {
+    let e = engine();
+    let mut s = start(&e, "stubborn", &["hit", "filler"], "second", &["counter"]);
+    play(&e, &mut s, P1, "hit");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    assert_eq!(s.active, P1);
+    assert!(playable(&e, &s, P1, "filler"));
+}
+
+#[test]
+fn reversing_can_trigger_your_own_cards() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit"], "smug", &["counter"]);
+    let before = s.player(P2).hand.len();
+    play(&e, &mut s, P1, "hit");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    // The Counter left the hand, the ability drew 1 back, and P2's own turn
+    // drew 1 more.
+    assert_eq!(s.player(P2).hand.len(), before + 1);
 }

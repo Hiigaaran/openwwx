@@ -214,6 +214,7 @@ fn print_events(engine: &Engine, state: &GameState, events: &[Event], viewer: Pl
             Event::Overturned { player, card } => format!("  {player} takes 1 damage: {}.", name(engine, state, card)),
             Event::CountOutRefused { player } => format!("{player} refuses the count out and goes for the pin."),
             Event::TurnEnded { player } => format!("{player} ends the turn."),
+            Event::TurnContinues { player } => format!("{player} continues the turn."),
             Event::TurnSkipped { player } => format!("{player} skips the turn."),
             Event::HandShown { player, viewer: v, cards } if v == viewer => {
                 format!("{player}'s hand: {}", names(engine, state, &cards))

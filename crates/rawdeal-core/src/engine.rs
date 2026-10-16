@@ -275,6 +275,7 @@ impl Engine {
             skip_turn: [false; 2],
             start_after: [None; 2],
             end_turn_after_play: false,
+            continue_turn: false,
             in_play_to: None,
             in_play_bottom: None,
             played_this_turn: vec![],
@@ -526,6 +527,7 @@ impl Engine {
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
                 state.in_play_bottom = None;
+                state.continue_turn = false;
                 state.in_play_watch = state
                     .watches
                     .iter()
@@ -1041,6 +1043,11 @@ impl Engine {
                 }
             }
             Step::EndTurn => {
+                if std::mem::take(&mut state.continue_turn) {
+                    events.push(Event::TurnContinues { player: state.active });
+                    state.pending.push(Step::Main);
+                    return;
+                }
                 let p = state.active;
                 let (now, later): (Vec<_>, Vec<_>) =
                     std::mem::take(&mut state.end_of_turn).into_iter().partition(|(c, _)| *c == p);
@@ -1075,6 +1082,7 @@ impl Engine {
                 }
                 state.restrictions.retain(|(_, _, turns)| *turns > 0);
                 state.reversed_last[p.index()] = None;
+                state.reversed_from[p.index()] = None;
                 state.next_must = None;
                 state.watches.retain(|w| w.player != p);
                 events.push(Event::TurnEnded { player: p });
@@ -1591,6 +1599,7 @@ impl Engine {
             }
             Effect::Boost(boost) => state.boosts.push((controller, boost)),
             Effect::EndTurn => state.end_turn_after_play = true,
+            Effect::ContinueTurn => state.continue_turn = true,
             Effect::SkipNextTurn { who } => state.skip_turn[target(who).index()] = true,
             Effect::AtEndOfTurn(effects) => state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e))),
             Effect::DiscardThis => state.in_play_to = Some(Zone::Ringside),
@@ -2296,6 +2305,21 @@ impl Engine {
             .flatten()
             .collect();
         schedule_effects(state, &own, attacker, Source::Superstar(attacker));
+        let defender = attacker.opponent();
+        for c in self.ring_cards(state, defender).into_iter().rev() {
+            let effects = self.def(state, c).script.on_you_reverse.clone();
+            schedule_effects(state, &effects, defender, Source::Card(c));
+        }
+        let own: Vec<Effect> = self
+            .abilities(state, defender)
+            .iter()
+            .filter_map(|a| match a {
+                Ability::OnYouReverse(effects) => Some(effects.clone()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        schedule_effects(state, &own, defender, Source::Superstar(defender));
     }
 
     fn ring_cards(&self, state: &GameState, p: PlayerId) -> Vec<CardId> {
@@ -2486,6 +2510,9 @@ impl Engine {
             Condition::FirstCardThisTurn => !state.played_this_turn.iter().any(|p| p.player == player),
             Condition::OpponentReversed(f) => {
                 state.reversed_last[player.opponent().index()].is_some_and(|r| self.matches(state, f, r))
+            }
+            Condition::YouReversedFrom(zones) => {
+                state.reversed_from[player.index()].is_some_and(|z| zones.contains(&z))
             }
             Condition::OpponentReversedFrom(zones) => {
                 state.reversed_from[player.opponent().index()].is_some_and(|z| zones.contains(&z))

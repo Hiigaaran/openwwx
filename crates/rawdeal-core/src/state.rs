@@ -219,6 +219,9 @@ pub struct GameState {
     pub start_after: [Option<CardId>; 2],
     /// The active player's turn ends once the card in play is done.
     pub end_turn_after_play: bool,
+    /// The turn about to end after a reversal goes on instead.
+    #[serde(default)]
+    pub continue_turn: bool,
     /// Where the card in play goes instead of the Ring.
     pub in_play_to: Option<Zone>,
     /// With `in_play_to` the Arsenal: on the bottom (`Some(true)`) or the
