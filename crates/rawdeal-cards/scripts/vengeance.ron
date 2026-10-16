@@ -95,8 +95,15 @@
             )),
         ),
         "Short Arm Rib Breaker": (not_packed_by: ["Female"]),
-        // Removing the Reversals in your Ringside pile when it is played from there is not supported yet.
-        "Blindside Kick": (from_ringside: Some(Always)),
+        "Blindside Kick": (
+            from_ringside: Some(Always),
+            on_play: [
+                If(
+                    condition: PlayedFromRingside,
+                    effects: [RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Reversal), pick: Random)],
+                ),
+            ],
+        ),
         // The Enforcer part is not supported yet.
         "Struck by an Unknown Foreign Object": (
             requires: Some(
@@ -126,8 +133,15 @@
             on_play: [Boost((applies_to: Maneuver, duration: NextCard, no_backlash_reversal: true))],
         ),
         "Double Underhook Power Bomb": (),
-        // Removing the Actions in your Ringside pile when it is played from there is not supported yet.
-        "Blindside Slam": (from_ringside: Some(Always)),
+        "Blindside Slam": (
+            from_ringside: Some(Always),
+            on_play: [
+                If(
+                    condition: PlayedFromRingside,
+                    effects: [RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Action), pick: Random)],
+                ),
+            ],
+        ),
         // Choosing an Enforcer for the opponent is not supported yet, so the next card is always -2F.
         "Suplex": (on_play: [Boost((applies_to: Any, duration: NextCard, fortitude: -2))]),
         "Military Slam": (),
@@ -148,13 +162,30 @@
         ),
         "Headlock": (),
         "Apply Legal Leverage": (play_after: Some(AnyOf([ManeuverType(Submission), All([Maneuver, Trait(Chain)])]))),
-        // Removing the Maneuvers in your Ringside pile when it is played from there is not supported yet.
-        "Blindside Choke": (from_ringside: Some(Always)),
+        "Blindside Choke": (
+            from_ringside: Some(Always),
+            on_play: [
+                If(
+                    condition: PlayedFromRingside,
+                    effects: [RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Maneuver), pick: Random)],
+                ),
+            ],
+        ),
         "Super Hold": (bonuses: [(when: FortitudeBelowOpponent, fortitude: -7)]),
 
         // Reversals
-        // Playing Reversals from the Ringside pile is not supported yet.
-        "I Already Warned You": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "I Already Warned You": (
+            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
+            reverses: Some((
+                targets: AnyOf([
+                    All([Action, EarlierThisTurn(filter: Action, n: 1)]),
+                    EarlierThisTurn(filter: Any, n: 2),
+                ]),
+                from_hand_only: true,
+                requires: Some(All([FortitudeAtMostOpponent, Not(HandHas(Title("I Already Warned You")))])),
+            )),
+        ),
         "Quick Reflexes": (
             not_with: ["Step Aside"],
             reverses: Some((
@@ -183,12 +214,39 @@
                 effects: [Draw(who: You, n: 1)],
             )),
         ),
-        // Playing Reversals from the Ringside pile is not supported yet.
-        "Blindsided Ego": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Playing Reversals from the Ringside pile is not supported yet.
-        "Leave Me Alone": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Playing Reversals from the Ringside pile is not supported yet.
-        "Blindsided Control": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "Blindsided Ego": (
+            from_ringside: Some(Always),
+            reverses: Some((
+                targets: AnyOf([All([Maneuver, Not(Trait(Unique))]), TitleContains("ego")]),
+                from_hand_only: true,
+                requires: Some(Not(HandHas(Title("Blindsided Ego")))),
+                effects: [
+                    Discard(who: You, n: 2, pick: Chosen),
+                    RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Reversal), pick: Random),
+                ],
+            )),
+        ),
+        // Searching for a maneuver without text and the rule for your next turn are not supported yet.
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "Leave Me Alone": (
+            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
+            reverses: Some((
+                targets: All([Action, Not(Trait(SetUp))]),
+                from_hand_only: true,
+                requires: Some(Not(HandHas(Title("Leave Me Alone")))),
+            )),
+        ),
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "Blindsided Control": (
+            from_ringside: Some(Always),
+            reverses: Some((
+                targets: All([Action, Not(Trait(Unique))]),
+                from_hand_only: true,
+                requires: Some(Not(HandHas(Title("Blindsided Control")))),
+                effects: [RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Action), pick: Random)],
+            )),
+        ),
         "Two!": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
@@ -200,8 +258,25 @@
                 ],
             )),
         ),
-        // Playing Reversals from the Ringside pile is not supported yet.
-        "Headstrong": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Being Permanent is not supported yet.
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "Headstrong": (
+            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique)), DamageAtMost(10)]),
+                from_hand_only: true,
+                requires: Some(Not(HandHas(Title("Headstrong")))),
+                effects: [
+                    If(
+                        condition: Not(Superstar("Al Snow")),
+                        effects: [
+                            RemoveFromGame(who: You, from: Ring, n: 60, filter: Some(Action), pick: Random),
+                            RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Action), pick: Random),
+                        ],
+                    ),
+                ],
+            )),
+        ),
         "Sloppy ... Very Sloppy": (
             reverses: Some((
                 targets: Any,
@@ -229,10 +304,15 @@
                 NextCardMustBe(Not(Title("Chain Wrestling"))),
             ],
         ),
-        // Reversing from the Ringside pile and removing cards from the game are not supported yet.
+        // Removing the reversed card from the game is not supported yet.
+        // Approximation: wherever it is played from it reverses both 'hell' cards and cards played from the
+        // opponent's Ringside pile, and it is not removed from the game; as an action it can only be played from hand
+        // (or while you hold a copy).
         "When Hell Freezes Over!": (
+            requires: Some(HandHas(Title("When Hell Freezes Over!"))),
+            from_ringside: Some(Always),
             on_play: [DiscardThis, Draw(who: You, n: 1)],
-            reverses: Some((targets: TitleContains("hell"))),
+            reverses: Some((targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]))),
         ),
         "Minute Hold": (
             play_after: Some(ManeuverType(Submission)),
@@ -510,8 +590,12 @@
                 DrawUpTo(who: You, n: 3),
             ],
         ),
-        // Getting removed cards back is not supported (they never come back), so only the second part is played.
-        "Yesterday Is So Long Ago": (on_play: [RemoveFromGame(who: You, from: Arsenal, n: 4)]),
+        "Yesterday Is So Long Ago": (
+            on_play: [
+                MoveCards(who: You, from: Removed, to: Ringside, n: 4, up_to: true),
+                RemoveFromGame(who: You, from: Arsenal, n: 4),
+            ],
+        ),
         "I See the Line in the Sand": (
             on_play: [Counted(count: OpponentValueTimes(1), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
         ),
@@ -523,14 +607,16 @@
         ),
 
         // Chris Jericho
-        // Giving back a card removed from the game is not supported (removed cards never come back).
         "You Sanctimonious Son of a B!tch": (
             in_ring_start_of_turn: [If(condition: FortitudeAboveOpponent, effects: [Mill(who: Opponent, n: 1)])],
             reverses_from_ring: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
                 fortitude: Some(0),
                 requires: Some(FortitudeBelowOpponent),
-                effects: [ReturnThis(to: Removed)],
+                effects: [
+                    ReturnThis(to: Removed),
+                    AsOpponent([Optional([MoveCards(who: You, from: Removed, to: Hand, n: 1)])]),
+                ],
             )),
         ),
         // The opponent's option to discard 3 cards and put it into your Ringside pile is not supported yet.
@@ -593,9 +679,9 @@
         ),
 
         // Edge
-        // Approximation: you may draw even without Big Slide Into the Ring in your Ringside pile.
         "The Edgeucation of Adam Copeland": (
             ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourRingsideMatching(Title("Big Slide Into the Ring")), n: 1)),
                 cost: [
                     DiscardMatching(who: You, n: 1, filter: Title("Roll Out of the Ring"), pick: Chosen),
                     RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Title("Big Slide Into the Ring"))),
@@ -615,10 +701,10 @@
         "Scream If You Want It": (
             reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true)),
         ),
-        // Approximation: you may draw even with fewer than 3 cards in your Ringside pile.
         "`Cause I Want More": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -4)],
             ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourRingsideSize, n: 3)),
                 cost: [RemoveFromGame(who: You, from: Ringside, n: 3)],
                 effects: [Draw(who: You, n: 1)],
             )),
@@ -635,8 +721,13 @@
                 Boost((applies_to: Any, duration: NextCard, fortitude: -4)),
             ],
         ),
-        // Checking your own Arsenal size is not supported yet.
-        "You're Dangerously Close": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "You're Dangerously Close": (
+            reverses: Some((
+                targets: Not(Trait(Unique)),
+                requires: Some(CountAtMost(count: YourArsenalSize, n: 10)),
+                effects: [RingsideToArsenal(who: You, n: 10, up_to: true)],
+            )),
+        ),
 
         // Cards for earlier Superstars
         "Big Boys Club": (
@@ -699,11 +790,24 @@
             on_play: [Optional([Search(filter: Any, ringside: true), EndTurn])],
         ),
         "Train Wreck": (reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)])))),
-        // Undertaker's second use and moving Mid-match cards to the Backlash deck are not supported yet.
+        // Undertaker's second use is not supported yet.
+        // Approximation: the two Ring abilities are one, used once per turn (choose one).
         "Managed by Paul Bearer": (
             ring_ability: Some((
-                cost: [DiscardMatching(who: You, n: 1, filter: SuperstarSpecific, pick: Chosen)],
-                effects: [RingsideToArsenalBottom(who: You, n: 3)],
+                effects: [
+                    Choice([
+                        [
+                            If(
+                                condition: HandHas(SuperstarSpecific),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: SuperstarSpecific, pick: Chosen),
+                                    RingsideToArsenalBottom(who: You, n: 3),
+                                ],
+                            ),
+                        ],
+                        [ReturnThis(to: Removed), RingsideToBacklash(who: You, n: 3)],
+                    ]),
+                ],
             )),
         ),
         // Approximation: only this card itself gets the +1 Pre-match limit, not your other Superstar-specific
@@ -784,8 +888,14 @@
                 RemoveFromGame(who: Opponent, from: Ringside, n: 5, up_to: true, pick: Controller),
             ],
         ),
-        // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
-        "Keep It Simple, Sir": (on_play: [Search(filter: Trait(Unique))]),
+        "Keep It Simple, Sir": (
+            on_play: [
+                Choice([
+                    [MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Not(AnyOf([Maneuver, Action, Reversal]))))],
+                    [Search(filter: Trait(Unique))],
+                ]),
+            ],
+        ),
         "The StratusFear": (
             play_after: Some(Any),
             reverses: Some((targets: AnyOf([ManeuverType(HighRisk), Title("From the Top Rope")]))),
@@ -859,8 +969,10 @@
                 effects: [Counted(count: SuperstarValue, effect: DrawUpTo(who: You, n: 0))],
             )),
         ),
-        // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
-        "The Boss's Main Squeeze": (reverses: Some((targets: Action))),
+        "The Boss's Main Squeeze": (
+            on_play: [MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Not(AnyOf([Maneuver, Action, Reversal]))))],
+            reverses: Some((targets: Action)),
+        ),
         // Approximation: your next 'DDT' card is -7F, whichever one it is.
         "Golden Thong Award": (
             ring_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),

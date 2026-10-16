@@ -282,9 +282,8 @@
                 )),
             ],
         ),
-        // Playing it with at least 5 fewer cards in hand than the opponent is not supported yet.
         "I'm Desperate": (
-            requires: Some(FortitudeBelowOpponent),
+            requires: Some(AnyOf([FortitudeBelowOpponent, CountAtLeast(count: OpponentHandExcess, n: 5)])),
             on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
         ),
         // Making a maneuver count as a Multi is not supported yet.
@@ -413,8 +412,8 @@
                 ]),
             ],
         ),
-        // Playing cards removed from the game is not supported yet.
-        "Like a Bat Out of Hell": (requires: Some(Never)),
+        // Approximation: 1 card removed from the game is put into your hand (it need not be the next card played).
+        "Like a Bat Out of Hell": (on_play: [MoveCards(who: You, from: Removed, to: Hand, n: 1)]),
         "Out of the Hellfire": (
             irreversible: true,
             on_play: [Choice([[RingsideToArsenal(who: You, n: 5, up_to: true)], [RingsideToHand(who: You, n: 1)]])],
@@ -427,19 +426,50 @@
             bonuses: [(when: Not(SuperstarValueAtMostOpponent), fortitude: -5)],
             on_play: [Search(filter: Trait(Unique)), Search(filter: Title("Booker's Scissor Kick"))],
         ),
-        // Putting non-unique Mid-match cards from the Ring into the Backlash deck is not supported yet: they come
-        // from the Ringside pile only.
+        // Approximation: the up to 4 Mid-match cards all come from the Ring area or all from the Ringside pile.
         "The Best Thing Going Today": (
             on_play: [
                 HandToArsenalBottom(who: You, n: 4),
                 RingsideToArsenalBottom(who: You, n: 4),
-                RingsideToBacklash(who: You, n: 4),
+                Choice([
+                    [
+                        MoveCards(
+                            who: You,
+                            from: Ringside,
+                            to: Backlash,
+                            n: 4,
+                            up_to: true,
+                            filter: Some(All([Trait(MidMatch), Not(Trait(Unique))])),
+                        ),
+                    ],
+                    [
+                        MoveCards(
+                            who: You,
+                            from: Ring,
+                            to: Backlash,
+                            n: 4,
+                            up_to: true,
+                            filter: Some(All([Trait(MidMatch), Not(Trait(Unique))])),
+                        ),
+                    ],
+                ]),
                 Draw(who: You, n: 4),
             ],
         ),
         "Crossing Borders": (on_play: [Search(filter: Not(Trait(Unique))), Search(filter: Title("Springboard"))]),
-        // Shuffling removed cards back is not supported yet.
-        "Throwback": (requires: Some(Never)),
+        "Throwback": (
+            on_play: [
+                MoveCards(
+                    who: You,
+                    from: Removed,
+                    to: Arsenal,
+                    n: 10,
+                    up_to: true,
+                    filter: Some(AnyOf([Keyword("Volley"), Keyword("Throwback")])),
+                ),
+                EndTurn,
+            ],
+        ),
         "The Inmates Aren't Running My Asylum": (
             only_packed_by: ["GM", "Chairman"],
             requires: Some(FortitudeBelowOpponent),
@@ -621,9 +651,11 @@
                 Boost((applies_to: Trait(Heel), duration: NextCard, fortitude: -5)),
             ],
         ),
-        // The -5F with 2 Foreign Objects in your Ringside pile is not supported yet.
         // Putting the cards on top does not matter: the search shuffles the Arsenal.
         "Here Comes the Headache!": (
+            bonuses: [
+                (when: CountAtLeast(count: YourRingsideMatching(Keyword("Foreign Object")), n: 2), fortitude: -5),
+            ],
             on_play: [
                 RingsideToArsenal(who: You, n: 2, up_to: true),
                 Search(filter: AnyOf([Trait(SetUp), Keyword("Foreign Object")])),
@@ -948,8 +980,18 @@
             )),
             in_ring_start_of_turn: [Mill(who: Opponent, n: 1)],
         ),
-        // Approximation: removed Backlash cards are not counted.
-        "The French Neck Breaker": (on_play: [AsOpponent([Optional([RingsideToBacklash(who: You, n: 1)])])]),
+        "The French Neck Breaker": (
+            on_play: [
+                AsOpponent([
+                    Optional([
+                        Choice([
+                            [RingsideToBacklash(who: You, n: 1)],
+                            [MoveCards(who: You, from: Removed, to: Backlash, n: 1, filter: Some(Trait(MidMatch)))],
+                        ]),
+                    ]),
+                ]),
+            ],
+        ),
 
         // Logo cards for earlier Superstars
         "Angle's Leg Bar": (
@@ -1005,11 +1047,10 @@
                 effects: [Boost((applies_to: Action, duration: NextTurnFirstCard, irreversible: true))],
             )),
         ),
-        // Approximation: from the Ringside pile it is shuffled into the Arsenal instead of put on the bottom.
         "Victoria's Secret": (
             play_after: Some(Maneuver),
             not_reversed_by: Some(Trait(MidMatch)),
-            ringside_ability: Some((effects: [ReturnThis(to: Arsenal)])),
+            ringside_ability: Some((effects: [ThisToArsenal(bottom: true)])),
         ),
         // Playing it as a Counter is not supported yet.
         "Vinny Mac Attack": (play_after: Some(Any)),

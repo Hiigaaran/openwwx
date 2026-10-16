@@ -74,11 +74,12 @@
         ),
 
         // Actions
-        // Shuffling removed cards back is not supported yet (removed cards never come back), so only the Ringside
-        // half is scripted.
         "McMahon Family Values": (
             on_play: [
-                RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(AnyOf([Trait(Unique), TitleContains("McMahon")]))),
+                Choice([
+                    [MoveCards(who: You, from: Removed, to: Arsenal, n: 3, up_to: true)],
+                    [RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(AnyOf([Trait(Unique), TitleContains("McMahon")])))],
+                ]),
             ],
         ),
         "Explosion Raw Deal": (

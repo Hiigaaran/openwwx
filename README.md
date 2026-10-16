@@ -119,6 +119,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   los efectos, llevar cartas de otra Superstar sin contar como ella, cambios de Superstar Value, de los límites de
   Pre-match y Mid-match y del Hand Size rival, cartas que bajan su F descartando, reacciones cuando el rival saca
   una carta de tu Ring y cartas que no se pueden revertir desde el Backlash.
+- Segundo lote: mover cartas entre zonas (devolver cartas retiradas, poner cartas del Ringside en el Ring),
+  Reversals usados desde el Ringside, efectos de "jugada desde el Ringside", condiciones por cualquier conteo,
+  cartas que vuelven arriba o al fondo del Arsenal sin barajar y costos de retirar cartas. Unas 80 cartas más de
+  todos los sets quedan completas o jugables.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

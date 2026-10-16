@@ -736,9 +736,17 @@
 
         // Stone Cold Steve Austin
         "The Bionic Redneck": (end_of_prematch: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Maneuver))])]),
-        // The limit of 6 cards is not enforced.
         "Gimme a Hell Yeah!": (
-            on_play: [Counted(count: YourRingMatching(SuperstarSpecific), effect: DrawUpTo(who: You, n: 0))],
+            on_play: [
+                If(
+                    condition: CountAtMost(count: YourRingMatching(SuperstarSpecific), n: 6),
+                    effects: [Counted(count: YourRingMatching(SuperstarSpecific), effect: DrawUpTo(who: You, n: 0))],
+                ),
+                If(
+                    condition: CountAtLeast(count: YourRingMatching(SuperstarSpecific), n: 7),
+                    effects: [DrawUpTo(who: You, n: 6)],
+                ),
+            ],
         ),
         "Stomp a Mudhole...": (
             play_after: Some(Maneuver),
@@ -894,10 +902,19 @@
             )),
             while_in_ring_opponent: [(applies_to: Title("Dirty Low Blow"), damage: 2)],
         ),
-        // Putting Pre-match cards from the Ringside pile into the Ring, and making Keibler's Cookies Permanent and not
-        // Active, are not supported yet.
+        // Making Keibler's Cookies Permanent and not Active is not supported yet.
         "Stacy Keibler, Marketing Manager": (
-            on_play: [RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller)],
+            on_play: [
+                MoveCards(
+                    who: You,
+                    from: Ringside,
+                    to: Ring,
+                    n: 2,
+                    up_to: true,
+                    filter: Some(Title("Managed by Stacy Keibler")),
+                ),
+                RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller),
+            ],
             while_in_ring: [(applies_to: Title("Keibler's Cookies"), irreversible: true)],
         ),
         "Test's Pump Handle Slam": (reverses: Some((targets: ManeuverType(Strike)))),

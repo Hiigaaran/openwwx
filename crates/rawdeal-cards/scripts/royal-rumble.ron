@@ -2,8 +2,7 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // The Throwback, Heat and Volley traits are read as printed keywords; Fan Favorite and Cheater are added as traits.
-// Heat cards (playing them from the Ringside pile) and Volley are not supported yet. Cards removed from the game
-// never come back, so effects that return them are left out.
+// Heat cards (playing them from the Ringside pile) and Volley are not supported yet.
 (
     abilities: {
         // Approximation: the 3 cards are overturned like a Mill.
@@ -179,8 +178,9 @@
         "Once is Enough": (reverses: Some((targets: AnyOf([SameTitleInRing, Trait(Multi)])))),
 
         // Actions
-        // Counting Volley cards in the Ringside pile is not supported yet.
-        "Volley Call": (requires: Some(Never)),
+        "Volley Call": (
+            on_play: [Counted(count: YourRingsideMatching(Keyword("Volley")), effect: RingsideToArsenal(who: You, n: 1))],
+        ),
         // Approximation: the 3 maneuvers go to the Ringside pile instead of being removed from the game (cards
         // cannot be removed from inside the Arsenal).
         "Everyone Wants to Watch Women Wrestle": (
@@ -238,7 +238,6 @@
             requires: Some(InYourRing(All([Maneuver, Keyword("Volley")]))),
             on_play: [Draw(who: You, n: 3), LookAtHand(who: Opponent)],
         ),
-        // Shuffling one of your removed cards back is left out (removed cards never come back).
         "Backed by Eric Bischoff": (
             on_play: [
                 Counted(
@@ -249,6 +248,7 @@
                     count: OpponentRingMatching(AnyOf([Trait(Face), Trait(FanFavorite)])),
                     effect: RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller),
                 ),
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 1),
             ],
         ),
         "Backed by Theodore Long": (
@@ -258,12 +258,15 @@
                 Mill(who: Opponent, n: 3),
             ],
         ),
-        // Trash Talkin' Interview in the Ringside pile does not count.
         "Grab the Mic": (
             on_play: [
                 Draw(who: You, n: 1),
                 If(
-                    condition: AnyOf([YouAre("Tag Team"), InYourRing(Title("Trash Talkin' Interview"))]),
+                    condition: AnyOf([
+                        YouAre("Tag Team"),
+                        InYourRing(Title("Trash Talkin' Interview")),
+                        CountAtLeast(count: YourRingsideMatching(Title("Trash Talkin' Interview")), n: 1),
+                    ]),
                     effects: [Draw(who: You, n: 1)],
                 ),
                 Boost((applies_to: Any, duration: NextCard, no_backlash_reversal: true, reversal_fortitude: 5)),
@@ -302,8 +305,20 @@
         "Face the Music": (on_play: [Counted(count: YourRingMatching(Trait(Face)), effect: Discard(who: Opponent, n: 0, pick: Chosen))]),
         // The limit of 6 cards is not enforced.
         "Let the Heeling Begin": (on_play: [Counted(count: YourRingMatching(Trait(Heel)), effect: Draw(who: You, n: 0))]),
-        // Putting a counted number of random cards from hand on the bottom of the Arsenal is not supported yet.
-        "I Waited Long Enough": (requires: Some(Never)),
+        // Approximation: the random cards are shuffled into his Arsenal instead of put on the bottom. Its Volley
+        // value (your Fortitude) is not supported yet.
+        "I Waited Long Enough": (
+            on_play: [
+                Counted(
+                    count: YourRingMatching(Keyword("Volley")),
+                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random),
+                ),
+                Counted(
+                    count: YourRingMatching(Keyword("Volley")),
+                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random),
+                ),
+            ],
+        ),
 
         // Pre-match
         "Chain Reaction": (
@@ -406,10 +421,14 @@
         "Too Hot to Handle": (on_play: [Counted(count: YourRingMatching(Keyword("Heat")), effect: Mill(who: Opponent, n: 0))]),
         // Putting cards under a Ring card and playing them from there is not supported yet.
         "Future Considerations": (requires: Some(Never)),
-        // Shuffling removed cards back is left out (removed cards never come back). Choosing the cards the opponent
-        // shuffles back and redraws is not supported yet.
+        // Choosing the cards the opponent shuffles back and redraws is not supported yet.
         "The Sex, the Gods, the Freaks, the Frauds": (
-            on_play: [Discard(who: You, n: 1, pick: Chosen), Draw(who: You, n: 2), LookAtHand(who: Opponent)],
+            on_play: [
+                Discard(who: You, n: 1, pick: Chosen),
+                Draw(who: You, n: 2),
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 3),
+                LookAtHand(who: Opponent),
+            ],
         ),
         "Ready to Fight": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -8)],
@@ -457,9 +476,17 @@
         "Original WWE Icon": (
             reverses: Some((targets: Action, effects: [Choice([[RingsideToHand(who: You, n: 1)], [Search(filter: Any)]])])),
         ),
-        // Putting I Am a Real American from the Ringside pile into the Ring is not supported yet.
         // Approximation: only Mid-match cards go back into the Backlash deck.
-        "Hollywood's Big Boot": (on_play: [Optional([RingsideToBacklash(who: You, n: 1)])]),
+        "Hollywood's Big Boot": (
+            on_play: [
+                Optional([
+                    Choice([
+                        [RingsideToBacklash(who: You, n: 1)],
+                        [MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("I Am a Real American")))],
+                    ]),
+                ]),
+            ],
+        ),
         "Say Your Prayers and Eat Your Vitamins": (
             on_play: [Discard(who: Opponent, n: 3, pick: Random), BacklashToRingside(who: Opponent, n: 3, random: true)],
         ),
@@ -473,22 +500,31 @@
         ),
         // Reducing damage by removing Throwback cards from the game is not supported yet.
         "The Motor Pool": (while_in_ring: [(applies_to: All([Maneuver, Keyword("Throwback")]), damage: 2)]),
-        // Its second ability (shuffling your removed cards back) is left out: removed cards never come back.
+        // Its two abilities are one Ring ability with a choice (once per turn for both).
         "Boot Camp Match": (
             ring_ability: Some((
-                requires: Some(FortitudeAboveOpponent),
                 effects: [
-                    RemoveFromGame(who: You, from: Ringside, n: 1),
-                    RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller),
+                    Choice([
+                        [
+                            If(
+                                condition: FortitudeAboveOpponent,
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ringside, n: 1),
+                                    RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller),
+                                ],
+                            ),
+                        ],
+                        [MoveCards(who: You, from: Removed, to: Arsenal, n: 10, up_to: true), ReturnThis(to: Removed)],
+                    ]),
                 ],
             )),
         ),
-        // Its other option (a removed card to the bottom of the Arsenal) is left out: removed cards never come back.
+        // Approximation: the removed card is shuffled into the Arsenal instead of put on the bottom.
         "At-Ten-HUT!": (
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique))]),
                 from_hand_only: true,
-                on_reverse: [Draw(who: You, n: 1)],
+                on_reverse: [Choice([[Draw(who: You, n: 1)], [MoveCards(who: You, from: Removed, to: Arsenal, n: 1)]])],
             )),
         ),
         // Approximation: the opponent picks how many cards to discard from 0 to 10.
@@ -588,11 +624,14 @@
                 ),
             ],
         ),
-        // Approximation: as an action it is shuffled into the Arsenal instead of put on the bottom. Putting cards
-        // removed from the game on the bottom of the Arsenal is left out: removed cards never come back.
+        // Approximation: as an action it and the 2 removed cards are shuffled into the Arsenal instead of put on the
+        // bottom.
         "A Good Old-Fashioned Mugging": (
             no_hand_reversal: true,
-            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal])),
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [ShuffleThisIntoArsenal, MoveCards(who: You, from: Removed, to: Arsenal, n: 2)],
+            )),
         ),
         // Turning Spit at Opponent into a Multi card is not supported yet.
         "I Know Cool ... And You're Not Cool": (
@@ -608,21 +647,22 @@
         ),
         // Approximation: it can never be reversed from the Backlash deck, also when played after an Action.
         "The Proper Punch": (extra_traits: [Cheater], play_after: Some(Any), no_backlash_reversal: true),
-        // Getting removed cards back is left out (removed cards never come back). Not playing Reversals from hand
-        // during his next turn is not supported yet.
+        // Not playing Reversals from hand during his next turn is not supported yet. Approximation: the up to 4
+        // removed cards are shuffled into the Arsenal instead of put on the bottom.
         "We're Not Mexicans ... We're Mexicools!": (
             extra_traits: [Cheater],
             on_play: [
                 RemoveFromGame(who: Opponent, from: Hand, n: 5),
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 4, up_to: true),
+                MoveCards(who: You, from: Removed, to: Hand, n: 3, up_to: true),
                 DrawUpTo(who: You, n: 2),
                 Discard(who: You, n: 1, pick: Chosen),
                 EndTurn,
             ],
         ),
-        // Approximation: from the Ring it is shuffled into the Arsenal instead of put on the bottom.
         "Violent Vendetta": (
             on_play: [RemoveFromGame(who: Opponent, from: Hand, n: 1)],
-            ring_ability: Some((effects: [ReturnThis(to: Arsenal)])),
+            ring_ability: Some((effects: [ThisToArsenal(bottom: true)])),
         ),
     },
 )

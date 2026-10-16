@@ -21,8 +21,11 @@
     scripts: {
         // Actions
         "Absolutely Raw": (on_play: [Search(filter: All([Trait(Raw), Not(Trait(Unique))]), n: 2, up_to: true)]),
-        // Putting a removed card back into your hand is not supported yet (removed cards never come back), nor is
-        // its Ringside pile trigger when you play a Smackdown card.
-        "Ultimate Smackdown!": (requires: Some(Never)),
+        // Approximation: the Ringside pile part is an ability used in your Main Segment right after you
+        // successfully play a SmackDown card, instead of a trigger.
+        "Ultimate Smackdown!": (
+            on_play: [MoveCards(who: You, from: Removed, to: Hand, n: 1)],
+            ringside_ability: Some((requires: Some(After(Trait(SmackDown))), effects: [ReturnThis(to: Hand)])),
+        ),
     },
 )

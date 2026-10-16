@@ -47,10 +47,9 @@
     },
     scripts: {
         // Actions
-        // The 3+ Stun Value requirement is not supported yet.
         // Approximation: the opponent may overshoot the 4-card floor while looking for a Reversal.
         "Do You Know Who I Am?": (
-            requires: Some(OpponentArsenalAtLeast(5)),
+            requires: Some(All([OpponentArsenalAtLeast(5), CountAtLeast(count: YourRingStun, n: 3)])),
             on_play: [
                 Mill(who: You, n: 3),
                 If(condition: OpponentArsenalAtLeast(5), effects: [MillUntil(who: Opponent, filter: Reversal)]),

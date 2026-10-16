@@ -21,9 +21,12 @@
         "That Won't Make the Cut!": (requires: Some(Never)),
 
         // Mae Young and The Fabulous Moolah
-        // Moving a Backlash deck card from your Ring area to your Backlash deck is not supported yet.
         "The Older the Berry...": (
-            on_play: [Optional([RingsideToHand(who: You, n: 1)]), Optional([RingsideToBacklash(who: You, n: 1)])],
+            on_play: [
+                Optional([RingsideToHand(who: You, n: 1)]),
+                Optional([RingsideToBacklash(who: You, n: 1)]),
+                MoveCards(who: You, from: Ring, to: Backlash, n: 1, up_to: true, filter: Some(Trait(MidMatch))),
+            ],
         ),
     },
 )

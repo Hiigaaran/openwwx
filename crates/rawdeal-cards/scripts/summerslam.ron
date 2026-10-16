@@ -371,8 +371,24 @@
         ),
         // Overturning a card whenever the opponent reverses from hand is not supported yet.
         "Play the Game!": (requires: Some(Never)),
-        // Counting the maneuvers revealed from hand is not supported yet.
-        "Give It All I Got": (requires: Some(Never)),
+        // Approximation: every Maneuver card in your hand counts (at most 4), without being shown.
+        "Give It All I Got": (
+            on_play: [
+                If(
+                    condition: CountAtLeast(count: YourHandMatching(Maneuver), n: 4),
+                    effects: [Boost((applies_to: Maneuver, duration: NextMatching, damage: 4))],
+                ),
+                If(
+                    condition: CountAtMost(count: YourHandMatching(Maneuver), n: 3),
+                    effects: [
+                        Counted(
+                            count: YourHandMatching(Maneuver),
+                            effect: Boost((applies_to: Maneuver, duration: NextMatching, damage: 1)),
+                        ),
+                    ],
+                ),
+            ],
+        ),
         // Letting "cannot be reversed" maneuvers be reversed is not supported yet.
         "Beating the Odds": (on_play: [Draw(who: You, n: 1)], on_removed_by_opponent: [EndTurn]),
         // Copying the opponent's Ringside-to-Arsenal shuffles is not supported yet.
@@ -621,26 +637,110 @@
         "Business Is About to Pick Up": (
             ring_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: Trait(SetUp))])),
         ),
-        // Approximation: you need 1 maneuver in hand, and you reveal your whole hand.
+        // Approximation: you reveal your whole hand.
         "Get What You're Expectin'": (
-            requires: Some(HandHas(Maneuver)),
+            requires: Some(CountAtLeast(count: YourHandMatching(Maneuver), n: 3)),
             on_play: [
                 RevealHand(who: You),
                 Boost((applies_to: All([Maneuver, DamageAtMost(7)]), duration: NextCard, irreversible: true)),
                 Boost((applies_to: Any, duration: NextCard, end_turn: true)),
             ],
         ),
-        // Putting the Action cards in your hand at the bottom of your Arsenal is not supported yet.
+        // Approximation: the Action cards in your hand are shuffled into the Arsenal instead of put at the bottom.
         "Silent, But Violent": (
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(Maneuver)), EndTurn],
             reverses: Some((
                 targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
                 requires: Some(FortitudeAboveOpponent),
-                effects: [RevealHand(who: You)],
+                effects: [
+                    RevealHand(who: You),
+                    Counted(
+                        count: YourHandMatching(Action),
+                        effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, filter: Some(Action)),
+                    ),
+                ],
             )),
         ),
-        // Counting half the opponent's hand is not supported yet.
-        "My God! He's Broken in Half!": (requires: Some(Never)),
+        // Approximation: counted in tiers; an opponent with more than 22 cards in hand discards only 11.
+        "My God! He's Broken in Half!": (
+            play_after: Some(All([Maneuver, DamageAtLeast(10)])),
+            on_play: [
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 1),
+                        CountAtMost(count: OpponentHandSize, n: 2),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 3),
+                        CountAtMost(count: OpponentHandSize, n: 4),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 5),
+                        CountAtMost(count: OpponentHandSize, n: 6),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 7),
+                        CountAtMost(count: OpponentHandSize, n: 8),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 4, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 9),
+                        CountAtMost(count: OpponentHandSize, n: 10),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 5, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 11),
+                        CountAtMost(count: OpponentHandSize, n: 12),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 6, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 13),
+                        CountAtMost(count: OpponentHandSize, n: 14),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 7, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 15),
+                        CountAtMost(count: OpponentHandSize, n: 16),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 8, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 17),
+                        CountAtMost(count: OpponentHandSize, n: 18),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 9, pick: Chosen)],
+                ),
+                If(
+                    condition: All([
+                        CountAtLeast(count: OpponentHandSize, n: 19),
+                        CountAtMost(count: OpponentHandSize, n: 20),
+                    ]),
+                    effects: [Discard(who: Opponent, n: 10, pick: Chosen)],
+                ),
+                If(
+                    condition: CountAtLeast(count: OpponentHandSize, n: 21),
+                    effects: [Discard(who: Opponent, n: 11, pick: Chosen)],
+                ),
+            ],
+        ),
         "Tag Out": (requires: Some(Never)),
         "It's All in the Teamwork!": (requires: Some(Never)),
         "Save da Drama fo' yo' Mama": (
@@ -713,10 +813,15 @@
                 ),
             ],
         ),
-        // Title Belts are not supported yet. Approximation: it works whatever the size of your Arsenal.
+        // Title Belts are not supported yet.
         "To Be the Man, You've Got to Beat the Man!": (
             requires: Some(Superstar("Ric Flair")),
-            in_ring_start_of_turn: [Optional([RingsideToArsenalBottom(who: You, n: 1)])],
+            in_ring_start_of_turn: [
+                If(
+                    condition: CountAtMost(count: YourArsenalSize, n: 10),
+                    effects: [Optional([RingsideToArsenalBottom(who: You, n: 1)])],
+                ),
+            ],
         ),
         // Approximation: the 2 cards go to the bottom of the Arsenal before the Draw Segment.
         "Ring General": (
@@ -957,8 +1062,70 @@
                 )),
             ],
         ),
-        // Counting the cards above 7 in the opponent's hand is not supported yet.
-        "The Mood Is About to Change": (requires: Some(Never)),
+        // Approximation: the opponent's discard is counted in tiers; with more than 21 cards he discards only 14.
+        "The Mood Is About to Change": (
+            on_play: [
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 8), CountAtMost(count: OpponentHandSize, n: 8)]),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 9), CountAtMost(count: OpponentHandSize, n: 9)]),
+                    effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 10), CountAtMost(count: OpponentHandSize, n: 10)]),
+                    effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 11), CountAtMost(count: OpponentHandSize, n: 11)]),
+                    effects: [Discard(who: Opponent, n: 4, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 12), CountAtMost(count: OpponentHandSize, n: 12)]),
+                    effects: [Discard(who: Opponent, n: 5, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 13), CountAtMost(count: OpponentHandSize, n: 13)]),
+                    effects: [Discard(who: Opponent, n: 6, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 14), CountAtMost(count: OpponentHandSize, n: 14)]),
+                    effects: [Discard(who: Opponent, n: 7, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 15), CountAtMost(count: OpponentHandSize, n: 15)]),
+                    effects: [Discard(who: Opponent, n: 8, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 16), CountAtMost(count: OpponentHandSize, n: 16)]),
+                    effects: [Discard(who: Opponent, n: 9, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 17), CountAtMost(count: OpponentHandSize, n: 17)]),
+                    effects: [Discard(who: Opponent, n: 10, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 18), CountAtMost(count: OpponentHandSize, n: 18)]),
+                    effects: [Discard(who: Opponent, n: 11, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 19), CountAtMost(count: OpponentHandSize, n: 19)]),
+                    effects: [Discard(who: Opponent, n: 12, pick: Chosen)],
+                ),
+                If(
+                    condition: All([CountAtLeast(count: OpponentHandSize, n: 20), CountAtMost(count: OpponentHandSize, n: 20)]),
+                    effects: [Discard(who: Opponent, n: 13, pick: Chosen)],
+                ),
+                If(
+                    condition: CountAtLeast(count: OpponentHandSize, n: 21),
+                    effects: [Discard(who: Opponent, n: 14, pick: Chosen)],
+                ),
+                Counted(count: HandSize, effect: HandToArsenal(who: You, n: 0)),
+                Draw(who: You, n: 13),
+                AsOpponent([Counted(count: OpponentHandExcess, effect: Discard(who: Opponent, n: 0, pick: Chosen))]),
+            ],
+        ),
         "The Best Technical Wrestler in the Business": (
             on_play: [RingsideToHand(who: You, n: 3, up_to: true, filter: Some(ManeuverType(Submission))), EndTurn],
         ),
@@ -974,12 +1141,12 @@
                 Boost((applies_to: Maneuver, duration: ThisTurn, damage: 3)),
             ],
         ),
-        // Approximation: it comes back from the Ringside pile in your Main Segment, shuffled into the Arsenal
-        // instead of put at the bottom, and you draw the card right away.
+        // Approximation: it goes from the Ringside pile to the bottom of the Arsenal in your Main Segment, and you
+        // draw the card right away.
         "Edge-acution": (
             play_after: Some(Maneuver),
             reverses: Some((targets: ManeuverType(Submission))),
-            ringside_ability: Some((effects: [ReturnThis(to: Arsenal), Draw(who: You, n: 1)])),
+            ringside_ability: Some((effects: [ThisToArsenal(bottom: true), Draw(who: You, n: 1)])),
         ),
         "Temper Tantrum": (
             requires: Some(AnyOf([FortitudeBelowOpponent, OpponentHandLarger])),

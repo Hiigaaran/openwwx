@@ -1094,10 +1094,10 @@
         ),
         "Born of Hellfire": (on_play: [Mill(who: Opponent, n: 6)], while_in_ring: [(applies_to: Maneuver, damage: 2)]),
         "Would You Please ... Shut the Hell Up!": (requires: Some(Never)),
-        // The limit of one copy in your Ring is not enforced.
         "Gettin' Cheeky with It!": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                requires: Some(CountAtMost(count: YourRingMatching(Title("Gettin' Cheeky with It!")), n: 1)),
                 effects: [DrawUpTo(who: You, n: 2)],
             )),
         ),

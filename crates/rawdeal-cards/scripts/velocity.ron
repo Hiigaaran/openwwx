@@ -104,10 +104,10 @@
             on_play: [Counted(count: YourRingMatching(TitleContains("punch")), effect: Mill(who: Opponent, n: 0))],
             reverses: Some((targets: All([Maneuver, TitleContains("suplex")]))),
         ),
-        // The 4-card Backlash deck requirement is not checked yet.
         // Approximation: 3 random Backlash cards go to the Ringside pile.
         "Lariat Takedown": (
             not_packed_by: ["Female"],
+            requires: Some(CountAtLeast(count: YourBacklashSize, n: 4)),
             on_play: [BacklashToRingside(who: You, n: 3, random: true), EndTurn],
         ),
         "Bionic Elbow": (
@@ -366,14 +366,22 @@
         "Pay-Per-View Main Event": (requires: Some(Never)),
         // Adding text to the opponent's cards is not supported yet.
         "Raw or Smackdown - Pick a Brand!": (requires: Some(Never)),
-        // Approximation: there is no limit of 5 cards.
         "Velocity": (
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
-                    Counted(
-                        count: YourRingMatching(AnyOf([Trait(Raw), Trait(SmackDown)])),
-                        effect: DrawUpTo(who: You, n: 0),
+                    If(
+                        condition: CountAtMost(count: YourRingMatching(AnyOf([Trait(Raw), Trait(SmackDown)])), n: 5),
+                        effects: [
+                            Counted(
+                                count: YourRingMatching(AnyOf([Trait(Raw), Trait(SmackDown)])),
+                                effect: DrawUpTo(who: You, n: 0),
+                            ),
+                        ],
+                    ),
+                    If(
+                        condition: CountAtLeast(count: YourRingMatching(AnyOf([Trait(Raw), Trait(SmackDown)])), n: 6),
+                        effects: [DrawUpTo(who: You, n: 5)],
                     ),
                 ],
             )),
@@ -414,32 +422,19 @@
         ),
         // Title Belts are not supported yet.
         "I'm the Champ - Nothin's Gonna Change That!": (requires: Some(Never)),
-        // Approximation: at most 3 earlier copies in each Ring are counted.
+        // A Pre-match card is in your Ring when its effects resolve, so the copies counted include this one;
+        // each counted copy removes 4 cards.
         "My Sacrifice": (
             pre_match_limit: 2,
             on_play: [
-                RemoveFromGame(who: You, from: Arsenal, n: 4),
-                If(condition: InYourRing(Title("My Sacrifice")), effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)]),
-                If(
-                    condition: InYourRing(All([Title("My Sacrifice"), PlayerRingHas(filter: Title("My Sacrifice"), n: 2)])),
-                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)],
-                ),
-                If(
-                    condition: InYourRing(All([Title("My Sacrifice"), PlayerRingHas(filter: Title("My Sacrifice"), n: 3)])),
-                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)],
-                ),
-                If(
-                    condition: OpponentRingHas(filter: Title("My Sacrifice"), n: 1),
-                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)],
-                ),
-                If(
-                    condition: OpponentRingHas(filter: Title("My Sacrifice"), n: 2),
-                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)],
-                ),
-                If(
-                    condition: OpponentRingHas(filter: Title("My Sacrifice"), n: 3),
-                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 4)],
-                ),
+                Counted(count: YourRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: YourRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: YourRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: YourRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: OpponentRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: OpponentRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: OpponentRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
+                Counted(count: OpponentRingMatching(Title("My Sacrifice")), effect: RemoveFromGame(who: You, from: Arsenal, n: 0)),
             ],
         ),
 
@@ -845,8 +840,10 @@
             while_in_ring: [(applies_to: All([Title("Drop Toe Hold"), Holds(InYourRing(Title("Chair Shot")))]), damage: 5)],
             reverses_from_ring: Some((targets: Not(Trait(Unique)), fortitude: Some(0))),
         ),
-        // The -5F when Whatcha Gonna Do, Brotha? is in your Ringside pile is not supported yet.
         "When Hulkamania Runs Wild on You!": (
+            bonuses: [
+                (when: CountAtLeast(count: YourRingsideMatching(Title("Whatcha Gonna Do, Brotha?")), n: 1), fortitude: -5),
+            ],
             on_play: [
                 LookAtHand(who: Opponent),
                 Discard(who: Opponent, n: 1, pick: Controller),

@@ -118,8 +118,12 @@
         // Blanking a chosen card in the opponent's Ring is not supported yet.
         "Waist Lock": (after_damage: [EndTurn]),
         // Coming into the Ring from your hand is not supported yet.
-        // Approximation: each Judo Choke in your Ring can be used, even with other Judo Choke cards there.
-        "Judo Choke": (ring_ability: Some((effects: [Mill(who: Opponent, n: 1)]))),
+        "Judo Choke": (
+            ring_ability: Some((
+                requires: Some(CountAtMost(count: YourRingMatching(Title("Judo Choke")), n: 1)),
+                effects: [Mill(who: Opponent, n: 1)],
+            )),
+        ),
         "Strangle Hold": (
             reverses: Some((
                 targets: AnyOf([ManeuverType(Submission), Title("Clutch onto Opponent")]),
@@ -157,11 +161,13 @@
             ],
             reverses: Some((targets: Title("Roll Out of the Ring"), effects: [Mill(who: Opponent, n: 2)])),
         ),
-        // Playing it from the Ringside pile and reversing cards played from the Ringside pile are not supported yet.
-        // Approximation: the reversed card goes to the Ringside pile instead of leaving the game.
+        // Approximation: the reversed card goes to the Ringside pile instead of leaving the game, and as an action
+        // it can only be played from hand (or while you hold a copy).
         "When Hell Freezes Over!": (
+            requires: Some(HandHas(Title("When Hell Freezes Over!"))),
+            from_ringside: Some(Always),
             on_play: [DiscardThis, Draw(who: You, n: 1)],
-            reverses: Some((targets: TitleContains("hell"), from_hand_only: true)),
+            reverses: Some((targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]), from_hand_only: true)),
         ),
         // Approximation: the other revealed cards go to the bottom of the Arsenal instead of the Ringside pile.
         "Battling the Voices": (on_play: [Dig(n: 6, take: 3)]),
@@ -232,13 +238,36 @@
         ),
 
         // Reversals
-        // Playing cards from the Ringside pile is not supported yet.
-        "Blindsided Ego": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Approximation: only a Don't Cross the Boss in your Ring counts, and only once.
+        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
+        "Blindsided Ego": (
+            from_ringside: Some(Always),
+            reverses: Some((
+                targets: AnyOf([All([Maneuver, Not(Trait(Unique))]), TitleContains("ego")]),
+                from_hand_only: true,
+                requires: Some(All([Not(HandHas(Title("Blindsided Ego"))), HandAtLeast(2)])),
+                effects: [
+                    Discard(who: You, n: 2, pick: Chosen),
+                    RemoveFromGame(
+                        who: You,
+                        from: Ringside,
+                        n: 60,
+                        filter: Some(All([Reversal, Not(TitleContains("Blindside"))])),
+                        pick: Random,
+                    ),
+                ],
+            )),
+        ),
+        // Approximation: a Don't Cross the Boss in your Ring or Ringside pile makes it -6F only once.
         "No Chance in Hell!": (
             reverses: Some((
                 targets: Action,
-                fortitude_when: Some((InYourRing(Title("Don't Cross the Boss")), 6)),
+                fortitude_when: Some((
+                    AnyOf([
+                        InYourRing(Title("Don't Cross the Boss")),
+                        CountAtLeast(count: YourRingsideMatching(Title("Don't Cross the Boss")), n: 1),
+                    ]),
+                    6,
+                )),
                 effects: [RingsideToHand(who: You, n: 15, up_to: true, filter: Some(Title("Don't Cross the Boss")))],
             )),
         ),

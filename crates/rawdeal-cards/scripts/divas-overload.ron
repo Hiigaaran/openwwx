@@ -482,10 +482,15 @@
             irreversible_when: Some(InYourRing(Title("First to Tap Out Match"))),
             on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
         ),
-        // Putting a removed card back into the Ringside pile is not supported yet (removed cards never come back).
         "If You're Not Cheating, You're Not Trying": (
             irreversible_when: Some(Superstar("Los Guerreros")),
-            on_play: [RemoveFromGame(who: You, from: Ringside, n: 1), RingsideToHand(who: You, n: 1)],
+            on_play: [
+                RemoveFromGame(who: You, from: Ringside, n: 1),
+                Choice([
+                    [MoveCards(who: You, from: Removed, to: Ringside, n: 1)],
+                    [RingsideToHand(who: You, n: 1)],
+                ]),
+            ],
         ),
 
         // Pre-match
@@ -553,10 +558,17 @@
             )),
         ),
         "Run the Gauntlet": (),
-        // Putting cards from the Ringside pile into the Ring is not supported yet.
+        // Approximation: only the cards titled Trash Talkin' Interview come back from the Ringside pile (not the
+        // cards naming it in their text).
         "Backstage Interview with Terri": (
             requires: Some(InYourRing(Title("Trash Talkin' Interview"))),
-            ring_ability: Some((sacrifice: true, effects: [DrawUpTo(who: You, n: 2)])),
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    DrawUpTo(who: You, n: 2),
+                    MoveCards(who: You, from: Ringside, to: Ring, n: 30, up_to: true, filter: Some(Title("Trash Talkin' Interview"))),
+                ],
+            )),
         ),
         // Title Belts are not supported yet.
         "I've Had More Championships than You've Had Women": (not_packed_by: ["GM"], requires: Some(Never)),
@@ -564,9 +576,26 @@
         "I'm Gonna Break You": (requires: Some(Never)),
         // Reversing by discarding cards while it stays in the Ring is not supported yet.
         "Rules Were Meant to be Broken": (requires: Some(Never)),
-        // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
         "Managed by Miss Jackie": (
             end_of_prematch: [Optional([RingsideToArsenal(who: You, n: 10, up_to: true)])],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    MoveCards(
+                        who: You,
+                        from: Ringside,
+                        to: Ring,
+                        n: 1,
+                        filter: Some(All([
+                            Not(AnyOf([Maneuver, Action, Reversal])),
+                            Not(Trait(Unique)),
+                            Not(Trait(UniversallyUnique)),
+                            Not(SuperstarSpecific),
+                        ])),
+                    ),
+                    EndTurn,
+                ],
+            )),
         ),
         "Managed by Theodore Long": (
             ring_ability: Some((
@@ -613,11 +642,11 @@
         "This Is Going Nowhere Fast": (
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true, discard_cost: 2)),
         ),
-        // Putting a "mark" card from the Ringside pile into the Ring is not supported yet.
         "That's Gonna Leave a Mark!": (
             only_packed_by: ["Male"],
             on_play: [
                 RingsideToHand(who: You, n: 2, up_to: true, filter: Some(ManeuverType(Grapple))),
+                MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(All([Not(Maneuver), TitleContains("mark")]))),
                 Boost((applies_to: All([ManeuverType(Grapple), DamageAtMost(4)]), duration: NextCard, damage: 5)),
             ],
         ),
@@ -775,9 +804,15 @@
                 ],
             )),
         ),
-        // Coming back from the Ringside pile into the Ring and Enforcers are not supported yet.
+        // Choosing a different Enforcer is not supported yet.
         "For the Women that Want to Be Me...": (
             reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]), requires: Some(OpponentIs("Diva")))),
+            ringside_ability: Some((
+                effects: [
+                    Mill(who: You, n: 3),
+                    MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("For the Women that Want to Be Me..."))),
+                ],
+            )),
         ),
         // Letting a Male opponent reverse it by removing 3 cards from the game is not supported yet.
         "Sable Bomb": (reverses: Some((targets: Title("Back Body Drop")))),
@@ -810,10 +845,17 @@
                 effects: [RemoveFromGame(who: You, from: Backlash, n: 60, pick: Random), ReturnThis(to: Hand)],
             )),
         ),
-        // Coming back from the Ringside pile into the Ring is not supported yet.
         "Managed by Stevie Richards": (
             pre_match_limit: -1,
             reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+            ringside_ability: Some((
+                requires: Some(AnyOf([HandAtLeast(4), All([InYourRing(Title("Stevie Interferes")), HandAtLeast(1)])])),
+                effects: [
+                    If(condition: InYourRing(Title("Stevie Interferes")), effects: [Discard(who: You, n: 1, pick: Chosen)]),
+                    If(condition: Not(InYourRing(Title("Stevie Interferes"))), effects: [Discard(who: You, n: 4, pick: Chosen)]),
+                    MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("Managed by Stevie Richards"))),
+                ],
+            )),
         ),
         "All the Things She Said...": (
             on_play: [
