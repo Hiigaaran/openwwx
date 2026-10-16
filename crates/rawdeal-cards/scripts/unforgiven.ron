@@ -72,8 +72,8 @@
                 ],
             ),
         ],
-        // The rule that removes Heat cards moved from the Ringside pile is not modelled, so his ability has
-        // nothing to do.
+        // Keeping his Heat cards when he moves cards from his Ringside pile (a change to the Heat rule) is not
+        // supported yet.
         "Gene Snitsky": [],
         // Approximation: the ability can be used with an empty Backlash deck. The 10 extra Pre-match cards are not
         // supported yet.
@@ -659,16 +659,15 @@
                 ],
             )),
         ),
-        // Title Belts are not supported yet.
         "Fans Love an Underdog": (
             requires: Some(SuperstarValueBelowOpponent),
             end_of_prematch: [
                 If(
-                    condition: OpponentRingHas(filter: TitleContains("McMahon"), n: 1),
+                    condition: OpponentRingHas(filter: AnyOf([TitleBelt, TitleContains("McMahon")]), n: 1),
                     effects: [
                         LookAtHand(who: Opponent),
                         Counted(
-                            count: OpponentRingMatching(TitleContains("McMahon")),
+                            count: OpponentRingMatching(AnyOf([TitleBelt, TitleContains("McMahon")])),
                             effect: Discard(who: Opponent, n: 0, pick: Controller),
                         ),
                     ],
@@ -701,8 +700,17 @@
         "You Knew It Would End This Way...": (
             on_play: [Mill(who: Opponent, n: 8), CannotPlay(who: You, filter: Title("You Knew It Would End This Way..."), turns: 1)],
         ),
-        // Title Belts are not supported yet.
-        "Here I Stand: The Champion": (requires: Some(Never)),
+        // It counts itself (OmniFAQ).
+        "Here I Stand: The Champion": (
+            requires: Some(InYourRing(TitleBelt)),
+            on_play: [
+                Counted(
+                    count: Plus(YourRingMatching(Title("Here I Stand: The Champion")), Const(1)),
+                    effect: Discard(who: Opponent, n: 0, pick: Chosen),
+                ),
+                CannotPlay(who: You, filter: Title("Here I Stand: The Champion"), turns: 1),
+            ],
+        ),
         // Approximation: the cards are checked whenever you successfully play a card.
         "WWE Divas: The Next Generation": (
             not_packed_by: ["Female"],
@@ -1306,8 +1314,9 @@
                 AsOpponent([If(condition: Not(OpponentFemale), effects: [AsOpponent([Optional([Draw(who: You, n: 1)])])])]),
             ],
         ),
-        // Title Belts are not supported yet.
+        // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
         "Hardcore Originator of ECW": (
+            end_of_prematch: [If(condition: InYourRing(Title("ECW Championship Belt")), effects: [Draw(who: You, n: 1)])],
             in_ring_on_play: [
                 (
                     whose: Some(You),

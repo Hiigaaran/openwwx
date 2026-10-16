@@ -2,7 +2,7 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // The Throwback, Heat and Volley traits are read as printed keywords; Fan Favorite and Cheater are added as traits.
-// Heat cards (playing them from the Ringside pile) and Volley are not supported yet.
+// The Heat and Volley rules are applied by the engine; cards that change those rules are not supported yet.
 (
     abilities: {
         // Approximation: the 3 cards are overturned like a Mill.
@@ -101,7 +101,7 @@
             on_play: [If(condition: FortitudeLeadAtLeast(30), effects: [WinByPin])],
             reverses: Some((targets: After(Trait(SetUp)))),
         ),
-        // Counting as 2 Heat cards is not supported yet.
+        // Counting as 2 Heat cards in your Ringside pile (for the Heat rule) is not supported yet.
         "Slam": (on_play: [HandToArsenalBottom(who: You, n: 1), HandToArsenalBottom(who: Opponent, n: 1)]),
         "Scoop Slam": (not_packed_by: ["Female"]),
         "Thunder Bulldog": (
@@ -124,7 +124,7 @@
         // Submissions
         // Being reversible only from the Arsenal when you are a Diva against a Female Superstar is not supported yet.
         "Hair Pull": (on_play: [Boost((applies_to: Maneuver, duration: NextMatching, reversal_fortitude: 6))]),
-        // Counting as 2 Heat cards is not supported yet.
+        // Counting as 2 Heat cards in your Ringside pile (for the Heat rule) is not supported yet.
         "Entangle in the Ropes": (
             on_play: [
                 Choice([
@@ -233,9 +233,9 @@
                 Boost((applies_to: Title("Chained Aggression"), duration: NextCard, irreversible: true)),
             ],
         ),
-        // Playing Heat cards from the Ringside pile is not supported yet.
+        // Playing 1 more Heat card from your Ringside pile each turn is not supported yet.
         "Feel the Fire": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
-        // Playing Heat cards from the Ringside pile is not supported yet.
+        // Playing 1 more Heat card from your Ringside pile each turn is not supported yet.
         "Sparks of Glory": (on_play: [Draw(who: You, n: 2)]),
         "Underestimated Prowess": (
             requires: Some(InYourRing(All([Maneuver, Keyword("Volley")]))),
@@ -327,7 +327,7 @@
         "Face the Music": (on_play: [Counted(count: YourRingMatching(Trait(Face)), effect: Discard(who: Opponent, n: 0, pick: Chosen))]),
         // The limit of 6 cards is not enforced.
         "Let the Heeling Begin": (on_play: [Counted(count: YourRingMatching(Trait(Heel)), effect: Draw(who: You, n: 0))]),
-        // Its Volley value (your Fortitude) is not supported yet.
+        // Its Volley: # (# = your Fortitude) is not supported yet: it cannot be reversed by the Volley rule.
         "I Waited Long Enough": (
             on_play: [
                 Counted(
@@ -361,7 +361,7 @@
         // A Superstar Value change worked out from your Value and Ring, and giving added text to the next Face
         // Pre-match card, are not supported yet.
         "Product Endorsements": (requires: Some(Never)),
-        // Volley is not supported yet.
+        // Changing Volley: # values is not supported yet.
         "Unrelenting Assault": (requires: Some(Never)),
         "Restart the Match": (
             end_of_prematch: [
@@ -455,13 +455,13 @@
         ),
         // Changing the discard cost of reversing Chain cards is not supported yet.
         "Chain Barrier": (requires: Some(Never)),
-        // Playing Heat cards from the Ringside pile is not supported yet.
+        // Raising the number of Heat cards the opponent needs for the Heat rule is not supported yet.
         "Heat Barrier": (requires: Some(Never)),
-        // Volley is not supported yet.
+        // Changing Volley: # values is not supported yet.
         "Volley Barrier": (requires: Some(Never)),
-        // Playing Heat cards from the Ringside pile is not supported yet, so the optional Heat discard is left out.
+        // Playing 2 additional Heat cards from your Ringside pile is not supported yet, so the optional Heat discard
+        // is left out.
         "Too Hot to Handle": (on_play: [Counted(count: YourRingMatching(Keyword("Heat")), effect: Mill(who: Opponent, n: 0))]),
-        // The Volley rules are not supported yet.
         "Future Considerations": (
             in_ring_on_play: [
                 (

@@ -309,10 +309,14 @@
                 ),
             ],
         ),
-        // Blanking a Stipulation, Title Belts and the extra Mid-match slots are not supported yet.
+        // Blanking a Stipulation and the extra Mid-match slots are not supported yet, so the two other options
+        // (his Title Belt, your Ringside cards) are always the ones chosen. A Permanent Belt stays (OmniFAQ).
         "Managed by Vince McMahon": (
             extra_traits: [UniversallyUnique],
-            end_of_prematch: [RingsideToHand(who: You, n: 2, up_to: true)],
+            end_of_prematch: [
+                RemoveFromRing(who: Opponent, n: 1, filter: TitleBelt),
+                RingsideToHand(who: You, n: 2, up_to: true),
+            ],
         ),
 
         // Mid-match
@@ -802,7 +806,7 @@
         ),
         "Japanese Buzzsaw": (on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))]),
         "Tarantula": (reverses: Some((targets: ManeuverType(Strike)))),
-        // Approximation: Tag Team symbols are not modelled, so any card in his Ring can be chosen.
+        // Cards with the Tag Team symbol are only for 2-on-2 Tag Team matches, so none is ever in his Ring.
         "Managed by Kyo Dai": (
             hand_size_bonus: 1,
             end_of_prematch: [Optional([SacrificeThis, RemoveFromRing(who: Opponent, n: 1, filter: Any)])],

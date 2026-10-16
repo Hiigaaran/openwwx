@@ -314,7 +314,8 @@
                 ],
             ),
         ],
-        // His restriction on Reversals to his Volley cards (Volley rules) is not supported yet.
+        // His restriction on Reversals to his Volley cards (removing the top 5 Arsenal cards first) is not supported
+        // yet; the Volley rule itself is applied by the engine.
         "The Bookerman": [PacksLogos(["Booker T"])],
         // Your opponent removing a Ring card when you end your turn without a maneuver is not supported yet.
         "The Largest Athlete in Sports Entertainment": [
@@ -1300,8 +1301,11 @@
         ),
 
         // The Million Dollar Man
-        // Title Belts and Superstar Value changes are not supported yet.
-        "The Million Dollar Title Belt": (requires: Some(Never)),
+        // Searching for a Foil card is not supported yet (printed foil is not tracked).
+        "The Million Dollar Title Belt": (
+            value_bonus: 3,
+            ring_ability: Some((cost: [RemoveFromGame(who: You, from: Hand, n: 1)], effects: [LookAtHand(who: Opponent)])),
+        ),
         "Everybody's Got a Price": (
             on_play: [
                 OpponentChooses(

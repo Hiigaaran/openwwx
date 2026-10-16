@@ -5,6 +5,7 @@
     abilities: {
         "Dudley Boyz": [
             Activated(cost: [], effects: [Search(filter: Keyword("Foreign Object"))], once_per_game: true),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         "Buh-Buh Ray Dudley": [
             DrawSegmentOption([DrawRingCards(less: 2), AtEndOfTurn([DiscardAll(who: You, filter: Any)])]),
@@ -14,7 +15,7 @@
             OpponentCannotPlay("Brotherly Love"),
         ],
         // Replacing discards with draws is not supported yet.
-        "Edge and Christian": [],
+        "Edge and Christian": [CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))]))],
         // Starting after the Pre-match phase and the You Think You Know Me? part are not supported yet.
         "Edge": [
             HandSizeFromOpponentValue(times: 2, min: 6),
@@ -23,6 +24,7 @@
         "Christian": [BlankOpponentCardDraws],
         "Hardy Boyz": [
             Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: ManeuverType(HighRisk))]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         "Matt Hardy": [
             OnPlayMatching(filter: ManeuverType(HighRisk), effects: [RingsideToArsenal(who: You, n: 6, up_to: true)]),
@@ -38,6 +40,7 @@
             Activated(cost: [], effects: [BuryHand(who: You, then: Draw)]),
             CannotPackTrait(Face),
             CannotPackTrait(Heel),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
     },
     scripts: {
@@ -543,8 +546,11 @@
             )),
         ),
         "Referee Finally Catches Something!": (reverses: Some((targets: Trait(Heel)))),
-        // Title Belts are not in the card sets yet.
-        "Don't Mess with the Champ!": (requires: Some(Never)),
+        // Approximation: you may shuffle fewer than # cards.
+        "Don't Mess with the Champ!": (
+            requires: Some(All([FortitudeBelowOpponent, InYourRing(TitleBelt)])),
+            on_play: [RingsideToArsenalCount(who: You, count: SuperstarValue), Draw(who: You, n: 2)],
+        ),
         "Fully Loaded!": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -7)],
             on_play: [

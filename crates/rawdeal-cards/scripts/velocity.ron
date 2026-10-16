@@ -34,16 +34,23 @@
             CardFortitude(title: "Springboard", delta: -5),
         ],
         // Approximation: burying is putting up to 3 Ringside cards on the bottom of the Arsenal.
-        // The Did I Just Say ... Three Minutes?, Rico Enters! and Title Belt parts are not supported yet.
+        // The Did I Just Say ... Three Minutes? and Rico Enters! parts are not supported yet.
         "3 Minute Warning": [
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
             Activated(cost: [], effects: [Draw(who: You, n: 3), Discard(who: You, n: 3, pick: Chosen)]),
             OnPlayMatching(filter: Trait(Raw), effects: [Optional([RingsideToArsenalBottom(who: You, n: 3)])]),
         ],
-        // The Cruiserweight Title Belt and "not Heel" parts are not supported yet.
+        // The "not Heel" part is not supported yet.
         "Jamie Noble": [
             OnOpponentPlayMatching(
                 filter: Maneuver,
-                effects: [RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique))))],
+                effects: [
+                    RingsideToHand(
+                        who: You,
+                        n: 1,
+                        filter: Some(AnyOf([Not(Trait(Unique)), Holds(InYourRing(Title("Cruiserweight Title Belt")))])),
+                    ),
+                ],
             ),
         ],
     },
@@ -214,7 +221,7 @@
         "Wanna Know What I'm Gonna Do?": (
             on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, top: true)],
         ),
-        // Tag Team partners are not supported yet.
+        // Tag Team symbol card: for 2-on-2 Tag Team format matches, which this game does not have.
         "Hot Tag!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // The Stun Value Fortitude discount while in the Ring is not supported yet.
         "Back-and-Forth Action": (
@@ -424,8 +431,11 @@
                 ),
             ],
         ),
-        // Title Belts are not supported yet.
-        "I'm the Champ - Nothin's Gonna Change That!": (requires: Some(Never)),
+        // Making your Title Belts Permanent is not supported yet.
+        "I'm the Champ - Nothin's Gonna Change That!": (
+            requires: Some(InYourRing(TitleBelt)),
+            hand_size_bonus: 1,
+        ),
         // A Pre-match card is in your Ring when its effects resolve, so the copies counted include this one;
         // each counted copy removes 4 cards.
         "My Sacrifice": (
@@ -553,8 +563,17 @@
             ),
             on_play: [WinByPin],
         ),
-        // Title Belts are not supported yet.
-        "Title Belt Clubberin'": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // "Can only be reversed by cards that reverse Roll Out of the Ring or a card played after it" is not
+        // supported yet.
+        "Title Belt Clubberin'": (
+            requires: Some(AnyOf([InYourRing(TitleBelt), CountAtLeast(count: OpponentRingMatching(TitleBelt), n: 1)])),
+            play_after: Some(Title("Roll Out of the Ring")),
+            on_play: [Discard(who: Opponent, n: 4, pick: Chosen)],
+            reverses: Some((
+                targets: After(Title("Roll Out of the Ring")),
+                requires: Some(AnyOf([InYourRing(TitleBelt), CountAtLeast(count: OpponentRingMatching(TitleBelt), n: 1)])),
+            )),
+        ),
 
         // Big Freak'n Machine (Kane)
         "Freaks Are Cool!": (
@@ -737,10 +756,15 @@
             opponent_hand_size_bonus: 1,
             ring_ability: Some((requires: Some(FortitudeBelowOpponent), sacrifice: true, effects: [Search(filter: Any, n: 2)])),
         ),
-        // The Cruiserweight Title Belt part is not supported yet.
         "Now I'm Gonna Get Some Respect": (
             reverses: Some((
                 targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple), ManeuverType(Submission)]),
+                effects: [
+                    If(
+                        condition: InYourRing(Title("Cruiserweight Title Belt")),
+                        effects: [Discard(who: Opponent, n: 1, pick: Controller)],
+                    ),
+                ],
             )),
         ),
         "I'm Jamie Noble, Boy!": (on_play: [DrawUpTo(who: You, n: 4)]),
@@ -841,8 +865,8 @@
             on_removed_by_opponent: [DrawUpTo(who: You, n: 2)],
             in_ring_start_of_turn: [If(condition: Not(HandAtLeast(4)), effects: [DrawUpTo(who: You, n: 2)])],
         ),
-        // Title Belts are not supported yet.
         "Five Time! Five Time! Five Time! Five Time! Five Time!": (
+            irreversible_when: Some(InYourRing(Title("WCW Title Belt"))),
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 5)],
         ),
         "Pound 4 Pound": (

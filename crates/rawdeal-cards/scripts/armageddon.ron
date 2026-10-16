@@ -1,8 +1,7 @@
 // Hand-written scripts for Armageddon cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Volley, Heat and Throwback rules are not supported yet:
-// Volley, Heat, Throwback and RMS are matched as printed keywords.
+// The engine applies the Heat and Volley rules; Throwback and RMS are only matched as printed keywords.
 (
     abilities: {
         "Babe of the Year": [
@@ -57,7 +56,6 @@
             play_after: Some(All([Maneuver, DamageAtLeast(2)])),
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -4), (per: Some(Trait(SmackDown)), damage: 1)],
         ),
-        // Volley is not supported yet.
         "Double Axe Handle": (play_after: Some(All([Maneuver, DamageAtLeast(3)]))),
         "Leg Drop": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
@@ -104,7 +102,7 @@
         "Shoulder Thrust": (on_play: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Keyword("Heat")))])]),
         // Blanking the text of the opponent's maneuver is not supported yet.
         "Solarplex Knife Chop": (),
-        // Approximation: only when it is reversed from the opponent's hand.
+        // Approximation: only when it is reversed from the opponent's hand (not by the Volley removal).
         "Cold-cocked": (
             on_reversed_from_hand: [
                 RingsideToHand(who: You, n: 2, up_to: true, filter: Some(All([Keyword("Volley"), Not(Title("Cold-cocked"))]))),
@@ -1088,7 +1086,8 @@
                 on_play: [ThisToArsenal(bottom: false), Search(filter: Title("Ankle Lock"), n: 2, up_to: true)],
             )),
         ),
-        // Heat rules are not supported yet, so its text does nothing.
+        // Ignoring its own Heat trait in your Ringside pile is not supported yet: the Heat rule removes it like
+        // any other Heat card.
         "Captain Charisma Strikes": (),
         "I Can Slap a Tornado": (
             reverses: Some((
@@ -1111,7 +1110,8 @@
                 on_play: [Optional([DiscardThis, Boost((applies_to: Maneuver, duration: NextCard, damage: 3))])],
             )),
         ),
-        // Its Ring effect on Heat and Chain traits is not supported yet.
+        // Its Ring effect (your Ringside maneuvers are Heat cards, your maneuvers from hand Chain cards) is not
+        // supported yet.
         "The Legend Lives On": (
             reverses: Some((
                 targets: AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Throwback"), Keyword("Volley"), Keyword("RMS")]),

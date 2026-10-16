@@ -4,7 +4,8 @@
 // Enforcers are not supported, so no Superstar ever has an Enforcer revealed.
 (
     abilities: {
-        // The Tag Team Title Belts are not supported yet. A F:0 maneuver is never shuffled back into the Arsenal.
+        // No imported card limits who packs the Tag Team Title Belts, so that part needs no script.
+        // A F:0 maneuver is never shuffled back into the Arsenal.
         "Evolution": [
             StartOfTurn([Arrange(who: You, n: 3), Mill(who: You, n: 2)]),
             Activated(
@@ -33,7 +34,7 @@
             PacksLogos(["Kurt Angle"]),
         ],
         // Making maneuvers Multi and reversing Actions by discarding 3 cards are not supported yet.
-        "FBI": [],
+        "FBI": [CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))]))],
         "A-Train": [
             Activated(
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
@@ -174,7 +175,6 @@
 
         // Reversals
         "I Already Warned You": (
-            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
                 targets: AnyOf([
                     All([Action, EarlierThisTurn(filter: Action, n: 1)]),
@@ -225,7 +225,6 @@
         ),
         // Searching for a maneuver without text and the rule for your next turn are not supported yet.
         "Leave Me Alone": (
-            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
                 targets: All([Action, Not(Trait(SetUp))]),
                 ringside_only: true,
@@ -250,9 +249,7 @@
                 ],
             )),
         ),
-        // Being Permanent is not supported yet.
         "Headstrong": (
-            from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique)), DamageAtMost(10)]),
                 ringside_only: true,
@@ -498,14 +495,27 @@
         ),
         // Winning by the Foreign Objects in the Ring is not supported yet.
         "First Blood Match": (requires: Some(Never), not_packed_by: ["Female"]),
-        // Title Belts are not supported yet.
-        "The Title Is On the Line!": (requires: Some(Never)),
+        // Approximation: the maneuver is watched even if another card is played before it.
+        "The Title Is On the Line!": (
+            requires: Some(AnyOf([InYourRing(TitleBelt), CountAtLeast(count: OpponentRingMatching(TitleBelt), n: 1)])),
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Boost((applies_to: Maneuver, duration: NextCard, no_hand_reversal: true)),
+                    NextPlayWatch(filter: Maneuver, on_reversed: [RemoveFromRing(who: You, n: 1, filter: TitleBelt)]),
+                ],
+            )),
+        ),
         // Choosing the opponent's next Pre-match card after Calling You Out is not supported yet.
         "You Rang?": (mid_match_limit: 1),
-        // Tag Team matches are not supported yet.
+        // Its text is for Tag Team format matches (teams and their active members), which this game does not have.
         "You, Me, and Whoever!?!": (requires: Some(Never)),
-        // Changing the Pre-match order and Title Belts are not supported yet.
-        "Bitter Rivals": (requires: Some(Never)),
+        // Playing Pre-match cards before the opponent (when your Superstar Value is lower) is not supported yet.
+        // Approximation: with equal Superstar Values the Title Belt option is always chosen.
+        "Bitter Rivals": (
+            restricts_opponent: Some((when: Not(SuperstarValueBelowOpponent), filter: TitleBelt)),
+            restricts_self: Some((when: Not(SuperstarValueBelowOpponent), filter: TitleBelt)),
+        ),
         "It's All About the Game": (),
         // Removing a card with an Activated Card Effect is not supported yet.
         // Approximation: the +1 Starting Hand Size is drawn at the end of the Pre-match phase.
@@ -516,8 +526,11 @@
         "Hardcore Style": (requires: Some(Never)),
         // Not being Active for Mankind or Cactus Jack is not supported yet.
         "Immune to Pain": (while_in_ring_opponent: [(applies_to: Maneuver, damage: -1)]),
-        // Title Belts are not supported yet.
-        "Number One Contender": (requires: Some(Never)),
+        "Number One Contender": (
+            requires: Some(CountAtLeast(count: OpponentRingMatching(TitleBelt), n: 1)),
+            irreversible: true,
+            on_play: [Search(filter: Any)],
+        ),
         "The Beautiful People": (
             requires: Some(AnyOf([OpponentRingHas(filter: Trait(SmackDown), n: 1), OpponentIs("Female")])),
             on_you_reverse: [
@@ -537,7 +550,7 @@
                 ),
             ],
         ),
-        // Tag Team matches are not supported yet.
+        // Tag Team symbol card: for 2-on-2 Tag Team format matches, which this game does not have.
         "Desperate Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Approximation: a Pre-match Manager is a card with "Managed by" in the title, and you overturn a multiple of
         // 3 cards.

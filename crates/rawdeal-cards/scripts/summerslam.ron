@@ -30,7 +30,7 @@
             OpponentCannotPlay("Ric Flair Interferes"),
             CannotPackMatching(AnyOf([TitleContains("Reading"), TitleContains("Graceful")])),
         ],
-        // The Big Show part and Title Belts are not supported yet.
+        // The Big Show part is not supported yet.
         "Hall and Nash": [
             FortitudeFor(
                 filter: All([Maneuver, AnyOf([TitleContains("Bomb"), TitleContains("Power"), TitleContains("Slam")])]),
@@ -41,6 +41,7 @@
                 delta: 3,
             ),
             CannotPackMatching(ManeuverType(HighRisk)),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         "Trish Stratus": [
             CannotPackTrait(SetUp),
@@ -48,9 +49,9 @@
             FortitudeFor(filter: Action, delta: -3),
             OpponentCannotPlay("Enter the Stratus-phere"),
         ],
-        // The Title Belt part is not supported yet.
         "Billy and Chuck": [
             OnOpponentReverses([If(condition: OpponentReversedFrom([Hand]), effects: [DrawUpTo(who: You, n: 1)])]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         // The No Sell Maneuver part is not supported yet; getting Head back from the Ringside pile is on Head.
         "Al Snow": [Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [LookAtHand(who: Opponent)])],
@@ -388,12 +389,17 @@
         "Beating the Odds": (on_play: [Draw(who: You, n: 1)], on_removed_by_opponent: [EndTurn]),
         // Copying the opponent's Ringside-to-Arsenal shuffles is not supported yet.
         "Smart Mark": (requires: Some(Never)),
-        // Title Belts are not supported yet.
         "Hardcore 'Til the End": (
             irreversible: true,
             on_play: [
                 Search(filter: Keyword("Foreign Object")),
                 Boost((applies_to: Keyword("Foreign Object"), duration: NextCard, fortitude: -4)),
+            ],
+            while_in_ring_opponent: [
+                (
+                    applies_to: All([Maneuver, Holds(OpponentRingHas(filter: Title("Hardcore Title Belt"), n: 1))]),
+                    damage: -1,
+                ),
             ],
         ),
         // Ignoring J.R. Style Slobber-knocker is not supported yet.
@@ -747,9 +753,10 @@
                 ),
             ],
         ),
-        // Title Belts are not supported yet.
         "To Be the Man, You've Got to Beat the Man!": (
-            requires: Some(Superstar("Ric Flair")),
+            requires: Some(
+                All([AnyOf([Superstar("Ric Flair"), InYourRing(TitleBelt)]), Not(OpponentRingHas(filter: TitleBelt, n: 1))]),
+            ),
             in_ring_start_of_turn: [
                 If(
                     condition: CountAtMost(count: YourArsenalSize, n: 10),
@@ -858,11 +865,18 @@
                 (whose: Some(You), filter: Title("Enter the Stratus-phere"), effects: [Optional([Draw(who: You, n: 1)])]),
             ],
         ),
-        // Title Belts are not supported yet.
         "Stratusfaction Bulldog": (
             not_reversed_by: Some(Title("Elbow to the Face")),
             on_play: [Search(filter: AnyOf([Action, TitleContains("bulldog")]))],
-            reverses: Some((targets: ManeuverType(Strike), requires: Some(OpponentFemale))),
+            reverses: Some((
+                targets: ManeuverType(Strike),
+                requires: Some(
+                    AnyOf([
+                        OpponentFemale,
+                        OpponentRingHas(filter: Title("World Wrestling Federation Lt. Heavyweight Title Belt"), n: 1),
+                    ]),
+                ),
+            )),
         ),
         "I've Been a Very Naughty Girl...": (
             on_play: [LookAtHand(who: Opponent), RingsideToHand(who: You, n: 3, filter: Some(Action))],
@@ -1066,8 +1080,17 @@
                 )),
             ],
         ),
-        // Title Belts are not supported yet.
-        "Tell Me ... You Didn't Just Say That!": (reverses: Some((targets: Action))),
+        "Tell Me ... You Didn't Just Say That!": (
+            reverses: Some((
+                targets: Action,
+                effects: [
+                    If(
+                        condition: InYourRing(Title("WCW Title Belt")),
+                        effects: [DrawUpTo(who: You, n: 5), Discard(who: You, n: 5, pick: Chosen)],
+                    ),
+                ],
+            )),
+        ),
         "Damn!": (on_play: [LookAtHand(who: Opponent), RingsideToArsenal(who: You, n: 10), Search(filter: Any)]),
         "Giant Killer": (
             requires: Some(FortitudeBelowOpponent),

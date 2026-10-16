@@ -47,6 +47,7 @@
             DamageFor(filter: Maneuver, delta: 1),
             CannotPlayMatching(All([Action, Not(SuperstarSpecific), Not(Trait(MidMatch))])),
             CannotPack("White Wedding"),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         // The Mid-match limit is not changed.
         "Spike Dudley": [
@@ -386,8 +387,13 @@
                 DamageSuperstarValue(who: Opponent),
             ],
         ),
-        // Title Belts are not supported yet.
-        "Messing With the Champ": (requires: Some(Never)),
+        "Messing With the Champ": (
+            requires: Some(All([OpponentRingHas(filter: TitleBelt, n: 1), Not(InYourRing(TitleBelt))])),
+            on_play: [
+                RemoveFromRing(who: Opponent, n: 1, filter: TitleBelt),
+                OpponentChooses(n: 1, options: [[Discard(who: Opponent, n: 2, pick: Chosen)], [DrawUpTo(who: You, n: 2)]]),
+            ],
+        ),
         "Everybody Wants (and Needs) a ... Snow Job?": (
             requires: Some(Not(OpponentSuperstar("Al Snow"))),
             irreversible_when: Some(Superstar("Al Snow")),

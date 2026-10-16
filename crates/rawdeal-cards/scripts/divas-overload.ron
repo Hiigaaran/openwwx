@@ -28,7 +28,7 @@
             OpponentCannotPlay("Managed by Stacy Keibler"),
             OpponentCannotPlay("Stacy Keibler, Marketing Manager"),
         ],
-        // Tag Teams are not supported yet. They count as Gail Kim and Molly Holly to pack their logo cards.
+        // They count as Gail Kim and Molly Holly to pack their logo cards.
         "Gail Kim and Molly Holly": [
             CountsAs(["Gail Kim", "Molly Holly"]),
             EndOfPrematch([Search(filter: All([SuperstarSpecific, Not(Reversal)]))]),
@@ -282,7 +282,6 @@
                 ],
             )),
         ),
-        // Being Permanent is not supported yet.
         "Too Many Rules and Too Many Refs": (
             on_play: [Optional([DiscardThis, Draw(who: You, n: 1)])],
             reverses: Some((
@@ -538,9 +537,8 @@
             restricts_opponent: Some((filter: Title("Old School Wrestling Match"))),
             in_ring_on_play: [(whose: Some(Opponent), filter: Trait(MidMatch), effects: [Discard(who: You, n: 1, pick: Chosen)])],
         ),
-        // "You can only play Pre-match cards with 'old school' in the title", the Permanent trait and losing the
-        // game if your opponent finds non-Superstar-specific maneuvers in your Arsenal or Backlash deck are not
-        // supported yet.
+        // "You can only play Pre-match cards with 'old school' in the title" and losing the game if your opponent
+        // finds non-Superstar-specific maneuvers in your Arsenal or Backlash deck are not supported yet.
         "Back to Basics": (
             on_play: [
                 PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Arm Bar"))),
@@ -578,6 +576,7 @@
         "Skirt vs. Skirt Match": (
             only_packed_by: ["Female"],
             requires: Some(OpponentIs("Female")),
+            restricts_opponent: Some((filter: Title("Women's Title Belt"))),
             end_of_prematch: [
                 Optional([
                     DiscardMatching(who: You, n: 1, filter: Action, pick: Chosen),
@@ -596,8 +595,8 @@
                 ]),
             ],
         ),
-        // Approximation: "can only be packed if your Superstar card says you cannot play any title belt except the
-        // Tag Team Title Belts" is read as Superstars with the Tag Team trait.
+        // "Can only be packed if your Superstar card says you cannot play any title belt except the Tag Team Title
+        // Belts" is the Tag Team Superstar trait (there are no Tag Team format matches).
         "Perennial Fan Favorites": (
             only_packed_by: ["Tag Team"],
             ring_ability: Some((
@@ -621,7 +620,7 @@
                 ],
             )),
         ),
-        // Title Belts are not supported yet.
+        // A Pre-match limit that grows with the number of Title Belts in your Ring is not supported yet.
         "I've Had More Championships than You've Had Women": (not_packed_by: ["GM"], requires: Some(Never)),
         // Removing it from the game in place of other cards is not supported yet.
         "I'm Gonna Break You": (
@@ -659,6 +658,7 @@
                             Not(AnyOf([Maneuver, Action, Reversal])),
                             Not(Trait(Unique)),
                             Not(Trait(UniversallyUnique)),
+                            Not(TitleBelt),
                             Not(SuperstarSpecific),
                         ])),
                     ),
@@ -1074,7 +1074,6 @@
         "Showdown!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
 
         // Rob Van Dam
-        // Being Permanent is not supported yet.
         "Mr. Monday Night": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand, Backlash])])),

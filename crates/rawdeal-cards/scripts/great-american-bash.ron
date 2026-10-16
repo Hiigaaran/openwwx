@@ -2,7 +2,7 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Backstage, "Trademark Finisher: Run-In" and "Action: Movie" cards are skipped by the importer.
-// The Volley rules are not supported yet.
+// The Heat, Volley and Permanent rules are applied by the engine; changing a card's Volley: # is not supported yet.
 (
     abilities: {
         // Burying a card at the end of the opponent's turn and the 40 extra Arsenal cards are not supported yet.
@@ -131,7 +131,7 @@
         "BASH Punch": (
             not_packed_by: ["Female"],
         ),
-        // The Volley +2 is not supported yet.
+        // Its Volley: +2 for each Volley card in your Ring area is not supported yet.
         "Straight Head Butt": (bonuses: [(per: Some(Keyword("Volley")), damage: 2)]),
         "Shoot Kicker Hold": (
             not_packed_by: ["Female"],
@@ -561,7 +561,8 @@
             ],
         ),
         "First of All": (),
-        // Its Pre-match side (Title Belts) is not supported yet; it is played as the Mid-match Action.
+        // Its Pre-match side is not supported yet (no condition tells the Pre-match phase apart, and cards with
+        // 'Title Belt' in the text are not recognised); it is played as the Mid-match Action.
         "For the Love of The Game": (
             requires: Some(FortitudeBelowOpponent),
             not_reversed_by: Some(All([Reversal, AnyOf([Maneuver, Action])])),
@@ -622,7 +623,7 @@
                 ),
             ],
         ),
-        // Permanent cards and reversing discards are not supported yet.
+        // Making a chosen card Permanent and reversing discards are not supported yet.
         "Can U Believe the Witte Retort?": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Enforcers are not supported yet.
         // Approximation: the Manager is removed from his Ring only.
@@ -1187,7 +1188,6 @@
                 Search(filter: Any),
             ],
         ),
-        // Permanent cards are not supported yet.
         "JYD's Chain": (
             ringside_ability: Some((
                 effects: [ReturnThis(to: Hand), RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Grapple)))],

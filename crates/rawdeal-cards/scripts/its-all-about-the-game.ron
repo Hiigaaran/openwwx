@@ -7,10 +7,12 @@
         "Two-Man Power Trip": [
             CountsAs(["Stone Cold Steve Austin", "Triple H"]),
             EndOfPrematch([If(condition: Not(SuperstarValueAtMostOpponent), effects: [DrawUpTo(who: You, n: 3)])]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
         "Brothers of Destruction": [
             CountsAs(["Undertaker", "Deadman Inc", "Kane"]),
             DrawSegmentOption([Mill(who: You, n: 2), RingsideToHand(who: You, n: 1)]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
     },
     scripts: {

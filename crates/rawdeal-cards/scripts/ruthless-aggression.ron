@@ -3,13 +3,13 @@
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 (
     abilities: {
-        // Drawing when the opponent draws, playing Handicap Match against Tag Teams and
-        // the Title Belt packing limit are not supported yet.
-        "Dangerous Alliance": [],
+        // Drawing when the opponent draws and playing Handicap Match against Tag Teams are not supported yet.
+        "Dangerous Alliance": [CannotPackMatching(TitleBelt)],
         // Approximation: one hybrid card can count for two maneuver types, and with 3+
         // types the maneuvers also cannot be reversed from the Backlash deck.
-        // Playing Handicap Match against Tag Teams and the Title Belt packing limit are not supported yet.
+        // Playing Handicap Match against Tag Teams is not supported yet.
         "The People's Team": [
+            CannotPackMatching(TitleBelt),
             StartOfTurn([
                 Boost((
                     applies_to: All([
@@ -90,12 +90,19 @@
                 ],
             )),
         ),
-        // Approximation: blanking a Stipulation, the Title Belt and the extra Mid-match slot
-        // are one option that does nothing.
+        // Approximation: blanking a Stipulation and the extra Mid-match slot are one option that does nothing.
         "Managed by Vince McMahon": (
             pre_match_limit: -1,
             end_of_prematch: [
-                OpponentChooses(n: 2, options: [[], [RingsideToHand(who: You, n: 1, up_to: true)], [WinGame]]),
+                OpponentChooses(
+                    n: 2,
+                    options: [
+                        [],
+                        [RemoveFromRing(who: Opponent, n: 1, filter: TitleBelt)],
+                        [RingsideToHand(who: You, n: 1, up_to: true)],
+                        [WinGame],
+                    ],
+                ),
             ],
         ),
 
