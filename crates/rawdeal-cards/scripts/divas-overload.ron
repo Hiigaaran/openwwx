@@ -329,8 +329,8 @@
                 If(condition: Not(InYourRing(Title("Recovery"))), effects: [Discard(who: You, n: 1, pick: Chosen)]),
             ],
         ),
-        // The "fewer Action cards in your Ring" requirement is not supported yet.
         "The Name of the Game Is Wrestling": (
+            requires: Some(CountBelow(a: YourRingMatching(Action), b: OpponentRingMatching(Action))),
             in_ring_on_play: [
                 (
                     whose: Some(Opponent),

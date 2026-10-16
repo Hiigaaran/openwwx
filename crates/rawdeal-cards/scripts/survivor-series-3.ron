@@ -161,13 +161,16 @@
             ],
             reverses: Some((targets: Title("Roll Out of the Ring"), effects: [Mill(who: Opponent, n: 2)])),
         ),
-        // Approximation: the reversed card goes to the Ringside pile instead of leaving the game, and as an action
-        // it can only be played from hand (or while you hold a copy).
+        // Approximation: as an action it can only be played from hand (or while you hold a copy).
         "When Hell Freezes Over!": (
             requires: Some(HandHas(Title("When Hell Freezes Over!"))),
             from_ringside: Some(Always),
             on_play: [DiscardThis, Draw(who: You, n: 1)],
-            reverses: Some((targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]), from_hand_only: true)),
+            reverses: Some((
+                targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]),
+                from_hand_only: true,
+                reversed_removed: true,
+            )),
         ),
         // Approximation: the other revealed cards go to the bottom of the Arsenal instead of the Ringside pile.
         "Battling the Voices": (on_play: [Dig(n: 6, take: 3)]),
@@ -238,13 +241,12 @@
         ),
 
         // Reversals
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "Blindsided Ego": (
             from_ringside: Some(Always),
             reverses: Some((
                 targets: AnyOf([All([Maneuver, Not(Trait(Unique))]), TitleContains("ego")]),
-                from_hand_only: true,
-                requires: Some(All([Not(HandHas(Title("Blindsided Ego"))), HandAtLeast(2)])),
+                ringside_only: true,
+                requires: Some(HandAtLeast(2)),
                 effects: [
                     Discard(who: You, n: 2, pick: Chosen),
                     RemoveFromGame(
@@ -276,11 +278,12 @@
         "No Disqualification Match": (
             while_in_ring: [(applies_to: AnyOf([Keyword("Foreign Object"), Keyword("Run-in")]), fortitude: -3)],
         ),
-        // Approximation: the 3 cards all go on the top or all on the bottom.
         "SmackDown! #1 Announcer Funaki": (
             end_of_prematch: [
                 Draw(who: You, n: 3),
-                Choice([[HandToArsenalTop(who: You, n: 3)], [HandToArsenalBottom(who: You, n: 3)]]),
+                Choice([[HandToArsenalTop(who: You, n: 1)], [HandToArsenalBottom(who: You, n: 1)]]),
+                Choice([[HandToArsenalTop(who: You, n: 1)], [HandToArsenalBottom(who: You, n: 1)]]),
+                Choice([[HandToArsenalTop(who: You, n: 1)], [HandToArsenalBottom(who: You, n: 1)]]),
             ],
         ),
         "Underrated Superstar": (
@@ -604,8 +607,12 @@
                 from_hand_only: true,
             )),
         ),
-        // Moving the cards to the Backlash deck is not supported yet.
+        // Playing those cards as Mid-match cards from the Backlash deck is not supported yet.
         "TLC Match": (
+            on_play: [
+                MoveCards(who: You, from: Arsenal, to: Backlash, n: 60, up_to: true, filter: Some(AnyOf([Title("Table! Table! Table!"), Title("Ladder in the Ring"), Title("Chair Shot")]))),
+                MoveCards(who: Opponent, from: Arsenal, to: Backlash, n: 60, up_to: true, filter: Some(AnyOf([Title("Table! Table! Table!"), Title("Ladder in the Ring"), Title("Chair Shot")]))),
+            ],
             ring_ability: Some((
                 cost: [Mill(who: You, n: 1)],
                 effects: [

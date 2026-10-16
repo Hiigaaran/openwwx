@@ -68,10 +68,12 @@
         ),
 
         // Reversals
-        // Removing the reversed card from the game is not supported yet (RemoveFromGame cannot pick
-        // the reversed card itself).
         "So Long ... Goodbye!": (
-            reverses: Some((targets: All([Action, Not(SuperstarSpecific)]), effects: [Mill(who: You, n: 3)])),
+            reverses: Some((
+                targets: All([Action, Not(SuperstarSpecific)]),
+                effects: [Mill(who: You, n: 3)],
+                reversed_removed: true,
+            )),
         ),
 
         // Pre-match

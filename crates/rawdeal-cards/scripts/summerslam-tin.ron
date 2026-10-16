@@ -5,13 +5,11 @@
 (
     abilities: {
         // The 45-card Arsenal is not supported yet.
-        // Approximation: the searched card goes to the opponent's Ringside pile and then you remove 1 card of
-        // his Ringside pile from the game (any card, not necessarily that one).
         "The Fabulous Moolah": [
             CannotPackMatching(All([Maneuver, DamageAtLeast(3)])),
             Activated(
                 cost: [],
-                effects: [MillChosen(who: Opponent, n: 1), RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)],
+                effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)],
             ),
         ],
     },

@@ -63,8 +63,6 @@
         "The Rattlesnake": [PacksLogos(["Stone Cold Steve Austin"])],
         // The extra Backlash and Arsenal cards are not supported yet.
         "Shawn Michaels": [],
-        // Approximation: the discarded maneuver may be of any type, and up to 3 maneuvers of any type are shuffled
-        // into the Arsenal instead of put on the bottom.
         "The Crippler": [
             OnOpponentPlayMatching(
                 filter: ManeuverType(Strike),
@@ -87,8 +85,97 @@
                 effects: [Optional([Search(filter: All([ManeuverType(TrademarkFinisher), Not(Trait(Unique))]))])],
             ),
             Activated(
-                cost: [DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen)],
-                effects: [RingsideToArsenal(who: You, n: 3, up_to: true, filter: Some(Maneuver))],
+                cost: [],
+                requires: Some(HandHas(Maneuver)),
+                effects: [
+                    Choice([
+                        [
+                            If(
+                                condition: HandHas(ManeuverType(Strike)),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: ManeuverType(Strike), pick: Chosen),
+                                    MoveCards(
+                                        who: You,
+                                        from: Ringside,
+                                        to: Arsenal,
+                                        n: 3,
+                                        up_to: true,
+                                        filter: Some(ManeuverType(Strike)),
+                                        bottom: true,
+                                    ),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: HandHas(ManeuverType(Grapple)),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: ManeuverType(Grapple), pick: Chosen),
+                                    MoveCards(
+                                        who: You,
+                                        from: Ringside,
+                                        to: Arsenal,
+                                        n: 3,
+                                        up_to: true,
+                                        filter: Some(ManeuverType(Grapple)),
+                                        bottom: true,
+                                    ),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: HandHas(ManeuverType(Submission)),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: ManeuverType(Submission), pick: Chosen),
+                                    MoveCards(
+                                        who: You,
+                                        from: Ringside,
+                                        to: Arsenal,
+                                        n: 3,
+                                        up_to: true,
+                                        filter: Some(ManeuverType(Submission)),
+                                        bottom: true,
+                                    ),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: HandHas(ManeuverType(HighRisk)),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: ManeuverType(HighRisk), pick: Chosen),
+                                    MoveCards(
+                                        who: You,
+                                        from: Ringside,
+                                        to: Arsenal,
+                                        n: 3,
+                                        up_to: true,
+                                        filter: Some(ManeuverType(HighRisk)),
+                                        bottom: true,
+                                    ),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: HandHas(ManeuverType(TrademarkFinisher)),
+                                effects: [
+                                    DiscardMatching(who: You, n: 1, filter: ManeuverType(TrademarkFinisher), pick: Chosen),
+                                    MoveCards(
+                                        who: You,
+                                        from: Ringside,
+                                        to: Arsenal,
+                                        n: 3,
+                                        up_to: true,
+                                        filter: Some(ManeuverType(TrademarkFinisher)),
+                                        bottom: true,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ]),
+                ],
             ),
             PacksLogos(["Chris Benoit"]),
         ],
@@ -259,11 +346,17 @@
         "Blind Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
 
         // Actions
-        // Approximation: the 1D card is shuffled into the Arsenal instead of put on the bottom.
         "The Devil's in the Detail": (
             on_play: [
                 Optional([
-                    RingsideToArsenal(who: You, n: 1, filter: Some(All([DamageAtLeast(1), DamageAtMost(1)]))),
+                    MoveCards(
+                        who: You,
+                        from: Ringside,
+                        to: Arsenal,
+                        n: 1,
+                        filter: Some(All([DamageAtLeast(1), DamageAtMost(1)])),
+                        bottom: true,
+                    ),
                 ]),
                 Optional([RingsideToHand(who: You, n: 1, filter: Some(All([DamageAtLeast(1), DamageAtMost(1)])))]),
             ],
@@ -615,11 +708,19 @@
                 fortitude_when: Some((InYourRing(Title("You're as Graceful as a Cow on Ice")), 0)),
             )),
         ),
-        // Approximation: the Face or Heel card is shuffled into the Arsenal instead of put on the bottom.
         "Mental Acumen": (
             irreversible_when: Some(InYourRing(Title("Backstage Politics"))),
             on_play: [
-                Optional([RingsideToArsenal(who: You, n: 1, filter: Some(AnyOf([Trait(Face), Trait(Heel)])))]),
+                Optional([
+                    MoveCards(
+                        who: You,
+                        from: Ringside,
+                        to: Arsenal,
+                        n: 1,
+                        filter: Some(AnyOf([Trait(Face), Trait(Heel)])),
+                        bottom: true,
+                    ),
+                ]),
             ],
             ring_ability: Some((
                 cost: [DiscardMatching(who: You, n: 1, filter: AnyOf([Trait(Face), Trait(Heel)]), pick: Chosen)],
@@ -663,9 +764,212 @@
         ),
         // Taking the reversed card into your hand is not supported yet.
         "Chief Morley Says...": (requires: Some(Never)),
-        // Counting maneuvers of one type between Ring and Ringside pile, and removing chosen cards from the Arsenal,
-        // are not supported yet.
-        "Real Predictable...": (requires: Some(Never), not_packed_by: ["Female"]),
+        // Approximation: the up to 5 maneuvers all come from the Arsenal or all from the Ringside pile, and the
+        // Ring ability is used in your Main Segment, not before your Draw Segment.
+        "Real Predictable...": (
+            not_packed_by: ["Female"],
+            requires: Some(
+                AnyOf([
+                    AnyOf([
+                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 7),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 6)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 5)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 4)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 3)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 2)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 1)]),
+                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 7),
+                    ]),
+                    AnyOf([
+                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 7),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 6)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 5)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 4)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 3)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 2)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 1)]),
+                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 7),
+                    ]),
+                    AnyOf([
+                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 7),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 6)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 5)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 4)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 3)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 2)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 1)]),
+                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 7),
+                    ]),
+                    AnyOf([
+                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 7),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 6)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 5)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 4)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 3)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 2)]),
+                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 1)]),
+                        CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 7),
+                    ]),
+                ]),
+            ),
+            on_play: [
+                Choice([
+                    [
+                        If(
+                            condition: AnyOf([
+                                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 7),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 6)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 5)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 4)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 3)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 2)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Strike)), n: 1)]),
+                                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Strike)), n: 7),
+                            ]),
+                            effects: [
+                                Choice([
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Arsenal,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Strike)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Ringside,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Strike)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                ]),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: AnyOf([
+                                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 7),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 6)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 5)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 4)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 3)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 2)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Grapple)), n: 1)]),
+                                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Grapple)), n: 7),
+                            ]),
+                            effects: [
+                                Choice([
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Arsenal,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Grapple)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Ringside,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Grapple)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                ]),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: AnyOf([
+                                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 7),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 6)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 5)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 4)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 3)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 2)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(Submission)), n: 1)]),
+                                        CountAtLeast(count: OpponentRingMatching(ManeuverType(Submission)), n: 7),
+                            ]),
+                            effects: [
+                                Choice([
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Arsenal,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Submission)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Ringside,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(Submission)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                ]),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: AnyOf([
+                                        CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 7),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 1), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 6)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 2), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 5)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 3), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 4)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 4), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 3)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 5), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 2)]),
+                                        All([CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 6), CountAtLeast(count: OpponentRingsideMatching(ManeuverType(HighRisk)), n: 1)]),
+                                        CountAtLeast(count: OpponentRingMatching(ManeuverType(HighRisk)), n: 7),
+                            ]),
+                            effects: [
+                                Choice([
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Arsenal,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(HighRisk)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                    [
+                                        RemoveFromGame(
+                                            who: Opponent,
+                                            from: Ringside,
+                                            n: 5,
+                                            up_to: true,
+                                            filter: Some(ManeuverType(HighRisk)),
+                                            pick: Controller,
+                                        ),
+                                    ],
+                                ]),
+                            ],
+                        ),
+                    ],
+                ]),
+            ],
+            ring_ability: Some((effects: [RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)])),
+        ),
         // Approximation: a Pre-match Manager is a card with "Managed by" in the title.
         "Outside Interference": (
             reverses: Some((

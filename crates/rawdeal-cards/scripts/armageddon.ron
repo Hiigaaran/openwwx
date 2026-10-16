@@ -225,8 +225,10 @@
         "Anything and Hate It": (
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
-        // Removing the reversed card from the game is not supported yet.
-        "I Gotta Say, Out of Play": (reverses: Some((targets: AnyOf([Keyword("Throwback"), Keyword("Volley")])))),
+        // Removing the reversed card from the game works only when it reverses from hand, not when overturned.
+        "I Gotta Say, Out of Play": (
+            reverses: Some((targets: AnyOf([Keyword("Throwback"), Keyword("Volley")]), reversed_removed: true)),
+        ),
         // Reversing after a maneuver succeeded and letting the opponent continue his turn are not supported yet.
         "Raw and Ready": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
 
@@ -384,7 +386,6 @@
         ),
         // Continuing the turn after a reversal is not supported yet.
         "I Won't Stop": (requires: Some(Never)),
-        // It goes to the Ringside pile to reverse and a copy is then removed from there.
         "Defensive Style": (
             reverses_from_ring: Some((
                 targets: All([
@@ -392,7 +393,7 @@
                     Not(Trait(Unique)),
                 ]),
                 fortitude: Some(0),
-                effects: [RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Title("Defensive Style")))],
+                removed_after: true,
             )),
         ),
         // Its Ring ability (half the Throwback cards, rounded down) is not supported yet.
@@ -810,14 +811,14 @@
         // The Phenom (Undertaker and Deadman Inc logos)
         // Cards kept on top of another card are not supported yet.
         "The Urn": (requires: Some(Never)),
-        // Removing the reversed card from the game and completely reversing a Multi card are not supported yet.
+        // Completely reversing a Multi card is not supported yet.
         "Takin' Care of Business": (
             bonuses: [(fortitude: -10)],
             on_play: [
                 Optional([Search(filter: Title("Maintain Hold"), ringside: true)]),
                 Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
             ],
-            reverses: Some((targets: AnyOf([Keyword("Heat"), Trait(Multi)]))),
+            reverses: Some((targets: AnyOf([Keyword("Heat"), Trait(Multi)]), reversed_removed: true)),
         ),
         // Approximation: you overturn all # cards or none.
         "The Dead Will Rise ... Again": (
@@ -947,12 +948,9 @@
         "The Jacket's Coming Off...": (on_play: [Search(filter: All([Maneuver, Not(Action), Not(Reversal)]))]),
         // Drawing as many cards as the reversed card's Fortitude is not supported yet.
         "The Pride of the Family": (reverses: Some((targets: All([Action, Not(Trait(SetUp))])))),
-        // Approximation: half his Fortitude, rounded up, is counted twice and not capped at 12.
+        // Approximation: the number is not capped at 12.
         "The Dream Lives On": (
-            on_play: [
-                RingsideToArsenalCount(who: You, count: HalfOpponentFortitude),
-                RingsideToArsenalCount(who: You, count: HalfOpponentFortitude),
-            ],
+            on_play: [RingsideToArsenalCount(who: You, count: OpponentFortitude)],
             reverses: Some((targets: Not(Trait(Unique)), overturned_only: true)),
         ),
 

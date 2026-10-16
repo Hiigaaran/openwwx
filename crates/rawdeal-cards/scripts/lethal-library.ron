@@ -64,11 +64,10 @@
         "Atomic Spine Buster": (on_play: [Choice([[Mill(who: You, n: 5)], [BacklashToRingside(who: You, n: 30)]])]),
 
         // Submissions
-        // Approximation: either every Heat card in your hand is discarded or none.
         "Leg Lock": (
             play_after: Some(Any),
             on_play: [
-                Optional([DiscardAll(who: You, filter: Keyword("Heat"))]),
+                MoveCards(who: You, from: Hand, to: Ringside, n: 60, up_to: true, filter: Some(Keyword("Heat"))),
                 RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(Trait(Chain))),
             ],
         ),
@@ -97,10 +96,11 @@
                 ),
             ],
         ),
-        // Approximation: either every non-unique non-Maneuver card goes to the Ringside pile or none, and the
-        // Ring ability may take any Maneuver from your Ringside pile, not only the one overturned.
+        // Approximation: the Ring ability may take any Maneuver from your Ringside pile, not only the one overturned.
         "Lethal Library": (
-            on_play: [Optional([MillAll(who: You, filter: All([Not(Maneuver), Not(Trait(Unique))]))])],
+            on_play: [
+                MoveCards(who: You, from: Arsenal, to: Ringside, n: 60, up_to: true, filter: Some(All([Not(Maneuver), Not(Trait(Unique))]))),
+            ],
             ring_ability: Some((
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
                 effects: [

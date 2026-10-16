@@ -67,7 +67,7 @@
         ),
 
         // Reversals
-        // Approximation: # counts at most 10 removed cards.
+        // Approximation: # counts at most 30 removed cards.
         "Get Out of Here!": (
             reverses: Some((
                 targets: All([
@@ -75,141 +75,36 @@
                     Not(ManeuverType(TrademarkFinisher)),
                     AnyOf([
                         DamageAtMost(0),
-                        All([
-                            DamageAtMost(1),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 1),
-                                    CountAtLeast(count: YourRemoved, n: 1),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(2),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 2),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 2),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(3),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 3),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 3),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(4),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 4),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 4),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(5),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 5),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 5),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(6),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 6),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 5)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 5), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 6),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(7),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 7),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 6)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 5)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 5), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 6), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 7),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(8),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 8),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 7)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 6)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 5)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 5), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 6), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 7), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 8),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(9),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 9),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 8)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 7)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 6)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 5)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 5), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 6), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 7), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 8), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 9),
-                                ]),
-                            ),
-                        ]),
-                        All([
-                            DamageAtMost(10),
-                            Holds(
-                                AnyOf([
-                                    CountAtLeast(count: OpponentRemoved, n: 10),
-                                    All([CountAtLeast(count: YourRemoved, n: 1), CountAtLeast(count: OpponentRemoved, n: 9)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 2), CountAtLeast(count: OpponentRemoved, n: 8)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 3), CountAtLeast(count: OpponentRemoved, n: 7)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 4), CountAtLeast(count: OpponentRemoved, n: 6)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 5), CountAtLeast(count: OpponentRemoved, n: 5)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 6), CountAtLeast(count: OpponentRemoved, n: 4)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 7), CountAtLeast(count: OpponentRemoved, n: 3)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 8), CountAtLeast(count: OpponentRemoved, n: 2)]),
-                                    All([CountAtLeast(count: YourRemoved, n: 9), CountAtLeast(count: OpponentRemoved, n: 1)]),
-                                    CountAtLeast(count: YourRemoved, n: 10),
-                                ]),
-                            ),
-                        ]),
+                        All([DamageAtMost(1), Holds(CountAtLeast(count: BothRemoved, n: 1))]),
+                        All([DamageAtMost(2), Holds(CountAtLeast(count: BothRemoved, n: 2))]),
+                        All([DamageAtMost(3), Holds(CountAtLeast(count: BothRemoved, n: 3))]),
+                        All([DamageAtMost(4), Holds(CountAtLeast(count: BothRemoved, n: 4))]),
+                        All([DamageAtMost(5), Holds(CountAtLeast(count: BothRemoved, n: 5))]),
+                        All([DamageAtMost(6), Holds(CountAtLeast(count: BothRemoved, n: 6))]),
+                        All([DamageAtMost(7), Holds(CountAtLeast(count: BothRemoved, n: 7))]),
+                        All([DamageAtMost(8), Holds(CountAtLeast(count: BothRemoved, n: 8))]),
+                        All([DamageAtMost(9), Holds(CountAtLeast(count: BothRemoved, n: 9))]),
+                        All([DamageAtMost(10), Holds(CountAtLeast(count: BothRemoved, n: 10))]),
+                        All([DamageAtMost(11), Holds(CountAtLeast(count: BothRemoved, n: 11))]),
+                        All([DamageAtMost(12), Holds(CountAtLeast(count: BothRemoved, n: 12))]),
+                        All([DamageAtMost(13), Holds(CountAtLeast(count: BothRemoved, n: 13))]),
+                        All([DamageAtMost(14), Holds(CountAtLeast(count: BothRemoved, n: 14))]),
+                        All([DamageAtMost(15), Holds(CountAtLeast(count: BothRemoved, n: 15))]),
+                        All([DamageAtMost(16), Holds(CountAtLeast(count: BothRemoved, n: 16))]),
+                        All([DamageAtMost(17), Holds(CountAtLeast(count: BothRemoved, n: 17))]),
+                        All([DamageAtMost(18), Holds(CountAtLeast(count: BothRemoved, n: 18))]),
+                        All([DamageAtMost(19), Holds(CountAtLeast(count: BothRemoved, n: 19))]),
+                        All([DamageAtMost(20), Holds(CountAtLeast(count: BothRemoved, n: 20))]),
+                        All([DamageAtMost(21), Holds(CountAtLeast(count: BothRemoved, n: 21))]),
+                        All([DamageAtMost(22), Holds(CountAtLeast(count: BothRemoved, n: 22))]),
+                        All([DamageAtMost(23), Holds(CountAtLeast(count: BothRemoved, n: 23))]),
+                        All([DamageAtMost(24), Holds(CountAtLeast(count: BothRemoved, n: 24))]),
+                        All([DamageAtMost(25), Holds(CountAtLeast(count: BothRemoved, n: 25))]),
+                        All([DamageAtMost(26), Holds(CountAtLeast(count: BothRemoved, n: 26))]),
+                        All([DamageAtMost(27), Holds(CountAtLeast(count: BothRemoved, n: 27))]),
+                        All([DamageAtMost(28), Holds(CountAtLeast(count: BothRemoved, n: 28))]),
+                        All([DamageAtMost(29), Holds(CountAtLeast(count: BothRemoved, n: 29))]),
+                        All([DamageAtMost(30), Holds(CountAtLeast(count: BothRemoved, n: 30))]),
                     ]),
                 ]),
                 effects: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Title("Get the 'F'Out")))])],

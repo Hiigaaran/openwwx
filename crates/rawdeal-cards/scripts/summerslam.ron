@@ -509,9 +509,12 @@
         ),
         // Stopping cards from raising a Superstar Value is not supported yet.
         "Glass Ceiling": (),
-        // Approximation: your opponent picks the card that goes back.
         "In the Interest of Fairness...": (
-            end_of_prematch: [LookAtHand(who: Opponent), HandToArsenal(who: Opponent, n: 1), Draw(who: Opponent, n: 2)],
+            end_of_prematch: [
+                LookAtHand(who: Opponent),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller),
+                Draw(who: Opponent, n: 2),
+            ],
         ),
         // Approximation: you draw 1 more card, but your own ability is not replaced.
         "Do You Know What My Watch Says?": (
@@ -646,7 +649,6 @@
                 Boost((applies_to: Any, duration: NextCard, end_turn: true)),
             ],
         ),
-        // Approximation: the Action cards in your hand are shuffled into the Arsenal instead of put at the bottom.
         "Silent, But Violent": (
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(Maneuver)), EndTurn],
             reverses: Some((
@@ -656,7 +658,7 @@
                     RevealHand(who: You),
                     Counted(
                         count: YourHandMatching(Action),
-                        effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, filter: Some(Action)),
+                        effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, filter: Some(Action), bottom: true),
                     ),
                 ],
             )),

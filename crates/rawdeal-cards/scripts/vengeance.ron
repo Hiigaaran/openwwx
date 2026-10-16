@@ -54,8 +54,7 @@
         "Leaping Neck Snap": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
             on_play: [
-                Counted(count: YourRemoved, effect: Damage(who: Opponent, n: 0)),
-                Counted(count: OpponentRemoved, effect: Damage(who: Opponent, n: 0)),
+                Counted(count: BothRemoved, effect: Damage(who: Opponent, n: 0)),
             ],
             as_action: Some((
                 fortitude: Some(0),
@@ -174,7 +173,6 @@
         "Super Hold": (bonuses: [(when: FortitudeBelowOpponent, fortitude: -7)]),
 
         // Reversals
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "I Already Warned You": (
             from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
@@ -182,8 +180,8 @@
                     All([Action, EarlierThisTurn(filter: Action, n: 1)]),
                     EarlierThisTurn(filter: Any, n: 2),
                 ]),
-                from_hand_only: true,
-                requires: Some(All([FortitudeAtMostOpponent, Not(HandHas(Title("I Already Warned You")))])),
+                ringside_only: true,
+                requires: Some(FortitudeAtMostOpponent),
             )),
         ),
         "Quick Reflexes": (
@@ -214,13 +212,11 @@
                 effects: [Draw(who: You, n: 1)],
             )),
         ),
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "Blindsided Ego": (
             from_ringside: Some(Always),
             reverses: Some((
                 targets: AnyOf([All([Maneuver, Not(Trait(Unique))]), TitleContains("ego")]),
-                from_hand_only: true,
-                requires: Some(Not(HandHas(Title("Blindsided Ego")))),
+                ringside_only: true,
                 effects: [
                     Discard(who: You, n: 2, pick: Chosen),
                     RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Reversal), pick: Random),
@@ -228,22 +224,18 @@
             )),
         ),
         // Searching for a maneuver without text and the rule for your next turn are not supported yet.
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "Leave Me Alone": (
             from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
                 targets: All([Action, Not(Trait(SetUp))]),
-                from_hand_only: true,
-                requires: Some(Not(HandHas(Title("Leave Me Alone")))),
+                ringside_only: true,
             )),
         ),
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "Blindsided Control": (
             from_ringside: Some(Always),
             reverses: Some((
                 targets: All([Action, Not(Trait(Unique))]),
-                from_hand_only: true,
-                requires: Some(Not(HandHas(Title("Blindsided Control")))),
+                ringside_only: true,
                 effects: [RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Action), pick: Random)],
             )),
         ),
@@ -259,13 +251,11 @@
             )),
         ),
         // Being Permanent is not supported yet.
-        // Approximation: it cannot be played from the Ringside pile while you hold a copy in hand.
         "Headstrong": (
             from_ringside: Some(CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 6)),
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique)), DamageAtMost(10)]),
-                from_hand_only: true,
-                requires: Some(Not(HandHas(Title("Headstrong")))),
+                ringside_only: true,
                 effects: [
                     If(
                         condition: Not(Superstar("Al Snow")),
@@ -304,15 +294,15 @@
                 NextCardMustBe(Not(Title("Chain Wrestling"))),
             ],
         ),
-        // Removing the reversed card from the game is not supported yet.
         // Approximation: wherever it is played from it reverses both 'hell' cards and cards played from the
-        // opponent's Ringside pile, and it is not removed from the game; as an action it can only be played from hand
-        // (or while you hold a copy).
+        // opponent's Ringside pile (the reversed card is always removed from the game), it is not removed from the
+        // game itself after reversing from the Ringside pile, and as an action it can only be played from hand (or
+        // while you hold a copy).
         "When Hell Freezes Over!": (
             requires: Some(HandHas(Title("When Hell Freezes Over!"))),
             from_ringside: Some(Always),
             on_play: [DiscardThis, Draw(who: You, n: 1)],
-            reverses: Some((targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]))),
+            reverses: Some((targets: AnyOf([TitleContains("hell"), Holds(PlayedFromRingside)]), reversed_removed: true)),
         ),
         "Minute Hold": (
             play_after: Some(ManeuverType(Submission)),
@@ -334,14 +324,13 @@
         "J.R. Style Donnybrook": (
             restricts_opponent: Some((filter: All([AnyOf([Trait(Face), Trait(Heel)]), AnyOf([Action, Maneuver])]))),
         ),
-        // Playing without discarding to reverse a Chain card and removing the reversed card from the game are not
-        // supported yet.
+        // Playing without discarding to reverse a Chain card is not supported yet.
         "Chained Heat": (
             on_play: [
                 DiscardThis,
                 RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(All([Trait(Chain), Not(Title("Chained Heat"))]))),
             ],
-            reverses: Some((targets: AnyOf([Trait(Chain), Keyword("Heat")]))),
+            reverses: Some((targets: AnyOf([Trait(Chain), Keyword("Heat")]), reversed_removed: true)),
         ),
         // The Venue and Enforcer parts are not supported yet.
         "Down and Out": (
@@ -400,11 +389,10 @@
         ),
         // Continuing the turn after a reversal is not supported yet.
         "J.R. Style Push": (requires: Some(Never)),
-        // Approximation: it needs 3 Reversals in the opponent's Ring instead of more than in yours, and he skips at
-        // most 1 turn.
+        // Approximation: he skips at most 1 turn (with 3 or more Reversals in his Ring).
         "Now or Never": (
-            requires: Some(OpponentRingHas(filter: Reversal, n: 3)),
-            on_play: [SkipNextTurn(who: Opponent)],
+            requires: Some(CountBelow(a: YourRingMatching(Reversal), b: OpponentRingMatching(Reversal))),
+            on_play: [If(condition: OpponentRingHas(filter: Reversal, n: 3), effects: [SkipNextTurn(who: Opponent)])],
         ),
         // Reversing Arsenal searches is not supported yet.
         // Approximation: it reverses any card that lets the opponent draw.
@@ -445,8 +433,15 @@
         "Calgary, Alberta, Canada": (requires: Some(Never)),
         // Changing Raw Roulette Wheel's text, removing cards from the game and picking who starts are not supported
         // yet.
-        // Approximation: of the top 3 cards, 1 goes to your hand and the other 2 to the bottom of the Arsenal.
-        "Las Vegas, Nevada": (end_of_prematch: [Dig(n: 3, take: 1)]),
+        // Approximation: the top 3 cards are overturned into your Ringside pile, then you put 1 card from your Ringside
+        // pile into your hand and remove 1 from the game (any Ringside cards, not only those 3).
+        "Las Vegas, Nevada": (
+            end_of_prematch: [
+                Mill(who: You, n: 3),
+                RingsideToHand(who: You, n: 1),
+                RemoveFromGame(who: You, from: Ringside, n: 1),
+            ],
+        ),
         "New York, New York": (not_packed_by: ["Edge"], value_bonus: 2, opponent_value_bonus: 4),
         "Saskatoon, Saskatchewan, Canada": (value_bonus: -4, opponent_value_bonus: -6),
         // Picking cards at random until a Reversal and Starting Hand Size changes are not supported yet.
@@ -647,7 +642,6 @@
         ),
 
         // Mankind, Cactus Jack, Dude Love and The Mystery Wrestler
-        // Approximation: for the third option you may remove any card in his Ringside pile, not only the one found.
         "You Don't Want to Go Where I've Been": (
             mid_match_limit: 3,
             bonuses: [
@@ -658,7 +652,7 @@
                 Choice([
                     [DiscardAll(who: You, filter: Any), Search(filter: Any)],
                     [RemoveFromRing(who: Opponent, n: 1, filter: Any)],
-                    [MillChosen(who: Opponent, n: 1), RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)],
+                    [RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)],
                 ]),
             ],
         ),
@@ -696,10 +690,10 @@
             reverses: Some((targets: ManeuverType(Grapple))),
         ),
         "Edge Kick": (on_play: [Optional([Search(filter: Title("Roll Out of the Ring"), ringside: true)])]),
-        // The opponent's option to remove his Ringside pile and continue, and removing the reversed card from the
-        // game, are not supported yet.
+        // The opponent's option to remove his Ringside pile, take the reversed card and continue his turn is not
+        // supported yet (continuing a turn after a reversal), so the reversed card is always removed from the game.
         "Scream If You Want It": (
-            reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true)),
+            reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true, reversed_removed: true)),
         ),
         "`Cause I Want More": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -4)],
@@ -824,9 +818,8 @@
                 effects: [RingToHand(who: You, n: 1, filter: Title("Kane's Rage"))],
             )),
         ),
-        // Approximation: you may remove any card in his Ringside pile, not only the one found.
         "Rikishi's Hip Toss": (
-            on_play: [MillChosen(who: Opponent, n: 1), RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)],
+            on_play: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)],
         ),
         "Pain is Inevitable": (
             bonuses: [(when: Superstar("Chris Benoit"), fortitude: -12)],
@@ -986,10 +979,7 @@
             requires: Some(OpponentHandLarger),
             on_play: [
                 DrawToMatchOpponent,
-                // The opponent's own Fortitude, counted on his side and given back to you as a boost.
-                AsOpponent([
-                    Counted(count: YourFortitude, effect: BoostOpponent((applies_to: Any, duration: NextCard, fortitude: -1))),
-                ]),
+                Counted(count: OpponentFortitude, effect: Boost((applies_to: Any, duration: NextCard, fortitude: -1))),
             ],
         ),
         "Nidia's Mink Coat": (

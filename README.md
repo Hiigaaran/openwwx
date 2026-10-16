@@ -123,6 +123,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Reversals usados desde el Ringside, efectos de "jugada desde el Ringside", condiciones por cualquier conteo,
   cartas que vuelven arriba o al fondo del Arsenal sin barajar y costos de retirar cartas. Unas 80 cartas más de
   todos los sets quedan completas o jugables.
+- Tercer lote: cartas jugadas que van arriba o al fondo de su Arsenal, mover cartas al fondo del Arsenal, elegir
+  cartas del Arsenal, Reversals que solo se usan desde el Ringside, Reversals que retiran del juego la carta
+  revertida o a sí mismos, comparar dos conteos y nuevos conteos (cartas retiradas por tipo, Fortitude rival, media
+  mano). Unas 70 cartas más quedan completas o jugables.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

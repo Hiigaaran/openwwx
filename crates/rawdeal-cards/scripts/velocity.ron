@@ -280,10 +280,9 @@
                 ),
             ],
         ),
-        // Approximation: -2F for each half of the opponent's Fortitude, rounded up.
         "Here's a Ratings Booster!": (
             on_play: [
-                Counted(count: HalfOpponentFortitude, effect: Boost((applies_to: Any, duration: NextCard, fortitude: -2))),
+                Counted(count: OpponentFortitude, effect: Boost((applies_to: Any, duration: NextCard, fortitude: -1))),
             ],
         ),
         "Did I Just Say ... Three Minutes?": (
@@ -607,8 +606,9 @@
         "It's All About Control": (reverses_from_ring: Some((targets: Any, fortitude: Some(0), discard_cost: 3))),
 
         // Goldust
-        // Approximation: your opponent chooses the card.
-        "A Shattered Dreams Production": (end_of_prematch: [LookAtHand(who: Opponent), HandToArsenal(who: Opponent, n: 1)]),
+        "A Shattered Dreams Production": (
+            end_of_prematch: [LookAtHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller)],
+        ),
         "Shattered Dreams": (
             irreversible: true,
             play_after: Some(Title("Throw Into the Corner Turnbuckle")),

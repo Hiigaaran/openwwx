@@ -365,10 +365,96 @@
                 EndTurn,
             ],
         ),
-        "Do You Like Pie?": (requires: Some(Never)),
+        // Approximation: you choose which of the 3 cards goes into your hand (not your opponent).
+        "Do You Like Pie?": (
+            irreversible_when: Some(Superstar("The Rock")),
+            on_play: [
+                Search(filter: Any),
+                MoveCards(who: You, from: Arsenal, to: Ringside, n: 2, up_to: true, filter: Some(Any), pick: Controller),
+            ],
+        ),
         "Doing the Job": (requires: Some(Never)),
         "Go for the Cheap Pop!": (on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
-        "Predictable Opponent": (requires: Some(Never)),
+        "Predictable Opponent": (
+            requires: Some(
+                AnyOf([
+                    OpponentRingHas(filter: ManeuverType(Strike), n: 5),
+                    OpponentRingHas(filter: ManeuverType(Grapple), n: 5),
+                    OpponentRingHas(filter: ManeuverType(Submission), n: 5),
+                    OpponentRingHas(filter: ManeuverType(HighRisk), n: 5),
+                ]),
+            ),
+            on_play: [
+                Optional([
+                    Choice([
+                    [
+                        If(
+                            condition: OpponentRingHas(filter: ManeuverType(Strike), n: 5),
+                            effects: [
+                                MoveCards(
+                                    who: Opponent,
+                                    from: Arsenal,
+                                    to: Ringside,
+                                    n: 5,
+                                    up_to: true,
+                                    filter: Some(ManeuverType(Strike)),
+                                    pick: Controller,
+                                ),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: OpponentRingHas(filter: ManeuverType(Grapple), n: 5),
+                            effects: [
+                                MoveCards(
+                                    who: Opponent,
+                                    from: Arsenal,
+                                    to: Ringside,
+                                    n: 5,
+                                    up_to: true,
+                                    filter: Some(ManeuverType(Grapple)),
+                                    pick: Controller,
+                                ),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: OpponentRingHas(filter: ManeuverType(Submission), n: 5),
+                            effects: [
+                                MoveCards(
+                                    who: Opponent,
+                                    from: Arsenal,
+                                    to: Ringside,
+                                    n: 5,
+                                    up_to: true,
+                                    filter: Some(ManeuverType(Submission)),
+                                    pick: Controller,
+                                ),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: OpponentRingHas(filter: ManeuverType(HighRisk), n: 5),
+                            effects: [
+                                MoveCards(
+                                    who: Opponent,
+                                    from: Arsenal,
+                                    to: Ringside,
+                                    n: 5,
+                                    up_to: true,
+                                    filter: Some(ManeuverType(HighRisk)),
+                                    pick: Controller,
+                                ),
+                            ],
+                        ),
+                    ],
+                    ]),
+                ]),
+            ],
+        ),
         "Who Booked This Match?": (
             requires: Some(FortitudeBelowOpponent),
             on_play: [Choice([[Draw(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]])],

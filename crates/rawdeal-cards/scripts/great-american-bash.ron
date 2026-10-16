@@ -19,9 +19,8 @@
         "Lashley": [],
         "Ken Kennedy": [],
         // The opponent's part of the Draw Segment rule and taking the bottom card of the Arsenal are not supported yet.
-        // Approximation: the card put on the bottom of the Arsenal is chosen, not random.
         "Mickie James": [
-            StartOfTurn([HandToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)]),
+            StartOfTurn([MoveCards(who: You, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true), Draw(who: You, n: 1)]),
             DamageFor(filter: All([Maneuver, Holds(OpponentIs("Diva"))]), delta: 3),
         ],
         // Discarding to ignore "Can only be played" text and the Arsenal-only reversals are not supported yet.
@@ -30,7 +29,6 @@
             PacksLogos(["Rob Van Dam"]),
         ],
         // Enforcer opponents are not recognised.
-        // Approximation: the cards are shuffled into the Arsenal instead of put on the bottom.
         "The Ultimate Survivor": [
             EndOfPrematch([
                 If(
@@ -42,7 +40,7 @@
                             OpponentIs("Tag Team"),
                         ]),
                     ),
-                    effects: [Counted(count: OpponentValueTimes(1), effect: HandToArsenal(who: You, n: 0))],
+                    effects: [Counted(count: OpponentValueTimes(1), effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, bottom: true))],
                 ),
             ]),
             Activated(cost: [], effects: [Search(filter: All([SuperstarSpecific, Not(Reversal)]))]),
@@ -71,11 +69,10 @@
             ),
             PacksLogos(["The Spirit Squad"]),
         ],
-        // Approximation: the opponent chooses the 2 cards instead of picking them at random.
         "Mitch": [
             Activated(
                 cost: [DiscardMatching(who: You, n: 1, filter: Action, pick: Chosen), Mill(who: You, n: 1)],
-                effects: [HandToArsenalBottom(who: Opponent, n: 2)],
+                effects: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
             ),
             PacksLogos(["The Spirit Squad"]),
         ],
@@ -92,14 +89,13 @@
             on_play: [If(condition: PlayedFromRingside, effects: [Damage(who: Opponent, n: 3)])],
         ),
         "BASH Drop Kick": (play_after: Some(TitleContains("BASH"))),
-        // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "Technical Splash in the Corner": (
             play_after: Some(Any),
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(4),
                 on_play: [
-                    ShuffleThisIntoArsenal,
+                    ThisToArsenal(bottom: true),
                     RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller),
                 ],
             )),
@@ -175,13 +171,11 @@
                 effects: [ThisToArsenal(bottom: true), RemoveFromGame(who: Opponent, from: Ringside, n: 2, pick: Random)],
             )),
         ),
-        // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom, and the
-        // card taken from his Ring may be an F: 0 maneuver.
         "Technical Lunging Lariat": (
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(6),
-                on_play: [ShuffleThisIntoArsenal, RemoveFromRing(who: Opponent, n: 1, filter: Any)],
+                on_play: [ThisToArsenal(bottom: true), RemoveFromRing(who: Opponent, n: 1, filter: Not(All([Maneuver, FortitudeAtMost(0)])))],
             )),
         ),
         "Dynamic Gut Stomp": (
@@ -232,30 +226,28 @@
         // Approximation: it is used in your Main Segment while a maneuver is the last card you successfully played.
         "Leaping DDT": (ringside_ability: Some((requires: Some(After(Maneuver)), effects: [ThisToArsenal(bottom: true)]))),
         // Making the next maneuver Multi is not supported yet.
-        // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "Technical Monkey Flip": (
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(0),
                 on_play: [
-                    ShuffleThisIntoArsenal,
+                    ThisToArsenal(bottom: true),
                     Boost((applies_to: All([Maneuver, TitleContains("technical")]), duration: NextCard, stun_value: 1)),
                 ],
             )),
         ),
         "BASH Slam": (),
-        // Approximation: at most 3 Heat cards each way. In the second choice the Heat cards found go through your
-        // Ringside pile, and you choose which Heat cards there leave the game.
+        // Approximation: at most 3 Heat cards each way.
         "Quick Snap Suplex": (
             on_play: [
                 Choice([
                     [],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 1), effects: [RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Keyword("Heat"))), MillChosen(who: You, n: 1, filter: Some(Keyword("Heat")))])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 2), effects: [RemoveFromGame(who: You, from: Ringside, n: 2, filter: Some(Keyword("Heat"))), MillChosen(who: You, n: 2, filter: Some(Keyword("Heat")))])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 3), effects: [RemoveFromGame(who: You, from: Ringside, n: 3, filter: Some(Keyword("Heat"))), MillChosen(who: You, n: 3, filter: Some(Keyword("Heat")))])],
-                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 1), effects: [DiscardMatching(who: You, n: 1, filter: Keyword("Heat"), pick: Chosen), MillChosen(who: You, n: 1, filter: Some(Keyword("Heat"))), RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Keyword("Heat")))])],
-                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 2), effects: [DiscardMatching(who: You, n: 2, filter: Keyword("Heat"), pick: Chosen), MillChosen(who: You, n: 2, filter: Some(Keyword("Heat"))), RemoveFromGame(who: You, from: Ringside, n: 2, filter: Some(Keyword("Heat")))])],
-                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 3), effects: [DiscardMatching(who: You, n: 3, filter: Keyword("Heat"), pick: Chosen), MillChosen(who: You, n: 3, filter: Some(Keyword("Heat"))), RemoveFromGame(who: You, from: Ringside, n: 3, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 1), effects: [RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Keyword("Heat"))), MoveCards(who: You, from: Arsenal, to: Ringside, n: 1, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 2), effects: [RemoveFromGame(who: You, from: Ringside, n: 2, filter: Some(Keyword("Heat"))), MoveCards(who: You, from: Arsenal, to: Ringside, n: 2, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(Keyword("Heat")), n: 3), effects: [RemoveFromGame(who: You, from: Ringside, n: 3, filter: Some(Keyword("Heat"))), MoveCards(who: You, from: Arsenal, to: Ringside, n: 3, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 1), effects: [DiscardMatching(who: You, n: 1, filter: Keyword("Heat"), pick: Chosen), RemoveFromGame(who: You, from: Arsenal, n: 1, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 2), effects: [DiscardMatching(who: You, n: 2, filter: Keyword("Heat"), pick: Chosen), RemoveFromGame(who: You, from: Arsenal, n: 2, filter: Some(Keyword("Heat")))])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Keyword("Heat")), n: 3), effects: [DiscardMatching(who: You, n: 3, filter: Keyword("Heat"), pick: Chosen), RemoveFromGame(who: You, from: Arsenal, n: 3, filter: Some(Keyword("Heat")))])],
                 ]),
             ],
         ),
@@ -319,13 +311,11 @@
                 ),
             ],
         ),
-        // Approximation: as an action this card and the removed cards are shuffled into the Arsenal instead of put on
-        // the bottom.
         "Technical Bear Hug": (
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(10),
-                on_play: [ShuffleThisIntoArsenal, MoveCards(who: You, from: Removed, to: Arsenal, n: 2, up_to: true)],
+                on_play: [ThisToArsenal(bottom: true), MoveCards(who: You, from: Removed, to: Arsenal, n: 2, up_to: true, bottom: true)],
             )),
         ),
         // Approximation: the cards for less F are discarded instead of shuffled into the Arsenal.
@@ -433,11 +423,11 @@
         ),
         // Stacking, Headstrong and Eliminating cards are not supported yet.
         "Stay Away from Daivari": (requires: Some(Never)),
-        // Approximation: the other cards may be of any type and are shuffled into the Arsenal instead of put on the bottom.
+        // Approximation: the other cards (up to 5) may be of any type.
         "Give me an S ... Give me a P ... Give me an I ... Give me an R ... Give me an I ... Give me a T...": (
             on_play: [
                 RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique)))),
-                RingsideToArsenal(who: You, n: 5, up_to: true, filter: Some(Not(Trait(Unique)))),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, up_to: true, filter: Some(Not(Trait(Unique))), bottom: true),
             ],
         ),
         // Keeping cards under it is not supported yet.
@@ -503,7 +493,6 @@
             )),
         ),
         // Reversing from the Ring is not supported yet.
-        // Approximation: the Dynamic maneuver is shuffled into the Arsenal instead of put on the bottom.
         "The Luck of the Draw": (
             ring_ability: Some((
                 requires: Some(
@@ -528,7 +517,7 @@
                             If(
                                 condition: CountAtLeast(count: YourHandMatching(All([Maneuver, TitleContains("dynamic")])), n: 1),
                                 effects: [
-                                    MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(All([Maneuver, TitleContains("dynamic")]))),
+                                    MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(All([Maneuver, TitleContains("dynamic")])), bottom: true),
                                     Draw(who: You, n: 1),
                                     RingsideToArsenalBottom(who: You, n: 1),
                                 ],
@@ -561,9 +550,11 @@
         // Keeping cards under it is not supported yet.
         "A No Show": (requires: Some(Never)),
         "First of All": (),
-        // Title Belts, hybrid reversals and checking for a printed F: 0 maneuver are not supported yet.
+        // Its Pre-match side (Title Belts) is not supported yet; it is played as the Mid-match Action.
         "For the Love of The Game": (
             requires: Some(FortitudeBelowOpponent),
+            not_reversed_by: Some(All([Reversal, AnyOf([Maneuver, Action])])),
+            on_play: [Boost((applies_to: All([Maneuver, FortitudeAtMost(0)]), duration: NextCard, irreversible: true))],
             on_forced_discard: [Draw(who: You, n: 2)],
         ),
         // Triggers on the opponent's reversals are not supported yet.
@@ -641,9 +632,8 @@
             restricts_opponent: Some((filter: AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")]))),
             in_ring_opponent_start_of_turn: [Optional([SacrificeThis, EndTurn])],
         ),
-        // Approximation: the cards taken from his Ring may be F: 0 maneuvers.
         "The 8th Wonder of the World": (
-            on_play: [Mill(who: You, n: 8), RemoveFromRing(who: Opponent, n: 8, filter: Any)],
+            on_play: [Mill(who: You, n: 8), RemoveFromRing(who: Opponent, n: 8, filter: Not(All([Maneuver, FortitudeAtMost(0)])))],
             ring_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
             ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
@@ -654,12 +644,11 @@
         ),
 
         // Lashley
-        // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "The Real Hard Dominator": (
             play_after: Some(Maneuver),
             as_action: Some((
                 fortitude: Some(0),
-                on_play: [ShuffleThisIntoArsenal, RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))],
+                on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))],
             )),
         ),
         "The Elevator Lift": (
@@ -683,13 +672,8 @@
         ),
 
         // Ken Kennedy
-        // Approximation: the Reversal goes through his Ringside pile, and you choose which Reversal there leaves the
-        // game.
         "Mr. Kennedy's Mic": (
-            end_of_prematch: [
-                MillChosen(who: Opponent, n: 1, filter: Some(Reversal)),
-                RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal), pick: Controller),
-            ],
+            end_of_prematch: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Reversal), pick: Controller)],
             ring_ability: Some((sacrifice: true, effects: [Search(filter: Trait(Unique), n: 2, up_to: true)])),
         ),
         "The Kenton Bomb": (
@@ -740,32 +724,26 @@
                 fortitude_when: Some((FortitudeBelowOpponent, 0)),
             )),
         ),
-        // Approximation: he chooses the card instead of picking it at random.
         "Do You Love Me Now?": (
             reverses: Some((targets: All([Action, Not(Trait(Unique))]))),
-            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [HandToArsenalBottom(who: You, n: 1)])],
+            in_ring_on_play: [
+                (
+                    whose: Some(Opponent),
+                    filter: Action,
+                    effects: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)],
+                ),
+            ],
         ),
 
         // Rob Van Dam
         "Unscripted": (
-            requires: Some(
-                AnyOf([
-                    All([CountAtMost(count: YourRingSize, n: 0), CountAtLeast(count: OpponentRingMatching(Any), n: 1)]),
-                    All([CountAtMost(count: YourRingSize, n: 1), CountAtLeast(count: OpponentRingMatching(Any), n: 2)]),
-                    All([CountAtMost(count: YourRingSize, n: 2), CountAtLeast(count: OpponentRingMatching(Any), n: 3)]),
-                    All([CountAtMost(count: YourRingSize, n: 3), CountAtLeast(count: OpponentRingMatching(Any), n: 4)]),
-                    All([CountAtMost(count: YourRingSize, n: 4), CountAtLeast(count: OpponentRingMatching(Any), n: 5)]),
-                    All([CountAtMost(count: YourRingSize, n: 5), CountAtLeast(count: OpponentRingMatching(Any), n: 6)]),
-                    All([CountAtMost(count: YourRingSize, n: 6), CountAtLeast(count: OpponentRingMatching(Any), n: 7)]),
-                    All([CountAtMost(count: YourRingSize, n: 7), CountAtLeast(count: OpponentRingMatching(Any), n: 8)]),
-                ]),
-            ),
+            requires: Some(CountBelow(a: YourRingSize, b: OpponentRingMatching(Any))),
             end_of_prematch: [RemoveFromRing(who: Opponent, n: 1, filter: Any)],
         ),
-        // Removing the reversed card from the game is not supported yet.
         "The Fury of the Storm": (
             reverses: Some((
                 targets: Any,
+                reversed_removed: true,
                 requires: Some(FortitudeAboveOpponent),
                 effects: [
                     Choice([
@@ -863,9 +841,20 @@
                 effects: [Search(filter: Any, n: 2)],
             )),
         ),
-        // Winning with 3 copies in the Ring is not supported yet.
+        // Approximation: the win with 3 copies in the Ring is checked at the start of your turn, and it is a win by
+        // disqualification.
         "...And I'm Coming To Getcha!": (
             requires: Some(InYourRing(Title("I Am The Boogeyman..."))),
+            in_ring_start_of_turn: [
+                If(
+                    condition: All([
+                        CountAtLeast(count: YourRingMatching(Title("...And I'm Coming To Getcha!")), n: 3),
+                        FortitudeAtLeast(66),
+                        FortitudeLeadAtLeast(6),
+                    ]),
+                    effects: [WinGame],
+                ),
+            ],
             on_play: [RingsideToArsenal(who: You, n: 16, up_to: true)],
             reverses: Some((
                 targets: Not(Trait(Unique)),
@@ -962,9 +951,12 @@
             ],
             while_in_ring: [(applies_to: All([Action, Trait(Unique)]), reversal_fortitude: 5)],
         ),
-        // Approximation: he chooses the card instead of you.
         "The Art of Persuasion": (
-            on_play: [ShuffleThisIntoArsenal, LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)],
+            on_play: [
+                ShuffleThisIntoArsenal,
+                LookAtHand(who: Opponent),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
+            ],
             reverses: Some((
                 targets: AnyOf([ManeuverType(Strike), Action]),
                 fortitude: Some(3),
@@ -1046,22 +1038,22 @@
                 Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, no_hand_reversal: true)),
             ],
         ),
-        // Approximation: exactly 3 cards go to the bottom, and he chooses the cards from his hand, which are
-        // shuffled into his Arsenal.
         "Chloe: Best In Show": (
             on_play: [
-                RingsideToArsenalBottom(who: You, n: 3),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true),
                 LookAtHand(who: Opponent),
-                Counted(count: YourRingMatching(TitleContains("DDT")), effect: HandToArsenal(who: Opponent, n: 0)),
+                Counted(
+                    count: YourRingMatching(TitleContains("DDT")),
+                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 0, pick: Controller, bottom: true),
+                ),
             ],
         ),
         "I Ain't the Lady to Mess With": (
             reverses: Some((targets: All([Action, Not(Trait(Unique))]), effects: [Search(filter: SuperstarSpecific)])),
         ),
-        // Approximation: the card taken from his Ring may have any printed F.
         "Zero Tolerance: Kiss My Magnificent Ass": (
             on_play: [
-                Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
+                Optional([RemoveFromRing(who: Opponent, n: 1, filter: FortitudeAtMost(0))]),
                 Counted(
                     count: YourRingMatching(TitleContains("McMahon")),
                     effect: Boost((applies_to: Any, duration: NextCard, fortitude: -1, damage: 1)),
@@ -1104,7 +1096,6 @@
                 ),
             ],
         ),
-        // Approximation: the 'spinebuster' card is removed only when it is played as a maneuver from the Ringside pile.
         "Blindside Spinebuster": (
             from_ringside: Some(Always),
             before_reversal: [
@@ -1122,8 +1113,15 @@
             ],
             reverses: Some((
                 targets: Action,
-                from_hand_only: true,
-                requires: Some(CountAtLeast(count: YourRingsideMatching(Title("Blindside Spinebuster")), n: 1)),
+                ringside_only: true,
+                effects: [
+                    RemoveFromGame(
+                        who: You,
+                        from: Ringside,
+                        n: 1,
+                        filter: Some(AnyOf([TitleContains("spine buster"), TitleContains("spinebuster")])),
+                    ),
+                ],
             )),
         ),
         "Seen the Glory - Told the Story": (
@@ -1141,23 +1139,18 @@
         ),
         "Ground and Pound": (
             from_ringside: Some(CountAtLeast(count: YourRingsideMatching(All([Keyword("Heat"), Not(Title("Ground and Pound"))])), n: 5)),
-            reverses: Some((
-                targets: All([Maneuver, Not(Trait(Unique))]),
-                from_hand_only: true,
-                requires: Some(CountAtLeast(count: YourRingsideMatching(Title("Ground and Pound")), n: 1)),
-            )),
+            reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), ringside_only: true)),
         ),
-        // Approximation: at most 5 cards, and the top cards of your Arsenal are removed instead of cards you choose
-        // (the Ringside cards put on top are shuffled in first).
+        // Approximation: at most 5 cards (the Ringside cards put on top of the Arsenal are shuffled in first).
         "I Wish Monsoon Was Here": (
             on_play: [
                 Choice([
                     [],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: You, from: Arsenal, n: 1)])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: You, from: Arsenal, n: 2)])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: You, from: Arsenal, n: 3)])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: You, from: Arsenal, n: 4)])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: You, from: Arsenal, n: 5)])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: You, from: Arsenal, n: 1, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: You, from: Arsenal, n: 2, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: You, from: Arsenal, n: 3, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: You, from: Arsenal, n: 4, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: You, from: Arsenal, n: 5, filter: Some(Any))])],
                 ]),
                 Search(filter: Any),
             ],
@@ -1192,19 +1185,18 @@
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
         // Arsenal-only reversals for the first maneuvers of the game are not supported yet.
-        // Approximation: at most 5 cards, and the removed cards are shuffled into the Arsenal instead of put on the
-        // bottom.
+        // Approximation: at most 5 cards.
         "Backed by Virgil": (
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
                     Choice([
                             [],
-                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [RemoveFromGame(who: You, from: Ringside, n: 1), MoveCards(who: You, from: Removed, to: Arsenal, n: 1)])],
-                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [RemoveFromGame(who: You, from: Ringside, n: 2), MoveCards(who: You, from: Removed, to: Arsenal, n: 2)])],
-                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [RemoveFromGame(who: You, from: Ringside, n: 3), MoveCards(who: You, from: Removed, to: Arsenal, n: 3)])],
-                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [RemoveFromGame(who: You, from: Ringside, n: 4), MoveCards(who: You, from: Removed, to: Arsenal, n: 4)])],
-                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [RemoveFromGame(who: You, from: Ringside, n: 5), MoveCards(who: You, from: Removed, to: Arsenal, n: 5)])],
+                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [RemoveFromGame(who: You, from: Ringside, n: 1), MoveCards(who: You, from: Removed, to: Arsenal, n: 1, bottom: true)])],
+                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [RemoveFromGame(who: You, from: Ringside, n: 2), MoveCards(who: You, from: Removed, to: Arsenal, n: 2, bottom: true)])],
+                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [RemoveFromGame(who: You, from: Ringside, n: 3), MoveCards(who: You, from: Removed, to: Arsenal, n: 3, bottom: true)])],
+                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [RemoveFromGame(who: You, from: Ringside, n: 4), MoveCards(who: You, from: Removed, to: Arsenal, n: 4, bottom: true)])],
+                            [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [RemoveFromGame(who: You, from: Ringside, n: 5), MoveCards(who: You, from: Removed, to: Arsenal, n: 5, bottom: true)])],
                     ]),
                 ],
             )),

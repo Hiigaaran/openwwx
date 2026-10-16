@@ -102,6 +102,8 @@ const SET: &str = r#"(
             script: (reverses: Some((targets: Maneuver)), from_ringside: Some(Always))),
         (id: "m/sink", title: "Sink", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [ThisToArsenal(bottom: true)])),
+        (id: "m/float", title: "Float", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [ThisToArsenal(bottom: false)])),
         (id: "m/bury", title: "Bury", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Title("Hit")), bottom: true)])),
         (id: "m/behind", title: "Behind", kinds: [Action], fortitude: 0, damage: 0,
@@ -743,4 +745,14 @@ fn some_reversals_only_work_from_the_ringside_pile() {
     }
     apply(&e, &mut s, P2, Action::Reverse { card: ambush });
     assert!(s.player(P1).removed.contains(&hit));
+}
+
+#[test]
+fn a_played_card_can_go_on_top_of_the_arsenal() {
+    let e = engine();
+    let mut s = start(&e, "first", &["float"], "second", &[]);
+    let float = in_hand(&e, &s, P1, "float");
+    play(&e, &mut s, P1, "float");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).arsenal.last(), Some(&float));
 }

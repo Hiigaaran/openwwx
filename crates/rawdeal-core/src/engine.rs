@@ -276,7 +276,7 @@ impl Engine {
             start_after: [None; 2],
             end_turn_after_play: false,
             in_play_to: None,
-            in_play_bottom: false,
+            in_play_bottom: None,
             played_this_turn: vec![],
             reversed_last: [None; 2],
             restrictions: vec![],
@@ -524,7 +524,7 @@ impl Engine {
                 state.in_play = Some(played);
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
-                state.in_play_bottom = false;
+                state.in_play_bottom = None;
                 state.in_play_watch = state
                     .watches
                     .iter()
@@ -1008,8 +1008,12 @@ impl Engine {
             Step::ToRing => {
                 let played = state.in_play.take().expect("card in play");
                 match state.in_play_to.take() {
-                    Some(Zone::Arsenal) if std::mem::take(&mut state.in_play_bottom) => {
-                        self.move_card_to_bottom(state, played.card, events);
+                    Some(Zone::Arsenal) if state.in_play_bottom.is_some() => {
+                        if state.in_play_bottom.take() == Some(true) {
+                            self.move_card_to_bottom(state, played.card, events);
+                        } else {
+                            self.move_card(state, played.card, Zone::Arsenal, events);
+                        }
                     }
                     Some(Zone::Arsenal) => {
                         self.move_card(state, played.card, Zone::Arsenal, events);
@@ -1040,7 +1044,7 @@ impl Engine {
                 }
                 state.end_turn_after_play = false;
                 state.in_play_to = None;
-                state.in_play_bottom = false;
+                state.in_play_bottom = None;
                 for (owner, boost) in &mut state.boosts {
                     if let (true, Duration::Turns(n)) = (*owner == p, &mut boost.duration) {
                         *n = n.saturating_sub(1);
@@ -1310,8 +1314,15 @@ impl Engine {
             if let Some(watch) = state.in_play_watch.take() {
                 schedule_effects(state, &watch.on_reversed, played.player, Source::Card(played.card));
             }
-            let effects = self.def(state, card).script.reverses.as_ref().map(|s| s.effects.clone()).unwrap_or_default();
-            schedule_effects(state, &effects, player, Source::Card(card));
+            if let Some(spec) = self.def(state, card).script.reverses.clone() {
+                if spec.reversed_removed {
+                    state.in_play_to = Some(Zone::Removed);
+                }
+                if spec.removed_after {
+                    self.move_card(state, card, Zone::Removed, events);
+                }
+                schedule_effects(state, &spec.effects, player, Source::Card(card));
+            }
             schedule(state, [Step::ToRing, Step::StunDraw { player: played.player, max }]);
         } else if remaining > 1 {
             state.pending.push(Step::Overturn { player, remaining: remaining - 1, source });
@@ -1575,7 +1586,7 @@ impl Engine {
                     && state.in_play.is_some_and(|p| p.card == c)
                 {
                     state.in_play_to = Some(Zone::Arsenal);
-                    state.in_play_bottom = bottom;
+                    state.in_play_bottom = Some(bottom);
                 } else if let Source::Card(c) = source
                     && !matches!(state.card(c).zone, Zone::InPlay | Zone::Removed)
                 {

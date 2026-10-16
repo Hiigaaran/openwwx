@@ -46,7 +46,6 @@
                 effects: [HandToArsenalTop(who: You, n: 2), Search(filter: Reversal)],
             ),
         ],
-        // Approximation: the opponent chooses the card he puts on the bottom of his Arsenal.
         "Heidenreich": [
             Activated(
                 cost: [Discard(who: You, n: 2, pick: Chosen)],
@@ -54,7 +53,12 @@
             ),
             OnPlayMatching(
                 filter: All([Maneuver, AnyOf([Keyword("Foreign Object"), TitleContains("punch")])]),
-                effects: [Optional([LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)])],
+                effects: [
+                    Optional([
+                        LookAtHand(who: Opponent),
+                        MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
+                    ]),
+                ],
             ),
         ],
         // The rule that removes Heat cards moved from the Ringside pile is not modelled, so his ability has
@@ -131,13 +135,12 @@
             play_after: Some(All([Maneuver, DamageAtLeast(2)])),
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -2)],
         ),
-        // Approximation: the card is shuffled into the Arsenal instead of put on the bottom. Tag Team is not
-        // supported yet.
+        // The Tag Team format is not supported yet.
         "Missile Dropkick": (
             play_after: Some(All([Maneuver, DamageAtLeast(3)])),
             as_action: Some((
                 fortitude: Some(0),
-                on_play: [ShuffleThisIntoArsenal, RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Keyword("Volley")])))],
+                on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Keyword("Volley")])))],
             )),
         ),
         "Shooting Star Press": (
@@ -289,8 +292,9 @@
             reverses: Some((targets: All([Maneuver, TitleContains("suplex")]))),
         ),
         "Pendulum Back Breaker": (bonuses: [(when: FortitudeBelowOpponent, fortitude: -5)]),
-        // Approximation: the opponent chooses the card he puts on the bottom of his Arsenal.
-        "Powerbomb": (on_play: [LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)]),
+        "Powerbomb": (
+            on_play: [LookAtHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+        ),
         // Approximation: you always remove as many cards as you can (up to 2).
         "Full Nelson Slam": (
             bonuses: [(when: Not(HandAtLeast(2)), damage: -2), (when: Not(HandAtLeast(3)), damage: -2)],
@@ -374,12 +378,11 @@
             fortitude_discount: Some((per: 2, max: 5)),
             on_play: [RingsideToArsenal(who: You, n: 1), Draw(who: You, n: 1)],
         ),
-        // Approximation: the card is shuffled into the Arsenal instead of put on the bottom.
         "Torture Rack": (
             play_after: Some(Any),
             as_action: Some((
                 fortitude: Some(0),
-                on_play: [ShuffleThisIntoArsenal, RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, FortitudeAtMost(0)])))],
+                on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, FortitudeAtMost(0)])))],
             )),
         ),
         "Choke Hold": (before_reversal: [RemoveFromGame(who: You, from: Arsenal, n: 1)]),
@@ -460,12 +463,11 @@
             ],
         ),
         "Not Yet": (on_play: [HandToArsenalBottom(who: You, n: 1), Dig(n: 10, take: 2)]),
-        // Approximation: every card you removed from the game counts, not just Heat cards.
         "Afterburn": (
             on_play: [Choice([[Draw(who: You, n: 1)], [Discard(who: You, n: 1, pick: Chosen)]])],
             ring_ability: Some((
                 cost: [DiscardMatching(who: You, n: 1, filter: Keyword("Heat"), pick: Chosen)],
-                effects: [Counted(count: YourRemoved, effect: Mill(who: Opponent, n: 0))],
+                effects: [Counted(count: YourRemovedMatching(Keyword("Heat")), effect: Mill(who: Opponent, n: 0))],
                 not_turn_played: true,
             )),
         ),
@@ -543,8 +545,7 @@
         ),
         // Naming a maneuver is not supported yet.
         "Lilian: Amazing Announcer": (requires: Some(Never)),
-        // Approximation: always as many cards as possible, up to 12.
-        "Candice: Internet Icon": (on_play: [RingsideToArsenalBottom(who: You, n: 12)]),
+        "Candice: Internet Icon": (on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 12, up_to: true, bottom: true)]),
 
         // Pre-match
         // The extra Pre-match slot for Female Superstars and Val Venis is not supported yet.
@@ -609,7 +610,6 @@
         ),
         // Backstage cards are not supported yet, so only the action part works.
         "Backstage Shenanigans": (on_play: [Draw(who: You, n: 2)]),
-        // Approximation: the opponent chooses the card he puts on the bottom of his Arsenal.
         "Pyrotechnic Volley": (
             end_of_prematch: [
                 If(
@@ -618,7 +618,7 @@
                         Optional([
                             DiscardMatching(who: You, n: 1, filter: All([Maneuver, Keyword("Volley")]), pick: Chosen),
                             LookAtHand(who: Opponent),
-                            HandToArsenalBottom(who: Opponent, n: 1),
+                            MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
                         ]),
                     ],
                 ),
@@ -773,12 +773,13 @@
                 ],
             )),
         ),
-        // Approximation: the card is shuffled into the Arsenal instead of put on the bottom, and 2 Ringside cards
-        // always go with it when possible.
         "Batista Bomb": (
             play_after: Some(Any),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
-            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, RingsideToArsenalBottom(who: You, n: 2)])),
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [ThisToArsenal(bottom: true), MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
+            )),
         ),
         "The Animal": (
             reverses: Some((
@@ -927,15 +928,27 @@
         ),
 
         // SmackDown! GM Theodore Long
-        // Approximation: always as many cards as you choose from 1 to 3; the opponent chooses his cards.
         "Haterade": (
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
                     Choice([
-                        [HandToArsenalBottom(who: You, n: 1), LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)],
-                        [HandToArsenalBottom(who: You, n: 2), LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 2)],
-                        [HandToArsenalBottom(who: You, n: 3), LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 3)],
+                        [],
+                        [
+                            HandToArsenalBottom(who: You, n: 1),
+                            LookAtHand(who: Opponent),
+                            MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
+                        ],
+                        [
+                            HandToArsenalBottom(who: You, n: 2),
+                            LookAtHand(who: Opponent),
+                            MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Controller, bottom: true),
+                        ],
+                        [
+                            HandToArsenalBottom(who: You, n: 3),
+                            LookAtHand(who: Opponent),
+                            MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 3, pick: Controller, bottom: true),
+                        ],
                     ]),
                 ],
             )),
@@ -1171,14 +1184,20 @@
                 effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, irreversible: true))],
             )),
         ),
-        // Approximation: any card from the Ringside pile can go to the bottom of the Arsenal.
         "Educated Hands": (
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("chop")]), damage: 1)],
             in_ring_on_play: [
                 (
                     whose: Some(You),
                     filter: All([Maneuver, TitleContains("chop")]),
-                    effects: [Optional([Choice([[Draw(who: You, n: 1)], [RingsideToArsenalBottom(who: You, n: 1)]])])],
+                    effects: [
+                        Optional([
+                            Choice([
+                                [Draw(who: You, n: 1)],
+                                [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(SuperstarSpecific), bottom: true)],
+                            ]),
+                        ]),
+                    ],
                 ),
             ],
         ),
@@ -1228,11 +1247,10 @@
                 BoostOpponent((applies_to: Any, duration: NextTurnFirstCard, fortitude: -6, reversal_fortitude: 15)),
             ],
         ),
-        // Approximation: the card is shuffled into the Arsenal instead of put on the bottom. The Managed by Stevie
-        // Richards option is not supported yet.
+        // The Managed by Stevie Richards option is not supported yet.
         "Spider Web Moonsault": (
             play_after: Some(Any),
-            as_action: Some((on_play: [ShuffleThisIntoArsenal, Draw(who: You, n: 2)])),
+            as_action: Some((on_play: [ThisToArsenal(bottom: true), Draw(who: You, n: 2)])),
         ),
         // Over Sell Maneuver cannot be played yet, so its restriction needs nothing.
         "Girly Grab": (
@@ -1261,10 +1279,14 @@
                 AsOpponent([If(condition: Not(OpponentFemale), effects: [AsOpponent([Optional([Draw(who: You, n: 1)])])])]),
             ],
         ),
-        // Approximation: the opponent chooses his card instead of at random. Title Belts are not supported yet.
+        // Title Belts are not supported yet.
         "Hardcore Originator of ECW": (
             in_ring_on_play: [
-                (whose: Some(You), filter: Maneuver, effects: [HandToArsenalBottom(who: Opponent, n: 1)]),
+                (
+                    whose: Some(You),
+                    filter: Maneuver,
+                    effects: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)],
+                ),
                 (whose: Some(Opponent), filter: Maneuver, effects: [HandToArsenalBottom(who: Opponent, n: 1)]),
             ],
         ),
@@ -1295,10 +1317,9 @@
             on_play: [Search(filter: Not(Trait(Unique)))],
             ring_ability: Some((effects: [ThisToArsenal(bottom: true), Draw(who: You, n: 1)])),
         ),
-        // Approximation: the card is shuffled into the Arsenal instead of put on the bottom.
         "Le Bonsoir": (
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]))),
-            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, RingsideToHand(who: You, n: 1)])),
+            as_action: Some((fortitude: Some(0), on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1)])),
         ),
     },
 )
