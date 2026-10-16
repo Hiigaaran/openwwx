@@ -224,7 +224,7 @@ impl Engine {
                 ids.iter()
                     .map(|id| {
                         let def = self.db.card_by_id(id).ok_or_else(|| SetupError::UnknownCard(id.clone()))?;
-                        cards.push(CardInstance { def, owner: player, zone });
+                        cards.push(CardInstance { def, owner: player, zone, host: None });
                         Ok(CardId(cards.len() as u16 - 1))
                     })
                     .collect()
@@ -247,6 +247,7 @@ impl Engine {
                 ringside: vec![],
                 backlash,
                 removed: vec![],
+                under: vec![],
                 ability_used: false,
             });
         }
@@ -372,6 +373,7 @@ impl Engine {
                     .iter()
                     .chain(&me.backlash)
                     .chain(me.ringside.iter().filter(|&&c| self.def(state, c).script.from_ringside.is_some()))
+                    .chain(&me.under)
                     .flat_map(|&card| {
                         self.def(state, card)
                             .kinds
@@ -799,6 +801,17 @@ impl Engine {
                     self.shuffle_arsenal(state, owner, events);
                 }
             }
+            ChoicePurpose::PutUnder(host) => {
+                let mut searched = false;
+                for c in chosen {
+                    searched |= state.card(c).zone == Zone::Arsenal;
+                    self.move_card(state, c, Zone::Under, events);
+                    state.cards[c.0 as usize].host = Some(host);
+                }
+                if searched {
+                    self.shuffle_arsenal(state, p, events);
+                }
+            }
             ChoicePurpose::RingsideToArsenal => {
                 for c in chosen {
                     self.move_card(state, c, Zone::Arsenal, events);
@@ -902,6 +915,7 @@ impl Engine {
                     .iter()
                     .chain(me.backlash.iter().filter(|&&c| self.def(state, c).has_trait(Trait::MidMatch)))
                     .chain(me.ringside.iter().filter(|c| from_ringside(c)))
+                    .chain(me.under.iter().filter(|&&c| self.playable_from_under(state, defender, c)))
                     .copied()
                     .filter(|&r| {
                         self.can_reverse(state, defender, r, played, true)
@@ -2015,6 +2029,34 @@ impl Engine {
                 let n = (hand.len().min(u8::MAX as usize) as u8).max(min);
                 self.draw(state, controller, n, events);
             }
+            Effect::PutUnder { from, n, up_to, filter } => {
+                let Source::Card(host) = source else { return };
+                let p = controller;
+                if from == Zone::Arsenal && filter.is_none() {
+                    let top: Vec<CardId> = state.player(p).arsenal.iter().rev().take(n as usize).copied().collect();
+                    self.answer_choice(state, p, ChoicePurpose::PutUnder(host), top, events);
+                    return;
+                }
+                let mut options = state.player(p).zone(from).to_vec();
+                options.retain(|&c| c != host);
+                if let Some(f) = &filter {
+                    options.retain(|&c| self.matches_def(state, f, c, controller));
+                }
+                ask(state, p, options, n, up_to, ChoicePurpose::PutUnder(host));
+            }
+            Effect::TakeFromUnder { to, n, up_to, filter } => {
+                let Source::Card(host) = source else { return };
+                let mut options = self.under(state, host);
+                if let Some(f) = &filter {
+                    options.retain(|&c| self.matches_def(state, f, c, controller));
+                }
+                ask(state, controller, options, n, up_to, ChoicePurpose::MoveTo(to));
+            }
+            Effect::AllFromUnder { to } => {
+                let Source::Card(host) = source else { return };
+                let cards = self.under(state, host);
+                self.answer_choice(state, controller, ChoicePurpose::MoveTo(to), cards, events);
+            }
             Effect::ReversedCardTo { to, bottom } => {
                 let Some(reversed) = state.reversed_last[controller.opponent().index()] else { return };
                 let c = reversed.card;
@@ -2114,6 +2156,7 @@ impl Engine {
             Count::AtMost(c, max) => self.count(state, p, *c).min(max) as usize,
             Count::Plus(a, b) => self.count(state, p, *a) as usize + self.count(state, p, *b) as usize,
             Count::Const(n) => n as usize,
+            Count::YourUnderSize => state.player(p).under.len(),
             Count::OpponentReversedFortitude => {
                 state.reversed_last[p.opponent().index()].map_or(0, |r| self.def(state, r.card).fortitude as usize)
             }
@@ -2164,6 +2207,7 @@ impl Engine {
                 Zone::Hand => true,
                 Zone::Backlash => def.has_trait(Trait::MidMatch),
                 Zone::Ringside => def.script.from_ringside.as_ref().is_some_and(|c| self.holds(state, c, player)),
+                Zone::Under => self.playable_from_under(state, player, card),
                 _ => false,
             };
         let as_action = def.script.as_action.as_ref().filter(|_| kind == CardKind::Action);
@@ -2933,6 +2977,25 @@ impl Engine {
     }
 
     /// Moves `card` to the top of `to` in its owner's areas.
+    /// The cards under `host`, in the order they were put there.
+    fn under(&self, state: &GameState, host: CardId) -> Vec<CardId> {
+        let owner = state.card(host).owner;
+        state.player(owner).under.iter().copied().filter(|&c| state.card(c).host == Some(host)).collect()
+    }
+
+    /// Can `card`, under one of `player`'s cards, be played as if in hand?
+    fn playable_from_under(&self, state: &GameState, player: PlayerId, card: CardId) -> bool {
+        let Some(host) = state.card(card).host else { return false };
+        state.card(host).zone == Zone::Ring
+            && state.card(host).owner == player
+            && self
+                .def(state, host)
+                .script
+                .play_from_under
+                .as_ref()
+                .is_some_and(|f| self.matches_def(state, f, card, player))
+    }
+
     fn move_card(&self, state: &mut GameState, card: CardId, to: Zone, events: &mut Vec<Event>) {
         let CardInstance { owner, zone: from, .. } = *state.card(card);
         // InPlay has no list: it is tracked by `GameState::in_play`.
@@ -2944,8 +3007,22 @@ impl Engine {
             list.push(card);
         }
         state.cards[card.0 as usize].zone = to;
+        state.cards[card.0 as usize].host = None;
         if from == Zone::Ring {
             state.lapsed.retain(|&c| c != card);
+        }
+        // Cards under a card that leaves play go with it (default: Ringside).
+        if matches!(from, Zone::Ring | Zone::InPlay) && !matches!(to, Zone::Ring | Zone::InPlay) {
+            let under = self.under(state, card);
+            if !under.is_empty() {
+                let dest = self.def(state, card).script.under_to.unwrap_or(Zone::Ringside);
+                for c in under {
+                    self.move_card(state, c, dest, events);
+                }
+                if dest == Zone::Arsenal {
+                    self.shuffle_arsenal(state, owner, events);
+                }
+            }
         }
         if to != Zone::InPlay {
             events.push(Event::CardMoved { player: owner, card: Some(card), from, to });

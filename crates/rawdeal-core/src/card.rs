@@ -362,6 +362,14 @@ pub struct CardScript {
     /// pile (once per turn).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ringside_ability: Option<RingAbility>,
+    /// While this card is in your Ring, the cards under it that match may be
+    /// played as if they were in your hand (also as Reversals).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub play_from_under: Option<CardFilter>,
+    /// Where the cards under this card go when it leaves your Ring (default
+    /// your Ringside pile).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub under_to: Option<crate::state::Zone>,
     /// Effects when an effect your opponent controls takes this card out of your Ring.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_removed_by_opponent: Vec<Effect>,
@@ -913,6 +921,8 @@ pub enum Count {
     Const(u8),
     /// Printed F of the card of yours your opponent just reversed.
     OpponentReversedFortitude,
+    /// Cards under your cards (all of them).
+    YourUnderSize,
 }
 
 /// What happens after burying a hand.
@@ -1103,6 +1113,32 @@ pub enum Effect {
         /// Into the Arsenal: on top, not shuffled in.
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         top: bool,
+    },
+    /// Put `n` of your cards under the card whose effect this is (it can be
+    /// the card being played). From the Arsenal the top cards go, unless there
+    /// is a `filter`: then you choose matching cards (a search) and the Arsenal
+    /// is shuffled. From the hand or Ringside pile you choose.
+    PutUnder {
+        from: crate::state::Zone,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
+    },
+    /// Move `n` cards you choose from under the card whose effect this is to
+    /// `to` (Arsenal: shuffled in).
+    TakeFromUnder {
+        to: crate::state::Zone,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
+    },
+    /// Every card under the card whose effect this is moves to `to`.
+    AllFromUnder {
+        to: crate::state::Zone,
     },
     /// The card of yours your opponent just reversed moves to `to` (on the
     /// bottom of the Arsenal with `bottom`, else shuffled in), from wherever

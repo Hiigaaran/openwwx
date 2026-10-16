@@ -64,6 +64,7 @@ impl PlayerView {
             .flat_map(|p| p.ring.iter().chain(&p.ringside))
             .chain(&hand)
             .chain(&backlash)
+            .chain(&state.player(me).under)
             .chain(opponent_hand.iter().flatten())
             .chain(state.in_play.as_ref().map(|p| &p.card));
         // Cards you are asked to choose from (an opponent's hand, the top of an

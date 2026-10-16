@@ -45,6 +45,8 @@ pub enum ChoicePurpose {
     Arrange,
     RingsideToHand,
     RingsideToArsenal,
+    /// Put under the card (`host`).
+    PutUnder(crate::state::CardId),
     /// The picked cards are removed from the game.
     RemoveFromGame,
     /// The picked cards move to this zone of their owner's.

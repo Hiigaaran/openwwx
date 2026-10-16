@@ -475,6 +475,10 @@ impl Match {
         if removed > 0 {
             ui.small(format!("Fuera del juego: {removed}"));
         }
+        let under = self.state.player(p).under.len();
+        if under > 0 {
+            ui.small(format!("Debajo de cartas: {under}"));
+        }
     }
 
     fn superstar_card(&self, ui: &mut Ui, view: &PlayerView, p: PlayerId) {
@@ -629,6 +633,17 @@ impl Match {
                             chosen = Some(a.clone());
                         }
                     }
+                    if let Action::PlayCard { card, kind } = a
+                        && self.state.card(*card).zone == Zone::Under
+                    {
+                        let def = self.def_of(*card);
+                        let host =
+                            self.state.card(*card).host.map(|h| self.def_of(h).title.clone()).unwrap_or_default();
+                        let label = format!("Jugar {} de debajo de {} ({})", def.title, host, text::kind(*kind));
+                        if ui.button(label).on_hover_text(&def.text).clicked() {
+                            chosen = Some(a.clone());
+                        }
+                    }
                     if let Action::UseRingCard { card } = a {
                         let def = self.def_of(*card);
                         if ui.button(format!("Usar {}", def.title)).on_hover_text(&def.text).clicked() {
@@ -647,6 +662,18 @@ impl Match {
                 );
                 // Cards in your Ring that can be sent to the Ringside pile to reverse.
                 for a in legal {
+                    if let Action::Reverse { card } = a
+                        && self.state.card(*card).zone == Zone::Under
+                    {
+                        let def = self.def_of(*card);
+                        if ui
+                            .button(format!("Revertir con {} (de debajo de una carta)", def.title))
+                            .on_hover_text(&def.text)
+                            .clicked()
+                        {
+                            chosen = Some(a.clone());
+                        }
+                    }
                     if let Action::Reverse { card } = a
                         && view.me_public().ring.contains(card)
                     {

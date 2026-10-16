@@ -115,6 +115,8 @@ const SET: &str = r#"(
         (id: "m/margin", title: "Margin", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [If(condition: CountAtLeast(count: Minus(OpponentHandSize, HandSize), n: 1),
                 effects: [Draw(who: You, n: 1)])])),
+        (id: "m/stash", title: "Stash", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [PutUnder(from: Hand, n: 1)], play_from_under: Some(Any))),
         (id: "m/bury", title: "Bury", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Title("Hit")), bottom: true)])),
         (id: "m/behind", title: "Behind", kinds: [Action], fortitude: 0, damage: 0,
@@ -825,4 +827,29 @@ fn reversing_can_trigger_your_own_cards() {
     // The Counter left the hand, the ability drew 1 back, and P2's own turn
     // drew 1 more.
     assert_eq!(s.player(P2).hand.len(), before + 1);
+}
+
+#[test]
+fn cards_under_a_card_can_be_played_and_follow_it_out() {
+    let e = engine();
+    let mut s = start(&e, "first", &["stash", "hit", "hit"], "second", &["sweep"]);
+    let stash = in_hand(&e, &s, P1, "stash");
+    play(&e, &mut s, P1, "stash");
+    no_reversal(&e, &mut s);
+    let hits: Vec<CardId> =
+        s.player(P1).hand.iter().copied().filter(|&c| e.db().card(s.card(c).def).id == "m/hit").collect();
+    apply(&e, &mut s, P1, Action::ChooseCards(vec![hits[0]]));
+    assert_eq!(s.card(hits[0]).zone, Zone::Under);
+    assert_eq!(s.card(hits[0]).host, Some(stash));
+    let action = Action::PlayCard { card: hits[0], kind: CardKind::Maneuver(ManeuverType::Strike) };
+    assert!(e.legal_actions(&s, P1).contains(&action));
+    // The opponent sweeps the Stash away: the Hit under it goes too.
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P2, "sweep");
+    if let Some(Decision { kind: DecisionKind::ChooseCards { .. }, player }) = s.decision.clone() {
+        apply(&e, &mut s, player, Action::ChooseCards(vec![stash]));
+    }
+    no_reversal(&e, &mut s);
+    assert_eq!(s.card(stash).zone, Zone::Ringside);
+    assert_eq!(s.card(hits[0]).zone, Zone::Ringside);
 }

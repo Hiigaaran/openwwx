@@ -86,14 +86,23 @@ impl Display {
                 }
             },
             Zone::InPlay => self.in_play = None,
-            Zone::Removed => {}
+            Zone::Removed | Zone::Under => {}
         }
     }
 
     /// Takes a card being played from wherever it is in `p`'s hand or Backlash.
     pub fn take_played(&mut self, p: PlayerId, card: CardId) {
         let side = &self.sides[p.index()];
-        let zone = if side.backlash.contains(&Some(card)) { Zone::Backlash } else { Zone::Hand };
+        let zone = if side.ringside.contains(&card) {
+            Zone::Ringside
+        } else if side.backlash.contains(&Some(card)) {
+            Zone::Backlash
+        } else if side.hand.contains(&Some(card)) || side.hand.contains(&None) {
+            Zone::Hand
+        } else {
+            // Played from under another card: not on the board.
+            return;
+        };
         self.take(p, zone, Some(card));
     }
 
@@ -106,7 +115,7 @@ impl Display {
             Zone::Ring => side.ring.extend(card),
             Zone::Ringside => side.ringside.extend(card),
             Zone::InPlay => self.in_play = card.map(|c| (c, p)),
-            Zone::Removed => {}
+            Zone::Removed | Zone::Under => {}
         }
     }
 }
@@ -154,6 +163,7 @@ impl Layout {
             Zone::Arsenal | Zone::Backlash => self.arsenal[i],
             Zone::Ringside | Zone::Removed => self.ringside[i],
             Zone::InPlay => self.in_play,
+            Zone::Under => self.ring[i],
             Zone::Ring => after_last(&mut d.sides[i].ring.iter().copied(), self.ring[i]),
             Zone::Hand => after_last(&mut d.sides[i].hand.iter().flatten().copied(), self.hand[i]),
         }
@@ -169,7 +179,7 @@ impl Layout {
             Zone::Arsenal | Zone::Backlash => self.arsenal[i],
             Zone::Ringside | Zone::Removed => self.ringside[i],
             Zone::InPlay => self.in_play,
-            Zone::Ring => Rect::from_min_size(self.ring[i].min, size),
+            Zone::Ring | Zone::Under => Rect::from_min_size(self.ring[i].min, size),
             Zone::Hand => Rect::from_center_size(self.hand[i].center(), size),
         }
     }

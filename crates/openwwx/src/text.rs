@@ -187,6 +187,11 @@ pub fn effect(e: &Effect) -> String {
             };
             format!("pasa {} de {} a {} ({})", cards(*n), zone(*from), place, who(*w))
         }
+        Effect::PutUnder { from, n, .. } => format!("pon {} de {} debajo de esta carta", cards(*n), zone(*from)),
+        Effect::TakeFromUnder { to, n, .. } => {
+            format!("pasa {} de debajo de esta carta a {}", cards(*n), zone(*to))
+        }
+        Effect::AllFromUnder { to } => format!("pasa las cartas de debajo de esta carta a {}", zone(*to)),
         Effect::ReversedCardTo { to, bottom } => {
             let place = if *bottom { "debajo del Arsenal".to_string() } else { zone(*to).to_string() };
             format!("la carta que te revirtieron pasa a {place}")
@@ -293,6 +298,7 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::RemoveFromGame => "para retirar del juego",
         ChoicePurpose::ToArsenalBottom => "para poner debajo del Arsenal",
         ChoicePurpose::ToArsenalTop => "para poner encima del Arsenal",
+        ChoicePurpose::PutUnder(_) => "para poner debajo de la carta",
         ChoicePurpose::MoveTo(Zone::Hand) => "para poner en la mano",
         ChoicePurpose::MoveTo(Zone::Ring) => "para poner en el Ring",
         ChoicePurpose::MoveTo(Zone::Arsenal) => "para barajar en el Arsenal",
@@ -330,6 +336,7 @@ fn zone(z: Zone) -> &'static str {
         Zone::Ringside => "Ringside",
         Zone::Backlash => "Backlash",
         Zone::Removed => "fuera del juego",
+        Zone::Under => "debajo de una carta",
         Zone::InPlay => "juego",
     }
 }

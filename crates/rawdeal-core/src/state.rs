@@ -53,6 +53,9 @@ pub enum Zone {
     Removed,
     /// Being played: waiting for reversals and resolution.
     InPlay,
+    /// Under another card of the same player (`CardInstance::host`). Hidden
+    /// from the opponent.
+    Under,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -60,6 +63,9 @@ pub struct CardInstance {
     pub def: DefIdx,
     pub owner: PlayerId,
     pub zone: Zone,
+    /// With `zone` = `Under`, the card this one is under.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<CardId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,6 +83,9 @@ pub struct PlayerState {
     /// Cards removed from the game, in the order they were removed.
     #[serde(default)]
     pub removed: Vec<CardId>,
+    /// Cards put under other cards (see `CardInstance::host`).
+    #[serde(default)]
+    pub under: Vec<CardId>,
     /// The Superstar's activated ability was used this turn.
     pub ability_used: bool,
 }
@@ -90,6 +99,7 @@ impl PlayerState {
             Zone::Ringside => &self.ringside,
             Zone::Backlash => &self.backlash,
             Zone::Removed => &self.removed,
+            Zone::Under => &self.under,
             Zone::InPlay => &[],
         }
     }
@@ -102,6 +112,7 @@ impl PlayerState {
             Zone::Ringside => Some(&mut self.ringside),
             Zone::Backlash => Some(&mut self.backlash),
             Zone::Removed => Some(&mut self.removed),
+            Zone::Under => Some(&mut self.under),
             Zone::InPlay => None,
         }
     }
@@ -293,7 +304,9 @@ impl GameState {
     pub fn check_invariants(&self) -> Result<(), String> {
         let mut seen = vec![0u8; self.cards.len()];
         for (pi, p) in self.players.iter().enumerate() {
-            for zone in [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside, Zone::Backlash, Zone::Removed] {
+            for zone in
+                [Zone::Arsenal, Zone::Hand, Zone::Ring, Zone::Ringside, Zone::Backlash, Zone::Removed, Zone::Under]
+            {
                 for &c in p.zone(zone) {
                     let inst = self.card(c);
                     if inst.zone != zone {
