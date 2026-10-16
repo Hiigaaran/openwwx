@@ -2,7 +2,7 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Backstage, "Trademark Finisher: Run-In" and "Action: Movie" cards are skipped by the importer.
-// Keeping cards under other cards and the Volley rules are not supported yet.
+// The Volley rules are not supported yet.
 (
     abilities: {
         // Burying a card at the end of the opponent's turn and the 40 extra Arsenal cards are not supported yet.
@@ -430,8 +430,13 @@
                 MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, up_to: true, filter: Some(Not(Trait(Unique))), bottom: true),
             ],
         ),
-        // Keeping cards under it is not supported yet.
-        "Hide and Seek": (requires: Some(Never)),
+        // Removing a card with the same title from the opponent's hand or Arsenal is not supported yet, so its second
+        // ability is left out.
+        "Hide and Seek": (
+            ring_ability: Some((requires: Some(HandAtLeast(1)), effects: [PutUnder(from: Hand, n: 1)])),
+            play_from_under: Some(Any),
+            under_to: Some(Hand),
+        ),
         "Blindsided by the Dangerous Divas": (
             requires: Some(CountAtLeast(count: YourRingMatching(TitleContains("blindside")), n: 2)),
             from_ringside: Some(Always),
@@ -545,8 +550,16 @@
             restricts_self: Some((filter: All([Action, Not(SuperstarSpecific), Not(Trait(SetUp)), SameTitleInRing]))),
             restricts_opponent: Some((filter: All([Action, Not(SuperstarSpecific), Not(Trait(SetUp)), SameTitleInRing]))),
         ),
-        // Keeping cards under it is not supported yet.
-        "A No Show": (requires: Some(Never)),
+        // Approximation: it resolves at the end of the whole Pre-match phase, and two Heel cards with the same title both
+        // go to your hand. Playing a Pre-match Event afterwards is not supported yet.
+        "A No Show": (
+            on_play: [PutUnder(from: Arsenal, n: 2, filter: Some(Any))],
+            end_of_prematch: [
+                TakeFromUnder(to: Hand, n: 2, filter: Some(Trait(Heel))),
+                AllFromUnder(to: Removed),
+                ReturnThis(to: Backlash),
+            ],
+        ),
         "First of All": (),
         // Its Pre-match side (Title Belts) is not supported yet; it is played as the Mid-match Action.
         "For the Love of The Game": (
@@ -703,8 +716,16 @@
         ),
 
         // Mickie James
-        // Keeping cards under it is not supported yet.
-        "You Think I'm a Psycho?": (requires: Some(Never)),
+        // Approximation: a card goes under it only at the start of your turn, before your Draw Segment. The overturn
+        // counts the cards under all of your cards (exact while it is the only card with cards under it).
+        "You Think I'm a Psycho?": (
+            in_ring_start_of_turn: [Optional([PutUnder(from: Hand, n: 1)])],
+            play_from_under: Some(Any),
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourUnderSize, n: 1)),
+                effects: [Counted(count: Plus(YourUnderSize, YourUnderSize), effect: Mill(who: Opponent, n: 0)), SacrificeThis],
+            )),
+        ),
         // Approximation: the cards come from the top of the Arsenal instead of the bottom.
         "Mick Kick": (
             on_play: [
@@ -947,8 +968,15 @@
         ),
         // Titles starting with 'R' and lowering its F per Superstar-specific card are not supported yet.
         "The Rated R Superstar": (reverses: Some((targets: Action))),
-        // Keeping cards under it is not supported yet.
-        "You Won't See It Coming...": (requires: Some(Never), reverses: Some((targets: ManeuverType(Submission)))),
+        // The Arsenal search is left out when it is overturned for damage.
+        "You Won't See It Coming...": (
+            as_action: Some((on_play: [PutUnder(from: Hand, n: 1)])),
+            reverses: Some((
+                targets: ManeuverType(Submission),
+                on_reverse: [Optional([PutUnder(from: Arsenal, n: 1, filter: Some(Any))])],
+            )),
+            play_from_under: Some(Any),
+        ),
         // Approximation: hybrid maneuvers count.
         "Sharmell's Shenanigans": (
             on_play: [
@@ -1220,8 +1248,16 @@
             on_play: [Counted(count: OpponentRingMatching(Any), effect: Damage(who: Opponent, n: 0))],
             while_in_ring: [(applies_to: Title("Springboard"), ignore_play_after: true)],
         ),
-        // Keeping cards under it is not supported yet.
         "Size Matters": (
+            on_play: [
+                PutUnder(
+                    from: Arsenal,
+                    n: 6,
+                    up_to: true,
+                    filter: Some(AnyOf([Title("Irish Whip"), Title("Throw Into the Corner Turnbuckle"), Title("Gut Wrench")])),
+                ),
+            ],
+            play_from_under: Some(Any),
             ring_ability: Some((
                 sacrifice: true,
                 effects: [

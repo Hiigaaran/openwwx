@@ -574,8 +574,17 @@
                 (applies_to: AnyOf([Title("Guerrero Frog Splash"), Title("Eddie's Roll Up")]), fortitude: -10),
             ],
         ),
-        // Putting cards under this card is not supported yet.
+        // Its ability counts the cards under all of your cards (exact while it is the only card with cards under it).
         "Viva La Raza! Low Rider": (
+            on_play: [
+                PutUnder(from: Arsenal, n: 1, filter: Some(Keyword("Foreign Object"))),
+                PutUnder(from: Arsenal, n: 1, filter: Some(ManeuverType(Grapple))),
+            ],
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourUnderSize, n: 1)),
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [TakeFromUnder(to: Hand, n: 1)],
+            )),
             while_in_ring_all: [
                 (
                     applies_to: All([

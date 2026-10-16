@@ -353,7 +353,7 @@
                 effects: [Mill(who: You, n: 1), Mill(who: Opponent, n: 2)],
             )),
         ),
-        // Overturning cards onto this card is not supported yet.
+        // Cards on top of other cards (overturned onto this card) are not supported yet.
         "I've Got a Nice ... Bottom": (
             only_packed_by: ["Diva"],
             requires: Some(Never),
@@ -408,10 +408,29 @@
         ),
         // Making a title Permanent is not supported yet.
         "My New Gimmick": (on_play: [Draw(who: You, n: 1)]),
-        // Putting cards under this card is not supported yet.
+        // Approximation: "a card under this card" is checked as a card under any of your cards.
         "Puppy Love": (
             only_packed_by: ["Female"],
-            requires: Some(Never),
+            on_play: [
+                PutUnder(from: Hand, n: 60, up_to: true, filter: Some(Title("Puppies! Puppies!"))),
+                PutUnder(from: Arsenal, n: 60, up_to: true, filter: Some(Title("Puppies! Puppies!"))),
+            ],
+            ring_ability: Some((
+                effects: [
+                    Choice([
+                        [ReturnThis(to: Removed), Boost((applies_to: Any, duration: NextCard, fortitude: -10))],
+                        [
+                            If(
+                                condition: CountAtLeast(count: YourUnderSize, n: 1),
+                                effects: [
+                                    TakeFromUnder(to: Ringside, n: 1),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -10)),
+                                ],
+                            ),
+                        ],
+                    ]),
+                ],
+            )),
         ),
         "What Are You Gawking At?": (
             only_packed_by: ["Diva"],
@@ -519,8 +538,41 @@
             restricts_opponent: Some((filter: Title("Old School Wrestling Match"))),
             in_ring_on_play: [(whose: Some(Opponent), filter: Trait(MidMatch), effects: [Discard(who: You, n: 1, pick: Chosen)])],
         ),
-        // Playing cards from under this card is not supported yet.
-        "Back to Basics": (requires: Some(Never)),
+        // "You can only play Pre-match cards with 'old school' in the title", the Permanent trait and losing the
+        // game if your opponent finds non-Superstar-specific maneuvers in your Arsenal or Backlash deck are not
+        // supported yet.
+        "Back to Basics": (
+            on_play: [
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Arm Bar"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Arm Bar Takedown"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Arm Drag"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Atomic Drop"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Belly to Back Suplex"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Belly to Belly Suplex"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Body Slam"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Chop"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Clothesline"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Collar and Elbow Lockup"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Drop Kick"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Haymaker"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Head Butt"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Hip Toss"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Press Slam"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Punch"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Roundhouse Punch"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Russian Leg Sweep"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Snap Mare"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Vertical Suplex"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Wrist Lock"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Backhand Slap"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Drop Toe Hold"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Elbow Drop"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Foot Stomp"))),
+                PutUnder(from: Arsenal, n: 1, up_to: true, filter: Some(Title("Hammerlock"))),
+            ],
+            play_from_under: Some(Any),
+            restricts_opponent: Some((filter: Title("Hell in a Cell Match"))),
+        ),
         // Checking the Falls Count Anywhere win is not supported yet.
         "Falls Count Anywhere Match": (requires: Some(Never)),
         "Skirt vs. Skirt Match": (

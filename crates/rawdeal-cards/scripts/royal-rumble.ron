@@ -376,8 +376,29 @@
                 ),
             ],
         ),
-        // Putting cards under a Ring card is not supported yet.
-        "Sit Right Here and Bide My Time": (requires: Some(Never)),
+        // Approximation: ending the turn without playing a card is a Ring ability used before any card this turn
+        // (put 1 Ringside card under it, then end the turn); it shares the once-per-turn use with the second part.
+        // "Triple that many" counts the cards under all of your cards (exact while it is the only card with cards
+        // under it); it is not used with no cards under it.
+        "Sit Right Here and Bide My Time": (
+            ring_ability: Some((
+                effects: [
+                    Choice([
+                        [If(condition: FirstCardThisTurn, effects: [PutUnder(from: Ringside, n: 1), EndTurn])],
+                        [
+                            If(
+                                condition: CountAtLeast(count: YourUnderSize, n: 1),
+                                effects: [
+                                    RingsideToArsenalCount(who: You, count: Plus(YourUnderSize, Plus(YourUnderSize, YourUnderSize))),
+                                    AllFromUnder(to: Arsenal),
+                                    SacrificeThis,
+                                ],
+                            ),
+                        ],
+                    ]),
+                ],
+            )),
+        ),
         "It's Getting Hot in Here": (
             end_of_prematch: [
                 Optional([
@@ -440,8 +461,17 @@
         "Volley Barrier": (requires: Some(Never)),
         // Playing Heat cards from the Ringside pile is not supported yet, so the optional Heat discard is left out.
         "Too Hot to Handle": (on_play: [Counted(count: YourRingMatching(Keyword("Heat")), effect: Mill(who: Opponent, n: 0))]),
-        // Putting cards under a Ring card and playing them from there is not supported yet.
-        "Future Considerations": (requires: Some(Never)),
+        // The Volley rules are not supported yet.
+        "Future Considerations": (
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, Keyword("Volley")]),
+                    effects: [Optional([PutUnder(from: Ringside, n: 1, filter: Some(Keyword("Volley")))])],
+                ),
+            ],
+            play_from_under: Some(Any),
+        ),
         "The Sex, the Gods, the Freaks, the Frauds": (
             on_play: [
                 Discard(who: You, n: 1, pick: Chosen),

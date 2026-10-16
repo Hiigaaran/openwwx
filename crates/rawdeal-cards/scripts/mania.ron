@@ -440,10 +440,16 @@
             ],
         ),
         "Mania": (on_play: [WinGame]),
-        // Hiding cards under it is not supported yet.
+        // Reacting when your hand is revealed (to hide cards under it) is not supported yet.
         "Torrie Wilson, On It!": (reverses_from_ring: Some((targets: All([Action, Trait(Heel)]), fortitude: Some(0)))),
-        // Playing cards from underneath it is not supported yet.
-        "Keibler's Cookies": (requires: Some(Never)),
+        // Approximation: the up to 2 cards go under it in one go, while none of your cards has cards under it.
+        "Keibler's Cookies": (
+            ring_ability: Some((
+                requires: Some(CountAtMost(count: YourUnderSize, n: 0)),
+                effects: [PutUnder(from: Hand, n: 2, up_to: true)],
+            )),
+            play_from_under: Some(Any),
+        ),
         "V.K.M.'s Patented Big Gulp": (
             requires: Some(All([Not(Superstar("The Rock")), FortitudeBelowOpponent])),
             on_play: [

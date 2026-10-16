@@ -851,8 +851,12 @@
         ),
 
         // JBL
-        // Cards kept under another card are not supported yet.
-        "JBL's Limo": (requires: Some(Never)),
+        // Approximation: card rarity is not known, so any card that is not Superstar-specific can be searched; playing
+        // it in the opponent's Pre-match phase is not supported yet.
+        "JBL's Limo": (
+            on_play: [PutUnder(from: Arsenal, n: 2, filter: Some(Not(SuperstarSpecific)))],
+            play_from_under: Some(Any),
+        ),
         // Completely reversing a Multi card is not supported yet.
         "Work Harder, Work Smarter": (
             on_play: [ShuffleThisIntoArsenal, AsOpponent([DrawUpTo(who: You, n: 1)])],

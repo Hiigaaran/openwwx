@@ -724,13 +724,29 @@
                 ),
             ],
         ),
-        // Approximation: the chosen cards are discarded instead of kept under it, so the -2F to your cards is lost.
+        // Approximation: the chosen cards are discarded instead of kept under it (the card's damage cannot grow after it
+        // is played, so the +1D per card needs the discard), so the -2F to your cards is lost.
         "Arm Wrench": (
             not_reversed_by: Some(All([Reversal, AnyOf([Maneuver, Action])])),
             on_play: [DiscardForDamage(per: 1)],
         ),
-        // Keeping cards under it is not supported yet (it is played choosing no cards).
-        "Vise Lock": (),
+        // The -2F counts the cards under all of your cards (exact while it is the only card with cards under it), up to 10.
+        "Vise Lock": (
+            on_play: [PutUnder(from: Hand, n: 10, up_to: true)],
+            play_from_under: Some(Any),
+            while_in_ring: [
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 1))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 2))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 3))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 4))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 5))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 6))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 7))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 8))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 9))]), fortitude: -2),
+                (applies_to: All([Any, Holds(CountAtLeast(count: YourUnderSize, n: 10))]), fortitude: -2),
+            ],
+        ),
         "Dynamic Stretch": (
             as_action: Some((
                 fortitude: Some(0),
@@ -1065,8 +1081,34 @@
                 ],
             )),
         ),
-        // Keeping cards under it and changing the Pre-match limit are not supported yet.
-        "That's Value!": (requires: Some(Never)),
+        // Approximation: any number of those cards can be played from under it each turn, not only one.
+        "That's Value!": (
+            pre_match_limit: -1,
+            on_play: [PutUnder(from: Arsenal, n: 10, filter: Some(Any))],
+            play_from_under: Some(
+                AnyOf([
+                    Title("Bulldog Takedown"),
+                    Title("Charismatic Style"),
+                    Title("Chop to the Chest"),
+                    Title("Comeback!"),
+                    Title("Corkscrew DDT"),
+                    Title("DDT"),
+                    Title("Dem Damn Dudleyz"),
+                    Title("Did I Just Say Three Minutes?"),
+                    Title("Don't Cross the Boss"),
+                    Title("Drawing Extra Heat"),
+                    Title("Great Technical Knowledge"),
+                    Title("Gut Punch"),
+                    Title("Hurricanrana"),
+                    Title("Knife-edge Chop"),
+                    Title("Ladder in the Ring"),
+                    Title("Single Arm DDT"),
+                    Title("Springboard"),
+                    Title("Table! Table! Table!"),
+                    Title("Who Booked This Match?"),
+                ]),
+            ),
+        ),
 
         // Mid-match
         "Go For the Cover!": (
@@ -1637,8 +1679,14 @@
             ],
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]), overturned_only: true)),
         ),
-        // Keeping cards under it is not supported yet.
-        "Backed by Torrie and Candice": (on_play: [RingsideToHand(who: You, n: 1, filter: Some(Trait(Unique)))]),
+        "Backed by Torrie and Candice": (
+            on_play: [RingsideToHand(who: You, n: 1, filter: Some(Trait(Unique)))],
+            ring_ability: Some((
+                requires: Some(HandAtLeast(1)),
+                effects: [PutUnder(from: Hand, n: 1), RingsideToArsenalBottom(who: You, n: 1)],
+            )),
+            play_from_under: Some(Any),
+        ),
         "It's Good For Business": (
             on_play: [Search(filter: Not(Reversal))],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), overturned_only: true)),

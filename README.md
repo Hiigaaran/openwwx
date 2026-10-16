@@ -136,6 +136,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Sexto lote: seguir jugando el turno después de un Reversal, reacciones cuando tú reviertes y saber de dónde vino
   tu último Reversal. Unas 25 cartas más quedan completas o jugables (por ejemplo Rey Mysterio, Lita to the Xtreme,
   I Won't Stop y J.R. Style Push).
+- Cartas debajo de otras: poner cartas debajo de una carta (de la mano, el Arsenal o el Ringside), recuperarlas,
+  jugarlas como si estuvieran en la mano y que se vayan con su carta cuando sale del Ring. Unas 15 cartas que no se
+  podían jugar ahora se juegan (por ejemplo We Lie, We Cheat, We Steal, Hide and Seek y Size Matters).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

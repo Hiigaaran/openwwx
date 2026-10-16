@@ -381,8 +381,11 @@
                 overturned_only: true,
             )),
         ),
-        // Keeping cards under it is not supported yet.
-        "That's Broken!": (requires: Some(Never)),
+        "That's Broken!": (
+            on_play: [PutUnder(from: Arsenal, n: 1, filter: Some(Any))],
+            play_from_under: Some(All([AnyOf([Maneuver, Reversal]), Not(Trait(Unique))])),
+            under_to: Some(Hand),
+        ),
         "He's Playing Possum?": (
             on_play: [Mill(who: Opponent, n: 1)],
             in_ring_on_play: [(whose: Some(Opponent), filter: Maneuver, effects: [Mill(who: You, n: 1)])],
@@ -874,8 +877,31 @@
                 RemoveFromGame(who: You, from: Ringside, n: 60, filter: Some(Maneuver)),
             ],
         ),
-        // Keeping cards under it is not supported yet.
-        "Viva La Raza! Low Rider": (requires: Some(Never)),
+        "Viva La Raza! Low Rider": (
+            on_play: [
+                PutUnder(from: Arsenal, n: 1, filter: Some(Keyword("Foreign Object"))),
+                PutUnder(from: Arsenal, n: 1, filter: Some(ManeuverType(Grapple))),
+            ],
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourUnderSize, n: 1)),
+                cost: [DiscardMatching(who: You, n: 1, filter: Title("Roll Out of the Ring"), pick: Chosen)],
+                effects: [TakeFromUnder(to: Hand, n: 1)],
+            )),
+            while_in_ring_all: [
+                (
+                    applies_to: All([
+                        AnyOf([ManeuverType(Grapple), All([Maneuver, Keyword("Foreign Object")])]),
+                        Holds(
+                            AnyOf([
+                                InYourRing(Title("Roll Out of the Ring")),
+                                OpponentRingHas(filter: Title("Roll Out of the Ring"), n: 1),
+                            ]),
+                        ),
+                    ]),
+                    damage: 3,
+                ),
+            ],
+        ),
         // Naming a logo is not supported yet.
         "WWE Commentators": (
             end_of_prematch: [Optional([Discard(who: You, n: 1, pick: Random), Search(filter: Action)])],

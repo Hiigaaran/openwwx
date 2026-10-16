@@ -1074,8 +1074,10 @@
         "Melina Interferes": (reverses: Some((targets: Any, effects: [Search(filter: Any)]))),
 
         // The HurriFriends
-        // Cards under another card are not supported yet.
-        "The Hurri-Friends' Armory": (requires: Some(Never)),
+        "The Hurri-Friends' Armory": (
+            on_play: [PutUnder(from: Arsenal, n: 3, up_to: true, filter: Some(Any))],
+            play_from_under: Some(SuperstarSpecific),
+        ),
         "The Super Storm Front": (
             play_after: Some(All([Maneuver, SuperstarSpecific])),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),

@@ -426,7 +426,7 @@
                 DrawUpTo(who: Opponent, n: 3),
             ],
         ),
-        // Keeping cards under it is not supported yet.
+        // Reacting when your hand is revealed (to put cards under it) and reversing search cards are not supported yet.
         "What's Mine is Mine and What's Yours is Mine": (requires: Some(Never)),
         "Beat You Raw": (
             bonuses: [(when: Not(OpponentRingHas(filter: Trait(SmackDown), n: 1)), fortitude: -6)],
@@ -687,7 +687,7 @@
         ),
         // Approximation: "you cannot play Pre-match cards" is a Pre-match limit 4 lower (1 with the default limit).
         "Mangled Intro by Lillian Garcia": (pre_match_limit: -4, mid_match_limit: 2),
-        // Stipulations under other cards are not supported yet.
+        // Cards on top of other cards (the Stipulation played on top of it) are not supported yet.
         "Raw Roulette Wheel": (requires: Some(Never)),
         // Changing the number of Stipulations you may play is not supported yet.
         "Series of Stipulations": (requires: Some(Never)),
@@ -1163,8 +1163,13 @@
         ),
 
         // Los Guerreros
-        // Keeping cards under it is not supported yet.
-        "We Lie, We Cheat, We Steal": (requires: Some(Never)),
+        "We Lie, We Cheat, We Steal": (
+            on_play: [PutUnder(from: Arsenal, n: 3, filter: Some(Any))],
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourUnderSize, n: 1)),
+                effects: [TakeFromUnder(to: Hand, n: 1)],
+            )),
+        ),
         // Searching for it as a High Risk maneuver is not supported yet.
         "Chavo's Inverted Powerbomb": (
             play_after: Some(

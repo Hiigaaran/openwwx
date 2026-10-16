@@ -1084,7 +1084,10 @@
                 )),
             ],
         ),
-        // Playing cards from underneath it is not supported yet.
-        "Raven's Shopping Cart": (requires: Some(Never)),
+        "Raven's Shopping Cart": (
+            on_play: [PutUnder(from: Arsenal, n: 3, filter: Some(Keyword("Foreign Object")))],
+            play_from_under: Some(Any),
+            on_removed_by_opponent: [EndTurn, SkipNextTurn(who: Opponent)],
+        ),
     },
 )
