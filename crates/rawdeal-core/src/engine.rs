@@ -276,6 +276,7 @@ impl Engine {
             start_after: [None; 2],
             end_turn_after_play: false,
             in_play_to: None,
+            in_play_bottom: false,
             played_this_turn: vec![],
             reversed_last: [None; 2],
             restrictions: vec![],
@@ -523,6 +524,7 @@ impl Engine {
                 state.in_play = Some(played);
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
+                state.in_play_bottom = false;
                 state.in_play_watch = state
                     .watches
                     .iter()
@@ -746,28 +748,43 @@ impl Engine {
                 let mut owners = vec![];
                 for c in chosen {
                     let owner = state.card(c).owner;
-                    let from_ring = state.card(c).zone == Zone::Ring;
+                    let from = state.card(c).zone;
                     self.move_card(state, c, to, events);
-                    if from_ring {
+                    if from == Zone::Ring {
                         self.removed_from_ring(state, c, p);
                     }
-                    if !owners.contains(&owner) {
+                    if (to == Zone::Arsenal || from == Zone::Arsenal) && !owners.contains(&owner) {
                         owners.push(owner);
                     }
                 }
-                if to == Zone::Arsenal {
-                    for owner in owners {
-                        self.shuffle_arsenal(state, owner, events);
+                for owner in owners {
+                    self.shuffle_arsenal(state, owner, events);
+                }
+            }
+            ChoicePurpose::ToArsenalBottom => {
+                for c in chosen {
+                    let from_ring = state.card(c).zone == Zone::Ring;
+                    self.move_card_to_bottom(state, c, events);
+                    if from_ring {
+                        self.removed_from_ring(state, c, p);
                     }
                 }
             }
             ChoicePurpose::RemoveFromGame => {
+                let searched: Vec<PlayerId> = chosen
+                    .iter()
+                    .filter(|&&c| state.card(c).zone == Zone::Arsenal)
+                    .map(|&c| state.card(c).owner)
+                    .collect();
                 for c in chosen {
                     let from_ring = state.card(c).zone == Zone::Ring;
                     self.move_card(state, c, Zone::Removed, events);
                     if from_ring {
                         self.removed_from_ring(state, c, p);
                     }
+                }
+                if let Some(&owner) = searched.first() {
+                    self.shuffle_arsenal(state, owner, events);
                 }
             }
             ChoicePurpose::RingsideToArsenal => {
@@ -991,6 +1008,9 @@ impl Engine {
             Step::ToRing => {
                 let played = state.in_play.take().expect("card in play");
                 match state.in_play_to.take() {
+                    Some(Zone::Arsenal) if std::mem::take(&mut state.in_play_bottom) => {
+                        self.move_card_to_bottom(state, played.card, events);
+                    }
                     Some(Zone::Arsenal) => {
                         self.move_card(state, played.card, Zone::Arsenal, events);
                         self.shuffle_arsenal(state, played.player, events);
@@ -1020,6 +1040,7 @@ impl Engine {
                 }
                 state.end_turn_after_play = false;
                 state.in_play_to = None;
+                state.in_play_bottom = false;
                 for (owner, boost) in &mut state.boosts {
                     if let (true, Duration::Turns(n)) = (*owner == p, &mut boost.duration) {
                         *n = n.saturating_sub(1);
@@ -1342,13 +1363,20 @@ impl Engine {
         };
         let damage = (base as i16 + played.bonus.reversal_damage).max(0) as u16;
         events.push(Event::Reversed { player: defender, reversal, reversed: played.card, from_hand: true });
-        if spec.reversed_to_arsenal {
+        if spec.reversed_removed {
+            self.move_card(state, played.card, Zone::Removed, events);
+        } else if spec.reversed_to_arsenal {
             self.move_card(state, played.card, Zone::Arsenal, events);
             self.shuffle_arsenal(state, played.player, events);
         } else {
             self.move_card(state, played.card, Zone::Ringside, events);
         }
-        self.move_card(state, reversal, if from_ring { Zone::Ringside } else { Zone::Ring }, events);
+        let reversal_to = match (spec.removed_after, from_ring) {
+            (true, _) => Zone::Removed,
+            (false, true) => Zone::Ringside,
+            (false, false) => Zone::Ring,
+        };
+        self.move_card(state, reversal, reversal_to, events);
 
         state.pending.clear();
         schedule(state, [Step::EndTurn]);
@@ -1544,6 +1572,11 @@ impl Engine {
             Effect::RemoveThis => state.in_play_to = Some(Zone::Removed),
             Effect::ThisToArsenal { bottom } => {
                 if let Source::Card(c) = source
+                    && state.in_play.is_some_and(|p| p.card == c)
+                {
+                    state.in_play_to = Some(Zone::Arsenal);
+                    state.in_play_bottom = bottom;
+                } else if let Source::Card(c) = source
                     && !matches!(state.card(c).zone, Zone::InPlay | Zone::Removed)
                 {
                     if bottom {
@@ -1564,15 +1597,24 @@ impl Engine {
                     }
                 }
             }
-            Effect::MoveCards { who, from, to, n, up_to, filter, pick } => {
+            Effect::MoveCards { who, from, to, n, up_to, filter, pick, bottom } => {
                 if matches!(to, Zone::InPlay) || matches!(from, Zone::InPlay) {
                     return;
                 }
                 let p = target(who);
-                if from == Zone::Arsenal {
+                let purpose = if bottom && to == Zone::Arsenal {
+                    ChoicePurpose::ToArsenalBottom
+                } else {
+                    ChoicePurpose::MoveTo(to)
+                };
+                if from == Zone::Arsenal && filter.is_none() {
                     for _ in 0..n {
                         let Some(&c) = state.player(p).arsenal.last() else { break };
-                        self.move_card(state, c, to, events);
+                        if purpose == ChoicePurpose::ToArsenalBottom {
+                            self.move_card_to_bottom(state, c, events);
+                        } else {
+                            self.move_card(state, c, to, events);
+                        }
                     }
                     return;
                 }
@@ -1587,17 +1629,17 @@ impl Engine {
                             let i = state.rng.random_range(0..options.len());
                             chosen.push(options.swap_remove(i));
                         }
-                        self.answer_choice(state, p, ChoicePurpose::MoveTo(to), chosen, events);
+                        self.answer_choice(state, p, purpose, chosen, events);
                     }
                     Pick::Chosen | Pick::Controller => {
                         let decider = if pick == Pick::Chosen { p } else { controller };
-                        ask(state, decider, options, n, up_to, ChoicePurpose::MoveTo(to));
+                        ask(state, decider, options, n, up_to, purpose);
                     }
                 }
             }
             Effect::RemoveFromGame { who, from, n, up_to, filter, pick } => {
                 let p = target(who);
-                if from == Zone::Arsenal {
+                if from == Zone::Arsenal && filter.is_none() {
                     for _ in 0..n {
                         let Some(&c) = state.player(p).arsenal.last() else { break };
                         self.move_card(state, c, Zone::Removed, events);
@@ -2009,6 +2051,14 @@ impl Engine {
             Count::OpponentRingsideSize => state.player(p.opponent()).ringside.len(),
             Count::YourRemoved => state.player(p).removed.len(),
             Count::OpponentRemoved => state.player(p.opponent()).removed.len(),
+            Count::YourRemovedMatching(f) => self.count_matching(state, p, p, Zone::Removed, &f),
+            Count::OpponentRemovedMatching(f) => self.count_matching(state, p.opponent(), p, Zone::Removed, &f),
+            Count::BothRemoved => state.player(p).removed.len() + state.player(p.opponent()).removed.len(),
+            Count::OpponentFortitude => self.fortitude(state, p.opponent()) as usize,
+            Count::YourRingAndRingsideMatching(f) => {
+                self.count_matching(state, p, p, Zone::Ring, &f) + self.count_matching(state, p, p, Zone::Ringside, &f)
+            }
+            Count::HalfYourHand => state.player(p).hand.len() / 2,
             Count::HandPlus(k) => state.player(p).hand.len() + k as usize,
             Count::OpponentValueTimes(k) => value(p.opponent()) as usize * k as usize,
             Count::HalfOpponentFortitude => (self.fortitude(state, p.opponent()) as usize).div_ceil(2),
@@ -2345,6 +2395,9 @@ impl Engine {
             Condition::Superstar(name) => self.is_superstar(state, player, name),
             Condition::PlayedFromRingside => state.in_play.is_some_and(|pl| pl.from_ringside),
             Condition::CountAtLeast { count, n } => self.count(state, player, count.clone()) >= *n,
+            Condition::CountBelow { a, b } => {
+                self.count(state, player, a.clone()) < self.count(state, player, b.clone())
+            }
             Condition::CountAtMost { count, n } => self.count(state, player, count.clone()) <= *n,
             Condition::SuperstarValueBelowOpponent => {
                 self.superstar_value(state, player) < self.superstar_value(state, player.opponent())
@@ -2613,6 +2666,7 @@ impl Engine {
             && pdef.script.not_reversed_by.as_ref().is_none_or(|f| !self.matches_def(state, f, reversal, player))
             && !(from_hand && spec.overturned_only)
             && !(!from_hand && spec.from_hand_only)
+            && !(spec.ringside_only && !(from_hand && state.card(reversal).zone == Zone::Ringside))
             && !(from_hand && hand_left < spec.discard_cost as usize)
             && !self.banned_by_opponent(state, player, rdef)
             && !blocked_by_ability

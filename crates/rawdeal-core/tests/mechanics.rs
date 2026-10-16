@@ -100,6 +100,17 @@ const SET: &str = r#"(
                 effects: [MoveCards(who: You, from: Removed, to: Hand, n: 1)])])),
         (id: "m/blind-counter", title: "Blind Counter", kinds: [Reversal], fortitude: 0, damage: 0,
             script: (reverses: Some((targets: Maneuver)), from_ringside: Some(Always))),
+        (id: "m/sink", title: "Sink", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [ThisToArsenal(bottom: true)])),
+        (id: "m/bury", title: "Bury", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Title("Hit")), bottom: true)])),
+        (id: "m/behind", title: "Behind", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [If(condition: CountBelow(a: OpponentHandSize, b: HandPlus(1)), effects: [Draw(who: You, n: 2)])])),
+        (id: "m/ambush", title: "Ambush", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses: Some((targets: Maneuver, ringside_only: true, reversed_removed: true)),
+                from_ringside: Some(Always))),
+        (id: "m/ditch", title: "Ditch", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [DiscardAll(who: You, filter: Title("Ambush"))])),
         (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
             script: (restricts_self: Some((filter: Action)))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
@@ -677,4 +688,59 @@ fn removed_cards_can_come_back() {
     }
     no_reversal(&e, &mut s);
     assert!(s.player(P1).hand.contains(&exile));
+}
+
+#[test]
+fn a_played_card_can_go_to_the_bottom_of_the_arsenal() {
+    let e = engine();
+    let mut s = start(&e, "first", &["sink"], "second", &[]);
+    let sink = in_hand(&e, &s, P1, "sink");
+    play(&e, &mut s, P1, "sink");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).arsenal[0], sink);
+}
+
+#[test]
+fn chosen_cards_can_go_to_the_bottom_of_the_arsenal() {
+    let e = engine();
+    let mut s = start(&e, "first", &["bury", "hit"], "second", &[]);
+    let hit = in_hand(&e, &s, P1, "hit");
+    play(&e, &mut s, P1, "bury");
+    if let Some(Decision { kind: DecisionKind::ChooseCards { .. }, player }) = s.decision.clone() {
+        apply(&e, &mut s, player, Action::ChooseCards(vec![hit]));
+    }
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).arsenal[0], hit);
+}
+
+#[test]
+fn two_counts_can_be_compared() {
+    let e = engine();
+    let mut s = start(&e, "first", &["behind"], "second", &[]);
+    let before = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "behind");
+    no_reversal(&e, &mut s);
+    // The opponent's 6 cards are fewer than 6 + 1, so it draws 2.
+    assert_eq!(s.player(P1).hand.len(), before + 1);
+}
+
+#[test]
+fn some_reversals_only_work_from_the_ringside_pile() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "hit"], "second", &["ambush", "ditch"]);
+    play(&e, &mut s, P1, "hit");
+    assert!(!matches!(s.decision, Some(Decision { kind: DecisionKind::Reversal { .. }, .. })));
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P2, "ditch");
+    no_reversal(&e, &mut s);
+    let ambush = *s.player(P2).ringside.last().expect("Ambush was discarded");
+    end_turn(&e, &mut s);
+    let hit = in_hand(&e, &s, P1, "hit");
+    play(&e, &mut s, P1, "hit");
+    match s.decision.clone() {
+        Some(Decision { kind: DecisionKind::Reversal { options, .. }, .. }) => assert!(options.contains(&ambush)),
+        other => panic!("expected a reversal window, got {other:?}"),
+    }
+    apply(&e, &mut s, P2, Action::Reverse { card: ambush });
+    assert!(s.player(P1).removed.contains(&hit));
 }

@@ -178,8 +178,9 @@ pub fn effect(e: &Effect) -> String {
         Effect::AtEndOfTurn(es) => format!("al final del turno: {}", effects(es)),
         Effect::DiscardThis => "descarta esta carta".into(),
         Effect::RemoveThis => "retira esta carta del juego".into(),
-        Effect::MoveCards { who: w, from, to, n, .. } => {
-            format!("pasa {} de {} a {} ({})", cards(*n), zone(*from), zone(*to), who(*w))
+        Effect::MoveCards { who: w, from, to, n, bottom, .. } => {
+            let place = if *bottom { "debajo del Arsenal".to_string() } else { zone(*to).to_string() };
+            format!("pasa {} de {} a {} ({})", cards(*n), zone(*from), place, who(*w))
         }
         Effect::ThisToArsenal { bottom } => {
             if *bottom {
@@ -281,6 +282,7 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::ArsenalToRingside => "del Arsenal para mandar al Ringside",
         ChoicePurpose::RingToRingside => "del Ring para mandar al Ringside",
         ChoicePurpose::RemoveFromGame => "para retirar del juego",
+        ChoicePurpose::ToArsenalBottom => "para poner debajo del Arsenal",
         ChoicePurpose::MoveTo(Zone::Hand) => "para poner en la mano",
         ChoicePurpose::MoveTo(Zone::Ring) => "para poner en el Ring",
         ChoicePurpose::MoveTo(Zone::Arsenal) => "para barajar en el Arsenal",

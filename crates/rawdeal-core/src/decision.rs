@@ -49,6 +49,8 @@ pub enum ChoicePurpose {
     RemoveFromGame,
     /// The picked cards move to this zone of their owner's.
     MoveTo(crate::state::Zone),
+    /// Put on the bottom of the owner's Arsenal, no shuffle.
+    ToArsenalBottom,
     HandToArsenalBottom,
     RingsideToArsenalBottom,
     /// Search your Arsenal: the card is revealed and goes to your hand.

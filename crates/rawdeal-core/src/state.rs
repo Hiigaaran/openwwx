@@ -221,6 +221,9 @@ pub struct GameState {
     pub end_turn_after_play: bool,
     /// Where the card in play goes instead of the Ring.
     pub in_play_to: Option<Zone>,
+    /// With `in_play_to` the Arsenal: on the bottom, not shuffled in.
+    #[serde(default)]
+    pub in_play_bottom: bool,
     /// Cards the active player played this turn, in order.
     #[serde(default)]
     pub played_this_turn: Vec<Played>,

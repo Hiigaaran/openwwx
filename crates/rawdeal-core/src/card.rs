@@ -539,6 +539,11 @@ pub enum Condition {
         count: Count,
         n: u8,
     },
+    /// Count `a` is strictly lower than count `b`.
+    CountBelow {
+        a: Count,
+        b: Count,
+    },
     /// Your opponent has at least `n` cards matching `filter` in their Ring.
     OpponentRingHas {
         filter: CardFilter,
@@ -678,6 +683,18 @@ pub struct ReverseSpec {
     /// Can only be played from hand, not overturned for damage.
     #[serde(default)]
     pub from_hand_only: bool,
+    /// Can only be played from the Ringside pile (with `from_ringside`), not
+    /// from hand nor overturned for damage.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ringside_only: bool,
+    /// The reversed card is removed from the game instead of going to the
+    /// Ringside pile.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reversed_removed: bool,
+    /// This Reversal is removed from the game after reversing, instead of
+    /// staying in the Ring.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub removed_after: bool,
     /// Fortitude needed instead of the printed F.
     #[serde(default)]
     pub fortitude: Option<u8>,
@@ -715,6 +732,9 @@ impl ReverseSpec {
             on_reverse: vec![],
             effects: vec![],
             from_hand_only: false,
+            ringside_only: false,
+            reversed_removed: false,
+            removed_after: false,
             fortitude: None,
             hand_targets: None,
             overturned_only: false,
@@ -843,6 +863,18 @@ pub enum Count {
     YourRemoved,
     /// Cards your opponent has removed from the game.
     OpponentRemoved,
+    /// Your removed cards matching the filter.
+    YourRemovedMatching(CardFilter),
+    /// Your opponent's removed cards matching the filter.
+    OpponentRemovedMatching(CardFilter),
+    /// Cards both players have removed from the game.
+    BothRemoved,
+    /// Your opponent's Fortitude.
+    OpponentFortitude,
+    /// Cards matching the filter in your Ring and Ringside pile together.
+    YourRingAndRingsideMatching(CardFilter),
+    /// Half your hand, rounded down.
+    HalfYourHand,
 }
 
 /// What happens after burying a hand.
@@ -1012,8 +1044,11 @@ pub enum Effect {
     /// Move `n` of the player's cards between any two of their zones (for
     /// example from the removed pile back to the hand, or from the Ringside
     /// pile into the Ring). From the Arsenal the top cards go; otherwise
-    /// `pick` says who chooses. Cards moved into the Arsenal are shuffled in;
-    /// cards put into the Ring this way are not played.
+    /// `pick` says who chooses. Cards moved into the Arsenal are shuffled in,
+    /// or put on the bottom with `bottom`; cards put into the Ring this way
+    /// are not played. From the Arsenal the top cards go, unless there is a
+    /// `filter`: then the matching cards are chosen (a search) and the Arsenal
+    /// is shuffled.
     MoveCards {
         who: Who,
         from: crate::state::Zone,
@@ -1025,9 +1060,12 @@ pub enum Effect {
         filter: Option<CardFilter>,
         #[serde(default = "chosen", skip_serializing_if = "is_chosen")]
         pick: Pick,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        bottom: bool,
     },
     /// The card whose effect this is goes on the top (or bottom) of its
-    /// owner's Arsenal, from wherever it is.
+    /// owner's Arsenal, from wherever it is, also the card being played
+    /// (instead of the Ring).
     ThisToArsenal {
         #[serde(default)]
         bottom: bool,
