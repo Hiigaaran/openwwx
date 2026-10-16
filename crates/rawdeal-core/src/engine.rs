@@ -282,6 +282,10 @@ impl Engine {
             played_this_turn: vec![],
             reversed_last: [None; 2],
             reversed_from: [None; 2],
+            heat_used: [false; 2],
+            volley_lock: None,
+            volley_turn: None,
+            effect_ctx: None,
             restrictions: vec![],
             ring_used: vec![],
             lapsed: vec![],
@@ -372,7 +376,10 @@ impl Engine {
                     .hand
                     .iter()
                     .chain(&me.backlash)
-                    .chain(me.ringside.iter().filter(|&&c| self.def(state, c).script.from_ringside.is_some()))
+                    .chain(me.ringside.iter().filter(|&&c| {
+                        let def = self.def(state, c);
+                        def.script.from_ringside.is_some() || def.has_keyword("Heat")
+                    }))
                     .chain(&me.under)
                     .flat_map(|&card| {
                         self.def(state, card)
@@ -395,9 +402,12 @@ impl Engine {
                 actions.push(Action::EndTurn);
                 actions
             }
-            DecisionKind::Reversal { options, .. } => {
-                options.iter().map(|&card| Action::Reverse { card }).chain([Action::DeclineReversal]).collect()
-            }
+            DecisionKind::Reversal { options, volley, .. } => options
+                .iter()
+                .map(|&card| Action::Reverse { card })
+                .chain(volley.then_some(Action::ReverseByVolley))
+                .chain([Action::DeclineReversal])
+                .collect(),
             DecisionKind::ChooseCards { options, min, max, .. } => {
                 let mut out = Vec::new();
                 for k in *min..=*max {
@@ -458,6 +468,7 @@ impl Engine {
             }
             (DecisionKind::Reversal { options, .. }, Action::Reverse { card }) => options.contains(card),
             (DecisionKind::Reversal { .. }, Action::DeclineReversal) => true,
+            (DecisionKind::Reversal { volley, .. }, Action::ReverseByVolley) => *volley,
             (DecisionKind::ChooseCards { options, min, max, .. }, Action::ChooseCards(chosen)) => {
                 let mut dedup = chosen.clone();
                 dedup.sort();
@@ -522,6 +533,9 @@ impl Engine {
                     state.next_must = None;
                 }
                 let from_ringside = state.card(card).zone == Zone::Ringside;
+                if from_ringside && !self.ringside_by_script(state, p, card) {
+                    state.heat_used[p.index()] = true;
+                }
                 self.move_card(state, card, Zone::InPlay, events);
                 let after = state.last_played.map(|l| l.card);
                 let played = Played { after, bonus, from_ringside, ..Played::new(card, p, kind) };
@@ -575,7 +589,11 @@ impl Engine {
                     );
                 }
             }
+            (DecisionKind::Reversal { .. }, Action::ReverseByVolley) => self.volley_reverse(state, p, events),
             (DecisionKind::Reversal { card: attacker, .. }, Action::Reverse { card }) => {
+                if state.card(card).zone == Zone::Ringside && !self.ringside_by_script(state, p, card) {
+                    state.heat_used[p.index()] = true;
+                }
                 state.pending.push(Step::ReverseFromHand { defender: p, reversal: card });
                 if self.def(state, attacker).has_trait(Trait::Chain) {
                     // Reversing a Chain card from hand or Backlash costs 2 discards.
@@ -833,6 +851,18 @@ impl Engine {
     }
 
     fn step(&self, state: &mut GameState, step: Step, events: &mut Vec<Event>) {
+        match &step {
+            Step::Effect { controller, source, .. } => {
+                let heat = matches!(*source, Source::Card(c) if self.def(state, c).has_keyword("Heat"));
+                state.effect_ctx = Some((*controller, heat));
+            }
+            Step::AskMore { .. }
+            | Step::RandomBack { .. }
+            | Step::DigRest { .. }
+            | Step::Arrange { .. }
+            | Step::OverturnUntil { .. } => {}
+            _ => state.effect_ctx = None,
+        }
         match step {
             Step::StartTurn => {
                 state.turn += 1;
@@ -841,6 +871,8 @@ impl Engine {
                 state.player_mut(p).ability_used = false;
                 state.played_this_turn.clear();
                 state.ring_used.clear();
+                state.heat_used = [false; 2];
+                state.volley_turn = state.volley_lock.take().filter(|&q| q == p);
                 state.last_played = state.start_after[p.index()].take().map(|c| Played::new(c, p, CardKind::Action));
                 for (owner, boost) in &mut state.boosts {
                     if *owner == p {
@@ -908,7 +940,7 @@ impl Engine {
                 let chain = self.def(state, played.card).has_trait(Trait::Chain);
                 let ring = self.ring_cards(state, defender);
                 let from_ringside = |c: &CardId| {
-                    self.def(state, *c).script.from_ringside.as_ref().is_some_and(|w| self.holds(state, w, defender))
+                    self.ringside_by_script(state, defender, *c) || self.heat_playable(state, defender, *c)
                 };
                 let options: Vec<CardId> = me
                     .hand
@@ -924,10 +956,15 @@ impl Engine {
                     .chain(ring.into_iter().filter(|&r| self.can_ring_reverse(state, defender, r, played)))
                     .filter(|&r| !chain || me.hand.iter().filter(|&&c| c != r).count() >= 2)
                     .collect();
-                if !options.is_empty() {
+                let pdef = self.def(state, played.card);
+                let not_heat = me.ringside.iter().filter(|&&c| !self.def(state, c).has_keyword("Heat")).count();
+                let volley = pdef.volley().is_some_and(|n| n == 0 || not_heat >= n as usize)
+                    && !pdef.has_trait(Trait::Irreversible)
+                    && !played.bonus.irreversible;
+                if !options.is_empty() || volley {
                     state.decision = Some(Decision {
                         player: defender,
-                        kind: DecisionKind::Reversal { card: played.card, options },
+                        kind: DecisionKind::Reversal { card: played.card, options, volley },
                     });
                 }
             }
@@ -1072,6 +1109,36 @@ impl Engine {
                         state.pending.push(Step::Effect { effect, controller, source: Source::Superstar(controller) });
                     }
                     return;
+                }
+                if state.volley_turn.take() == Some(p) {
+                    // Volley: no maneuver played under the restriction lets the
+                    // Volley player take a Volley card back.
+                    let opponent = p.opponent();
+                    let maneuver = state.played_this_turn.iter().any(|pl| matches!(pl.kind, CardKind::Maneuver(_)));
+                    let volley = CardFilter::Keyword("Volley".into());
+                    if !maneuver
+                        && state.player(opponent).ringside.iter().any(|&c| self.def(state, c).has_keyword("Volley"))
+                    {
+                        state.pending.push(Step::EndTurn);
+                        let back = Effect::MoveCards {
+                            who: Who::You,
+                            from: Zone::Ringside,
+                            to: Zone::Hand,
+                            n: 1,
+                            up_to: false,
+                            filter: Some(volley),
+                            pick: Pick::Chosen,
+                            bottom: false,
+                            top: false,
+                        };
+                        let effect = Effect::Optional(vec![back]);
+                        state.pending.push(Step::Effect {
+                            effect,
+                            controller: opponent,
+                            source: Source::Superstar(opponent),
+                        });
+                        return;
+                    }
                 }
                 state.end_turn_after_play = false;
                 state.in_play_to = None;
@@ -1398,6 +1465,9 @@ impl Engine {
             schedule_effects(state, &on_reversed, played.player, Source::Card(played.card));
             return;
         }
+        if !from_ring && self.def(state, played.card).volley().is_some() {
+            state.volley_lock = Some(defender);
+        }
         let script = &self.def(state, reversal).script;
         let spec = if from_ring { &script.reverses_from_ring } else { &script.reverses };
         let spec = spec.clone().expect("validated reversal");
@@ -1602,6 +1672,7 @@ impl Engine {
                     .iter()
                     .copied()
                     .filter(|&c| self.matches_def(state, &filter, c, controller))
+                    .filter(|&c| self.leaves_ring(state, c, source, Some(&filter)))
                     .collect();
                 ask(state, controller, options, n, false, ChoicePurpose::RingToRingside);
             }
@@ -1670,6 +1741,9 @@ impl Engine {
                 if let Some(f) = &filter {
                     options.retain(|&c| self.matches_def(state, f, c, controller));
                 }
+                if from == Zone::Ring {
+                    options.retain(|&c| self.leaves_ring(state, c, source, filter.as_ref()));
+                }
                 match pick {
                     Pick::Random => {
                         let mut chosen = vec![];
@@ -1697,6 +1771,9 @@ impl Engine {
                 let mut options = state.player(p).zone(from).to_vec();
                 if let Some(f) = &filter {
                     options.retain(|&c| self.matches_def(state, f, c, controller));
+                }
+                if from == Zone::Ring {
+                    options.retain(|&c| self.leaves_ring(state, c, source, filter.as_ref()));
                 }
                 match pick {
                     Pick::Random => {
@@ -1860,12 +1937,15 @@ impl Engine {
                     .iter()
                     .copied()
                     .filter(|&c| self.matches_def(state, &filter, c, controller))
+                    .filter(|&c| self.leaves_ring(state, c, source, Some(&filter)))
                     .collect();
                 ask(state, controller, options, n, up_to, ChoicePurpose::RingToHand);
             }
             Effect::ClearRing { who } => {
                 for c in state.player(target(who)).ring.clone() {
-                    self.move_card(state, c, Zone::Ringside, events);
+                    if self.leaves_ring(state, c, source, None) {
+                        self.move_card(state, c, Zone::Ringside, events);
+                    }
                 }
             }
             Effect::RevealUntil { filter } => {
@@ -2206,7 +2286,9 @@ impl Engine {
             && match inst.zone {
                 Zone::Hand => true,
                 Zone::Backlash => def.has_trait(Trait::MidMatch),
-                Zone::Ringside => def.script.from_ringside.as_ref().is_some_and(|c| self.holds(state, c, player)),
+                Zone::Ringside => {
+                    self.ringside_by_script(state, player, card) || self.heat_playable(state, player, card)
+                }
                 Zone::Under => self.playable_from_under(state, player, card),
                 _ => false,
             };
@@ -2243,6 +2325,9 @@ impl Engine {
             && state.player(player).hand.iter().filter(|&&c| c != card).count()
                 >= self.play_cost(state, player, hypothetical) as usize
             && self.allowed_next(state, player, hypothetical)
+            && (state.volley_turn != Some(player)
+                || matches!((kind, inst.zone), (CardKind::Maneuver(_), Zone::Hand))
+                || (kind == CardKind::Action && def.has_trait(Trait::SetUp)))
             && !(female && def.has_trait(Trait::Multi) && matches!(kind, CardKind::Maneuver(_)))
             && !(from_backlash
                 && self.count_in_ring(state, player, |d| d.has_trait(Trait::MidMatch))
@@ -2400,7 +2485,8 @@ impl Engine {
         let in_ring = |p: PlayerId| state.player(p).ring.iter().any(|&c| self.def(state, c).title == def.title);
         available >= fortitude
             && !(def.has_trait(Trait::Active) && in_ring(player))
-            && !(def.has_trait(Trait::UniversallyUnique) && (in_ring(player) || in_ring(player.opponent())))
+            && !((def.has_trait(Trait::UniversallyUnique) || def.is_title_belt())
+                && (in_ring(player) || in_ring(player.opponent())))
     }
 
     /// The opponent's Superstar forbids `player` to play this card.
@@ -2890,7 +2976,7 @@ impl Engine {
                     .count();
                 count >= *n as usize
             }
-            CardFilter::Keyword(_) => self.matches_printed(def, filter, || 0),
+            CardFilter::Keyword(_) | CardFilter::TitleBelt => self.matches_printed(def, filter, || 0),
             CardFilter::PlayedBy(name) => {
                 self.db.superstar(state.player(played.player).superstar).name.eq_ignore_ascii_case(name)
             }
@@ -2927,7 +3013,7 @@ impl Engine {
             CardFilter::FortitudeAtMost(n) => def.fortitude <= *n,
             CardFilter::FortitudeAtLeast(n) => def.fortitude >= *n,
             CardFilter::After(_) | CardFilter::PlayerRingHas { .. } | CardFilter::EarlierThisTurn { .. } => false,
-            CardFilter::Keyword(_) => self.matches_printed(def, filter, || 0),
+            CardFilter::Keyword(_) | CardFilter::TitleBelt => self.matches_printed(def, filter, || 0),
             CardFilter::PlayedBy(name) => self.is_superstar(state, controller, name),
             CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
             CardFilter::Draws => {
@@ -2957,6 +3043,7 @@ impl Engine {
             CardFilter::Trait(t) => def.has_trait(*t),
             CardFilter::DamageAtMostYourFortitude => def.damage as u16 <= fortitude(),
             CardFilter::Keyword(word) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, word)),
+            CardFilter::TitleBelt => def.is_title_belt(),
             _ => unreachable!("only printed filters"),
         }
     }
@@ -2978,6 +3065,69 @@ impl Engine {
 
     /// Moves `card` to the top of `to` in its owner's areas.
     /// The cards under `host`, in the order they were put there.
+    /// The card's own text lets `player` play it from the Ringside pile now.
+    fn ringside_by_script(&self, state: &GameState, player: PlayerId, card: CardId) -> bool {
+        self.def(state, card).script.from_ringside.as_ref().is_some_and(|c| self.holds(state, c, player))
+    }
+
+    /// Heat rule: with 6 or more Heat cards in your Ringside pile, once each
+    /// turn you may play 1 Heat card from it.
+    fn heat_playable(&self, state: &GameState, player: PlayerId, card: CardId) -> bool {
+        let heat = |c: CardId| self.def(state, c).has_keyword("Heat");
+        !state.heat_used[player.index()]
+            && heat(card)
+            && state.card(card).zone == Zone::Ringside
+            && state.player(player).ringside.iter().filter(|&&c| heat(c)).count() >= 6
+    }
+
+    /// Can an effect from `source` take `card` out of its Ring? Permanent
+    /// cards (and Stipulations) only leave by their own text, by an effect
+    /// that names them, or (Stipulations) by another Stipulation.
+    fn leaves_ring(&self, state: &GameState, card: CardId, source: Source, filter: Option<&CardFilter>) -> bool {
+        let stipulation = |c: CardId| self.def(state, c).kinds.contains(&CardKind::PreMatch(PreMatchType::Stipulation));
+        let def = self.def(state, card);
+        !(def.has_keyword("Permanent") || stipulation(card))
+            || source == Source::Card(card)
+            || filter.is_some_and(|f| names_title(f, &def.title))
+            || (stipulation(card) && matches!(source, Source::Card(s) if stipulation(s)))
+    }
+
+    /// Volley: the defender reverses the card in play by removing its # random
+    /// cards of their Ringside pile from the game; the turn ends.
+    fn volley_reverse(&self, state: &mut GameState, defender: PlayerId, events: &mut Vec<Event>) {
+        let played = state.in_play.take().expect("card in play");
+        let n = self.def(state, played.card).volley().unwrap_or(0);
+        if n > 0 {
+            let heat: Vec<CardId> = state
+                .player(defender)
+                .ringside
+                .iter()
+                .copied()
+                .filter(|&c| self.def(state, c).has_keyword("Heat"))
+                .collect();
+            for c in heat {
+                self.move_card(state, c, Zone::Removed, events);
+            }
+        }
+        for _ in 0..n {
+            let len = state.player(defender).ringside.len();
+            if len == 0 {
+                break;
+            }
+            let i = state.rng.random_range(0..len);
+            let c = state.player(defender).ringside[i];
+            self.move_card(state, c, Zone::Removed, events);
+        }
+        events.push(Event::VolleyReversed { player: defender, card: played.card, removed: n });
+        state.reversed_last[defender.index()] = Some(played);
+        state.reversed_from[defender.index()] = Some(Zone::Removed);
+        state.in_play_watch = None;
+        self.move_card(state, played.card, Zone::Ringside, events);
+        state.pending.clear();
+        schedule(state, [Step::EndTurn]);
+        self.schedule_reversed_triggers(state, played.player);
+    }
+
     fn under(&self, state: &GameState, host: CardId) -> Vec<CardId> {
         let owner = state.card(host).owner;
         state.player(owner).under.iter().copied().filter(|&c| state.card(c).host == Some(host)).collect()
@@ -2997,6 +3147,34 @@ impl Engine {
     }
 
     fn move_card(&self, state: &mut GameState, card: CardId, to: Zone, events: &mut Vec<Event>) {
+        let CardInstance { owner, zone: from, .. } = *state.card(card);
+        // Heat rule: an effect you control (not a Heat card's) moving a card
+        // out of your Ringside pile first removes your Heat cards there.
+        if from == Zone::Ringside
+            && !matches!(to, Zone::Ringside | Zone::InPlay)
+            && state.effect_ctx == Some((owner, false))
+        {
+            state.effect_ctx = None;
+            let heat: Vec<CardId> = state
+                .player(owner)
+                .ringside
+                .iter()
+                .copied()
+                .filter(|&c| c != card && self.def(state, c).has_keyword("Heat"))
+                .collect();
+            for c in heat {
+                self.move_card(state, c, Zone::Removed, events);
+            }
+            state.effect_ctx = Some((owner, false));
+            if self.def(state, card).has_keyword("Heat") {
+                // The Heat card removes itself before it can be moved.
+                return self.move_card_raw(state, card, Zone::Removed, events);
+            }
+        }
+        self.move_card_raw(state, card, to, events)
+    }
+
+    fn move_card_raw(&self, state: &mut GameState, card: CardId, to: Zone, events: &mut Vec<Event>) {
         let CardInstance { owner, zone: from, .. } = *state.card(card);
         // InPlay has no list: it is tracked by `GameState::in_play`.
         if let Some(list) = state.player_mut(owner).zone_mut(from) {

@@ -106,6 +106,25 @@ pub struct CardDef {
 }
 
 impl CardDef {
+    /// Does the card print the keyword trait `word` ("Heat", "Volley", ...)?
+    pub fn has_keyword(&self, word: &str) -> bool {
+        self.other_traits.iter().any(|t| keyword_matches(t, word))
+    }
+
+    /// Title Belts are Pre-match Objects designating a belt; all of them are
+    /// Universally Unique.
+    pub fn is_title_belt(&self) -> bool {
+        self.kinds.contains(&CardKind::PreMatch(PreMatchType::Object)) && self.title.to_lowercase().contains("belt")
+    }
+
+    /// The # of a "Volley: #" card.
+    pub fn volley(&self) -> Option<u8> {
+        self.other_traits.iter().find_map(|t| {
+            let (head, n) = t.split_once(':')?;
+            head.trim().eq_ignore_ascii_case("Volley").then(|| n.trim().parse().ok()).flatten()
+        })
+    }
+
     pub fn has_trait(&self, t: Trait) -> bool {
         self.traits.contains(&t)
     }
@@ -804,6 +823,8 @@ pub enum CardFilter {
     Title(String),
     /// The title contains this word, ignoring case.
     TitleContains(String),
+    /// A Title Belt: a Pre-match Object with "Belt" in its title.
+    TitleBelt,
     Trait(Trait),
     DamageAtMost(u8),
     DamageAtLeast(u8),

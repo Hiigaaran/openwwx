@@ -278,6 +278,21 @@ pub struct GameState {
     /// The watch the card in play triggered.
     #[serde(default)]
     pub in_play_watch: Option<Watch>,
+    /// Players who played a Heat card from their Ringside pile this turn
+    /// (the Heat rule allows one per turn).
+    #[serde(default)]
+    pub heat_used: [bool; 2],
+    /// A player who reversed a Volley card with a Reversal: on their next turn
+    /// they may only play maneuvers from hand and Set-up Actions.
+    #[serde(default)]
+    pub volley_lock: Option<PlayerId>,
+    /// The player whose turn is under the Volley restriction right now.
+    #[serde(default)]
+    pub volley_turn: Option<PlayerId>,
+    /// Controller of the effect being resolved, and whether it comes from a
+    /// Heat card (for the Heat rule on cards leaving the Ringside pile).
+    #[serde(skip)]
+    pub(crate) effect_ctx: Option<(PlayerId, bool)>,
     pub(crate) pending: Vec<Step>,
     pub(crate) rng: ChaCha8Rng,
 }

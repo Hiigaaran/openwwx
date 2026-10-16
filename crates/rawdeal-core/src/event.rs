@@ -39,6 +39,13 @@ pub enum Event {
         reversed: CardId,
         from_hand: bool,
     },
+    /// `player` reversed the Volley card `card` by removing `removed` random
+    /// cards of their Ringside pile from the game.
+    VolleyReversed {
+        player: PlayerId,
+        card: CardId,
+        removed: u8,
+    },
     /// A Reversal hit a Multi card that still needs another one.
     PartialReversal {
         player: PlayerId,

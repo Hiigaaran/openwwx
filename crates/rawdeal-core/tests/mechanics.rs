@@ -128,6 +128,14 @@ const SET: &str = r#"(
             script: (on_play: [DiscardAll(who: You, filter: Title("Ambush"))])),
         (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
             script: (restricts_self: Some((filter: Action)))),
+        (id: "m/flame", title: "Flame", kinds: [Maneuver(Strike)], fortitude: 0, damage: 1, other_traits: ["Heat"]),
+        (id: "m/burn", title: "Burn", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [DiscardAll(who: You, filter: Title("Flame"))])),
+        (id: "m/scoop", title: "Scoop", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [MoveCards(who: You, from: Ringside, to: Hand, n: 1, filter: Some(Title("Flame")))])),
+        (id: "m/volleyer", title: "Volleyer", kinds: [Maneuver(Strike)], fortitude: 0, damage: 2,
+            other_traits: ["Volley: 2"]),
+        (id: "m/rooted", title: "Rooted", kinds: [Action], fortitude: 0, damage: 0, other_traits: ["Permanent"]),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
             also_superstars: ["m/second"]),
     ],
@@ -852,4 +860,92 @@ fn cards_under_a_card_can_be_played_and_follow_it_out() {
     no_reversal(&e, &mut s);
     assert_eq!(s.card(stash).zone, Zone::Ringside);
     assert_eq!(s.card(hits[0]).zone, Zone::Ringside);
+}
+
+#[test]
+fn heat_cards_play_from_ringside_once_per_turn_with_six_there() {
+    let e = engine();
+    let mut s = start(&e, "first", &["burn", "flame", "flame", "flame", "flame", "flame", "flame"], "second", &[]);
+    play(&e, &mut s, P1, "burn");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).ringside.len(), 6);
+    let from_ringside = |s: &GameState| {
+        e.legal_actions(s, P1)
+            .into_iter()
+            .filter(|a| matches!(a, Action::PlayCard { card, .. } if s.card(*card).zone == Zone::Ringside))
+            .collect::<Vec<_>>()
+    };
+    let action = from_ringside(&s).into_iter().next().expect("a Heat card is playable from Ringside");
+    apply(&e, &mut s, P1, action);
+    no_reversal(&e, &mut s);
+    assert!(s.heat_used[P1.index()]);
+    assert!(from_ringside(&s).is_empty(), "only one Heat card per turn");
+}
+
+#[test]
+fn moving_a_card_out_of_the_ringside_removes_your_heat_cards() {
+    let e = engine();
+    let mut s = start(&e, "first", &["burn", "flame", "flame", "scoop"], "second", &[]);
+    play(&e, &mut s, P1, "burn");
+    no_reversal(&e, &mut s);
+    play(&e, &mut s, P1, "scoop");
+    no_reversal(&e, &mut s);
+    if let Some(Decision { kind: DecisionKind::ChooseCards { options, .. }, .. }) = s.decision.clone() {
+        apply(&e, &mut s, P1, Action::ChooseCards(vec![options[0]]));
+    }
+    // The moved Heat card removes itself along with the other one.
+    assert_eq!(s.player(P1).removed.len(), 2);
+    assert!(find(&e, &s, &s.player(P1).hand, "flame").is_none());
+}
+
+#[test]
+fn volley_cards_can_be_reversed_by_removing_ringside_cards() {
+    let e = engine();
+    let mut s = start(&e, "first", &["hit", "volleyer"], "second", &[]);
+    play(&e, &mut s, P1, "hit");
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P2).ringside.len(), 2);
+    play(&e, &mut s, P1, "volleyer");
+    assert!(e.legal_actions(&s, P2).contains(&Action::ReverseByVolley));
+    apply(&e, &mut s, P2, Action::ReverseByVolley);
+    assert_eq!(s.player(P2).removed.len(), 2);
+    assert_eq!(s.active, P2);
+    assert!(find(&e, &s, &s.player(P1).ringside, "volleyer").is_some());
+}
+
+#[test]
+fn reversing_a_volley_card_with_a_reversal_limits_the_next_turn() {
+    let e = engine();
+    let mut s = start(&e, "first", &["volleyer"], "second", &["counter", "hit", "filler"]);
+    play(&e, &mut s, P1, "volleyer");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    assert_eq!(s.active, P2);
+    assert!(playable(&e, &s, P2, "hit"));
+    assert!(!playable(&e, &s, P2, "filler"), "only maneuvers from hand and Set-up Actions");
+    end_turn(&e, &mut s);
+    // No maneuver played: the Volley player may take a Volley card back.
+    assert!(matches!(s.decision, Some(Decision { player: P1, kind: DecisionKind::YesNo { .. } })));
+}
+
+#[test]
+fn permanent_cards_stay_in_the_ring() {
+    let e = engine();
+    let mut s = start(
+        &e,
+        "first",
+        &["filler", "filler", "filler", "filler", "filler", "filler", "filler", "sweep"],
+        "second",
+        &["rooted"],
+    );
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P2, "rooted");
+    no_reversal(&e, &mut s);
+    end_turn(&e, &mut s);
+    play(&e, &mut s, P1, "sweep");
+    no_reversal(&e, &mut s);
+    if let Some(Decision { kind: DecisionKind::ChooseCards { options, .. }, .. }) = &s.decision {
+        assert!(options.is_empty());
+    }
+    assert!(find(&e, &s, &s.player(P2).ring, "rooted").is_some());
 }

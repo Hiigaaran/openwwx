@@ -60,6 +60,7 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::Reversal => "Reversal".into(),
         CardFilter::Title(t) => format!("\"{t}\""),
         CardFilter::TitleContains(t) => format!("con \"{t}\" en el título"),
+        CardFilter::TitleBelt => "Title Belt".into(),
         CardFilter::Trait(t) => format!("{t:?}"),
         CardFilter::DamageAtMost(n) => format!("de {n}D o menos"),
         CardFilter::DamageAtLeast(n) => format!("de {n}D o más"),
@@ -367,6 +368,10 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
                 name(*reversal),
                 if *from_hand { "" } else { ", que salió volteada durante el daño" }
             );
+            say(*p, format!("¡REVIERTES {what}!"), format!("¡REVIERTE {what}!"))
+        }
+        Event::VolleyReversed { player: p, card, removed } => {
+            let what = format!("{} (Volley) retirando del juego {removed} cartas al azar del Ringside", name(*card));
             say(*p, format!("¡REVIERTES {what}!"), format!("¡REVIERTE {what}!"))
         }
         Event::PartialReversal { player: p, reversal, card } => {

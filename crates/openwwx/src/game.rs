@@ -378,7 +378,7 @@ impl Match {
                     });
                 }
             }
-            Event::Reversed { player, .. } => {
+            Event::Reversed { player, .. } | Event::VolleyReversed { player, .. } => {
                 let text =
                     if *player == me { "¡REVERSAL!".to_string() } else { "¡El rival te revierte!".to_string() };
                 banner(self, text, red, 1.3);
@@ -685,6 +685,13 @@ impl Match {
                         {
                             chosen = Some(a.clone());
                         }
+                    }
+                }
+                if legal.contains(&Action::ReverseByVolley) {
+                    let n = self.def_of(*card).volley().unwrap_or(0);
+                    let label = format!("Revertir el Volley (retirar {n} cartas al azar de tu Ringside)");
+                    if ui.button(label).clicked() {
+                        chosen = Some(Action::ReverseByVolley);
                     }
                 }
                 if ui.button("No revertir").clicked() {

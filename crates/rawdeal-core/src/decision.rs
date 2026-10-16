@@ -16,8 +16,15 @@ pub struct Decision {
 pub enum DecisionKind {
     /// Main Segment: play a card or end the turn.
     Main,
-    /// The opponent played `card`; you may reverse it from hand.
-    Reversal { card: CardId, options: Vec<CardId> },
+    /// The opponent played `card`; you may reverse it from hand. With
+    /// `volley` you may also reverse its Volley by removing cards from your
+    /// Ringside pile.
+    Reversal {
+        card: CardId,
+        options: Vec<CardId>,
+        #[serde(default)]
+        volley: bool,
+    },
     /// Pick between `min` and `max` cards from `options`.
     ChooseCards { options: Vec<CardId>, min: u8, max: u8, purpose: ChoicePurpose },
     /// Answer yes or no.
@@ -102,6 +109,9 @@ pub enum Action {
         card: CardId,
     },
     DeclineReversal,
+    /// Reverse a "Volley: #" card by removing # random cards of your Ringside
+    /// pile from the game.
+    ReverseByVolley,
     ChooseCards(Vec<CardId>),
     Yes,
     No,

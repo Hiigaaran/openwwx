@@ -172,6 +172,7 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
         Action::UseRingCard { card } => format!("Use {} in your Ring", name(engine, state, *card)),
         Action::Reverse { card } => format!("Reverse with {}", name(engine, state, *card)),
         Action::DeclineReversal => "Don't reverse".into(),
+        Action::ReverseByVolley => "Reverse the Volley (remove random Ringside cards)".into(),
         Action::ChooseCards(cards) => format!("Choose {}", names(engine, state, cards)),
         Action::Yes => "Yes".into(),
         Action::No => "No".into(),
