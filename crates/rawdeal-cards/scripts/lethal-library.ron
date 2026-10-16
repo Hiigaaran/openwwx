@@ -1,8 +1,8 @@
 // Hand-written scripts for Lethal Library cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Backstage cards (Remember Who Pays Your Salary!, King's Crown) and the Enforcer
-// Shane O' Mac or Stephanie? are skipped by the importer: they are not supported yet.
+// Backstage cards (Remember Who Pays Your Salary!, King's Crown) are skipped by the importer: they are not
+// supported yet. The Enforcer card Shane O' Mac or Stephanie? goes in the Backstage Area.
 (
     abilities: {
         // Packing both Raw and SmackDown! cards and No Chance in Hell being a Set-up card that ignores its
@@ -216,6 +216,47 @@
                 targets: Not(ManeuverType(TrademarkFinisher)),
                 fortitude_when: Some((Superstar("Vince McMahon"), 7)),
             )),
+        ),
+
+        // Enforcers
+        // Approximation: changing the Enforcer may pick one on any of your revealed Enforcer cards, not only this
+        // one, and the opponent draws 0, 1 or 2 cards (his choice) once per turn. Shane's High Risks ignore their
+        // "Can only be played after" text when played right after any successful card. Stephanie copying the
+        // opponent's Superstar ability is not supported yet.
+        "Shane O' Mac or Stephanie?": (
+            enforcer_abilities: [
+                [
+                    CannotPlayMatching(
+                        All([
+                            Maneuver,
+                            AnyOf([
+                                ManeuverType(Grapple),
+                                ManeuverType(Submission),
+                                All([Not(FortitudeAtMost(0)), Not(Keyword("Foreign Object")), Not(ManeuverType(HighRisk))]),
+                            ]),
+                        ]),
+                    ),
+                    StartOfTurn([
+                        Boost((applies_to: All([ManeuverType(HighRisk), After(Any)]), duration: ThisTurn, ignore_play_after: true)),
+                    ]),
+                    Activated(
+                        cost: [],
+                        effects: [
+                            OpponentChooses(n: 1, options: [[], [Draw(who: Opponent, n: 1)], [Draw(who: Opponent, n: 2)]]),
+                            ChooseEnforcer(who: You),
+                        ],
+                    ),
+                ],
+                [
+                    Activated(
+                        cost: [],
+                        effects: [
+                            OpponentChooses(n: 1, options: [[], [Draw(who: Opponent, n: 1)], [Draw(who: Opponent, n: 2)]]),
+                            ChooseEnforcer(who: You),
+                        ],
+                    ),
+                ],
+            ],
         ),
     },
 )

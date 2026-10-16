@@ -147,6 +147,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Responder a un Reversal: justo después de que el rival revierta tu carta, puedes revertir su Reversal
   (Disqualification! contra Reversals HEEL) o anularlo con una Action como Ref KO'd! (ni tu carta ni su Reversal hacen
   daño y tu turno sigue). That's Gonna Cost You! también se juega ya.
+- Enforcers y Backstage Area: las cartas Enforcer van en el Backstage Area del mazo; las Superstars que pueden
+  revelarlas (GMs y Divas como Eric Bischoff, Stephanie McMahon, Stacy Keibler o Paul Heyman) eligen 1 Enforcer antes
+  de la partida, que suma a su mano inicial, su Superstar Value y su habilidad, y algunas cartas cambian de Enforcer
+  (por ejemplo You're Fired! y Suplex into the Ring).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

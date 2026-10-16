@@ -567,7 +567,7 @@
                 ),
             ],
         ),
-        // Enforcers are not supported yet.
+        // Counting the opponent's revealed Enforcer cards and hiding Enforcer cards are not supported yet.
         "All Alone in the Night": (requires: Some(Never)),
         // Approximation: the opponent picks which kind of card you get.
         "Managed by William Regal": (
@@ -1118,10 +1118,13 @@
                 effects: [DiscardAll(who: You, filter: Any)],
             )),
         ),
-        // Choosing a different Enforcer is not supported yet.
         "Why Can't We Just Dance?": (
-            on_play: [RingsideToArsenalCount(who: You, count: YourFortitude)],
-            reverses: Some((targets: All([Action, Not(Trait(SetUp))]), fortitude: Some(10))),
+            on_play: [RingsideToArsenalCount(who: You, count: YourFortitude), Optional([ChooseEnforcer(who: You)])],
+            reverses: Some((
+                targets: All([Action, Not(Trait(SetUp))]),
+                fortitude: Some(10),
+                effects: [Optional([ChooseEnforcer(who: You)])],
+            )),
         ),
         "It's Not a Wig!": (reverses: Some((targets: Not(Trait(Unique)), effects: [Search(filter: Maneuver)]))),
         "The Cena Throwback": (

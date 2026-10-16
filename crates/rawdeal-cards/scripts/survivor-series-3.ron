@@ -149,7 +149,6 @@
             ],
             reverses: Some((targets: ManeuverType(Submission), overturned_only: true)),
         ),
-        // Enforcers are not supported yet.
         "Suplex into the Ring": (
             on_play: [
                 DiscardThis,
@@ -158,8 +157,12 @@
                     [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))],
                     [RingsideToHand(who: You, n: 2, filter: Some(All([Maneuver, TitleContains("suplex")])))],
                 ]),
+                Choice([[], [ChooseEnforcer(who: You)], [ChooseEnforcer(who: Opponent)]]),
             ],
-            reverses: Some((targets: Title("Roll Out of the Ring"), effects: [Mill(who: Opponent, n: 2)])),
+            reverses: Some((
+                targets: Title("Roll Out of the Ring"),
+                effects: [Mill(who: Opponent, n: 2), Choice([[], [ChooseEnforcer(who: You)], [ChooseEnforcer(who: Opponent)]])],
+            )),
         ),
         // Approximation: as an action it can only be played from hand (or while you hold a copy).
         "When Hell Freezes Over!": (

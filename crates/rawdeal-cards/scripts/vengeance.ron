@@ -1,7 +1,7 @@
 // Hand-written scripts for Vengeance cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Enforcers are not supported, so no Superstar ever has an Enforcer revealed.
+// Enforcer cards set `enforcer_abilities`, one list per printed Enforcer, in order.
 (
     abilities: {
         // No imported card limits who packs the Tag Team Title Belts, so that part needs no script.
@@ -15,9 +15,18 @@
         ],
         // Limiting the opponent's Action cards is not supported yet.
         "The Highlight of the Night": [PacksLogos(["Chris Jericho"])],
-        // Enforcers, the 50-card Arsenal and the extra Mankind cards are not supported yet.
-        // Approximation: he never reveals, and the +8 Starting Hand Size is drawn at the end of the Pre-match phase.
-        "The Mystery Wrestler": [EndOfPrematch([Draw(who: You, n: 8)])],
+        // Choosing not to reveal, the 50-card Arsenal and the extra Mankind cards are not supported yet.
+        // Approximation: he reveals whenever he packs the Enforcer card; without it, the +8 Starting Hand Size is
+        // drawn at the end of the Pre-match phase.
+        "The Mystery Wrestler": [
+            RevealEnforcers(Title("Mankind / Cactus Jack, or ... Dude Love?")),
+            EndOfPrematch([If(condition: Not(HasEnforcer(You)), effects: [Draw(who: You, n: 8)])]),
+            Activated(
+                cost: [Discard(who: You, n: 3, pick: Chosen)],
+                effects: [ChooseEnforcer(who: You)],
+                requires: Some(HasEnforcer(You)),
+            ),
+        ],
         "Leader of the Edge Army": [
             OnOpponentPlayMatching(
                 filter: Action,
@@ -25,9 +34,9 @@
             ),
             PacksLogos(["Edge"]),
         ],
-        // Enforcers, revealed Stipulations, the 'Heyman' ban and the 50-card Arsenal are not supported yet, so he
-        // plays with Hand Size 0.
-        "Paul Heyman": [],
+        // Revealed Stipulations, the 'Heyman' ban and the 50-card Arsenal are not supported yet.
+        // Approximation: he may choose any Enforcer on all his packed Enforcer cards, not only on 1 revealed card.
+        "Paul Heyman": [RevealEnforcers(Any)],
         // Changing the alignment of It's True! It's True! is not supported yet.
         "Your Freaking Hero": [
             OnPlayMatching(filter: Trait(Chain), effects: [Optional([Draw(who: You, n: 1)])]),
@@ -104,7 +113,6 @@
                 ),
             ],
         ),
-        // The Enforcer part is not supported yet.
         "Struck by an Unknown Foreign Object": (
             requires: Some(
                 AnyOf([
@@ -112,7 +120,7 @@
                     OpponentRingHas(filter: Title("Roll Out of the Ring"), n: 1),
                 ]),
             ),
-            on_play: [RemoveFromRing(who: Opponent, n: 2, filter: Not(Maneuver))],
+            on_play: [RemoveFromRing(who: Opponent, n: 2, filter: Not(Maneuver)), AsOpponent([ChooseEnforcer(who: You)])],
         ),
 
         // Grapples
@@ -142,8 +150,23 @@
                 ),
             ],
         ),
-        // Choosing an Enforcer for the opponent is not supported yet, so the next card is always -2F.
-        "Suplex": (on_play: [Boost((applies_to: Any, duration: NextCard, fortitude: -2))]),
+        "Suplex": (
+            on_play: [
+                If(
+                    condition: HasEnforcer(Opponent),
+                    effects: [
+                        Choice([
+                            [ChooseEnforcer(who: Opponent)],
+                            [Boost((applies_to: Any, duration: NextCard, fortitude: -2))],
+                        ]),
+                    ],
+                ),
+                If(
+                    condition: Not(HasEnforcer(Opponent)),
+                    effects: [Boost((applies_to: Any, duration: NextCard, fortitude: -2))],
+                ),
+            ],
+        ),
         "Military Slam": (),
         "Takedown": (
             bonuses: [(fortitude: -14)],
@@ -273,7 +296,7 @@
         ),
 
         // Actions
-        // Choosing an Enforcer is not supported yet.
+        // "When successfully played" is read as part of the reversal (the action discards the card).
         "Suplex into the Ring": (
             on_play: [
                 DiscardThis,
@@ -283,7 +306,10 @@
                     [RingsideToHand(who: You, n: 2, filter: Some(All([Maneuver, TitleContains("suplex")])))],
                 ]),
             ],
-            reverses: Some((targets: Title("Roll Out of the Ring"), effects: [Mill(who: Opponent, n: 2)])),
+            reverses: Some((
+                targets: Title("Roll Out of the Ring"),
+                effects: [Mill(who: Opponent, n: 2), Optional([ChooseEnforcer(who: You)])],
+            )),
         ),
         "Chain Wrestling": (
             on_play: [
@@ -317,9 +343,19 @@
                 AsOpponent([MillChosen(who: Opponent, n: 2)]),
             ],
         ),
-        // Leaving the Ring when your turn ends without a maneuver and the Enforcer part are not supported yet.
+        // Leaving the Ring when your turn ends without a maneuver is not supported yet.
+        // "Put it into your hand ... if he does, discard this card" is read as: it stays in your Ringside pile.
         "J.R. Style Donnybrook": (
             restricts_opponent: Some((filter: All([AnyOf([Trait(Face), Trait(Heel)]), AnyOf([Action, Maneuver])]))),
+            ringside_ability: Some((
+                requires: Some(HasEnforcer(Opponent)),
+                effects: [
+                    OpponentChooses(
+                        n: 1,
+                        options: [[ReturnThis(to: Hand)], [AsOpponent([ChooseEnforcer(who: You)]), EndTurn]],
+                    ),
+                ],
+            )),
         ),
         // Playing without discarding to reverse a Chain card is not supported yet.
         "Chained Heat": (
@@ -329,12 +365,27 @@
             ],
             reverses: Some((targets: AnyOf([Trait(Chain), Keyword("Heat")]), reversed_removed: true)),
         ),
-        // The Venue and Enforcer parts are not supported yet.
+        // The Venue part is not supported yet.
+        // Approximation: an opponent who keeps his Enforcer skips only his next turn, not his next two.
         "Down and Out": (
             on_play: [
-                DiscardThis,
-                Draw(who: You, n: 1),
-                Boost((applies_to: Not(Maneuver), duration: NextCard, end_turn: true)),
+                If(
+                    condition: Not(HasEnforcer(Opponent)),
+                    effects: [
+                        DiscardThis,
+                        Draw(who: You, n: 1),
+                        Boost((applies_to: Not(Maneuver), duration: NextCard, end_turn: true)),
+                    ],
+                ),
+                If(
+                    condition: HasEnforcer(Opponent),
+                    effects: [
+                        OpponentChooses(
+                            n: 1,
+                            options: [[AsOpponent([ChooseEnforcer(who: You)])], [SkipNextTurn(who: Opponent)]],
+                        ),
+                    ],
+                ),
             ],
         ),
         // Naming a card for other cards to count as is not supported yet.
@@ -998,8 +1049,10 @@
             ring_ability: Some((sacrifice: true, effects: [DrawUpTo(who: You, n: 2)])),
         ),
         "Noble Bomb": (on_play: [Optional([RingsideToArsenal(who: You, n: 1)])]),
-        // Choosing an Enforcer is not supported yet, so as an action it does nothing.
-        "Didn't I Already Fire You?": (reverses: Some((targets: AnyOf([Trait(Raw), Trait(SmackDown)])))),
+        "Didn't I Already Fire You?": (
+            on_play: [ChooseEnforcer(who: You)],
+            reverses: Some((targets: AnyOf([Trait(Raw), Trait(SmackDown)]))),
+        ),
         "Belly-to-Belly Steinerplex": (on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
         "All Things Are Possible": (requires: Some(OpponentHandLarger), on_play: [Search(filter: Any)]),
         "Greco Roman Specialists": (
@@ -1073,6 +1126,49 @@
                 (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(8))]), fortitude: 1),
                 (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(9))]), fortitude: 1),
                 (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(10))]), fortitude: 1),
+            ],
+        ),
+
+        // Enforcers
+        // The Dude Love text (the opponent may discard 2 cards to change your Enforcer) and the opponent's extra
+        // draw with Dude Love are not supported yet.
+        "Mankind / Cactus Jack, or ... Dude Love?": (
+            enforcer_abilities: [
+                [DrawSegment(2), ReduceDamage(1)],
+                [
+                    DamageFor(filter: Maneuver, delta: -1),
+                    Activated(cost: [], effects: [RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique))))]),
+                ],
+            ],
+        ),
+        // Naming cards is not supported yet, so Coach has no ability.
+        // Approximation: Cole picks the card after looking at the hand; Finkel's named card is never the top card.
+        "Coach, Cole, or Finkel?": (
+            enforcer_abilities: [
+                [],
+                [
+                    Activated(
+                        cost: [Discard(who: You, n: 2, pick: Chosen)],
+                        effects: [
+                            LookAtHand(who: Opponent),
+                            If(
+                                condition: OpponentHandAtLeast(1),
+                                effects: [Discard(who: Opponent, n: 1, pick: Controller), Draw(who: Opponent, n: 1)],
+                            ),
+                        ],
+                    ),
+                ],
+                [Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [Mill(who: Opponent, n: 3)])],
+            ],
+        ),
+        // Approximation: The People's Champ's maneuvers cannot be reversed from the Backlash deck from the start of
+        // your turn on; The Big Freak'n Machine's first card is your first non-Reversal card of your first turn,
+        // and it cannot be reversed from the Backlash deck either.
+        "The People's Champ, The Big Freak'n Machine, or The Game?": (
+            enforcer_abilities: [
+                [StartOfTurn([Boost((applies_to: Maneuver, duration: ThisTurn, no_backlash_reversal: true))])],
+                [EndOfPrematch([Boost((applies_to: Not(Reversal), duration: NextTurnCards(1), no_hand_reversal: true))])],
+                [StartOfTurn([Arrange(who: You, n: 3)])],
             ],
         ),
     },

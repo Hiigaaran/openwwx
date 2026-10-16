@@ -1,15 +1,35 @@
 // Hand-written scripts for Absolutely Raw and Ultimate Smackdown cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Enforcer cards are skipped by the importer: Enforcers are not supported yet.
+// Enforcer cards set `enforcer_abilities`, one list per printed Enforcer, in order.
 (
     abilities: {
-        // Enforcers (and the Arsenal search that comes with revealing them) and blocking
-        // Stipulation cards are not supported yet.
-        "Eric Bischoff": [CannotPackMatching(TitleContains("McMahon"))],
-        // Enforcers (and the Arsenal search that comes with revealing them) and blocking
-        // Stipulation cards are not supported yet.
-        "Stephanie McMahon": [CountsAs(["Stephanie McMahon-Helmsley"])],
+        // The unbranded Enforcer cards that 'Can be revealed by any GM Superstar' are listed by title.
+        // The Arsenal search that comes with revealing and blocking Stipulation cards are not supported yet.
+        "Eric Bischoff": [
+            CannotPackMatching(TitleContains("McMahon")),
+            RevealEnforcers(
+                AnyOf([
+                    Trait(Raw),
+                    Title("Mankind / Cactus Jack, or ... Dude Love?"),
+                    Title("The People's Champ, The Big Freak'n Machine, or The Game?"),
+                    Title("The Hurricane, Hardcore Holly, or Umaga?"),
+                ]),
+            ),
+        ],
+        // The unbranded Enforcer cards that 'Can be revealed by any GM Superstar' are listed by title.
+        // The Arsenal search that comes with revealing and blocking Stipulation cards are not supported yet.
+        "Stephanie McMahon": [
+            CountsAs(["Stephanie McMahon-Helmsley"]),
+            RevealEnforcers(
+                AnyOf([
+                    Trait(SmackDown),
+                    Title("Mankind / Cactus Jack, or ... Dude Love?"),
+                    Title("The People's Champ, The Big Freak'n Machine, or The Game?"),
+                    Title("The Hurricane, Hardcore Holly, or Umaga?"),
+                ]),
+            ),
+        ],
         // The 45-card Arsenal and Puppies! Puppies! being a Set-up card are not supported yet.
         "Mae Young": [
             CannotPlayMatching(All([Maneuver, DamageAtLeast(3)])),
@@ -60,9 +80,8 @@
             irreversible_when: Some(InYourRing(Title("Backstage Politics"))),
             while_in_ring_opponent: [(applies_to: Any, no_hand_reversal: true)],
         ),
-        // Choosing a different Enforcer is not supported yet.
         "You're Fired!": (
-            requires: Some(Never),
+            on_play: [If(condition: YouAre("GM"), effects: [ChooseEnforcer(who: You)])],
             reverses: Some((targets: All([Action, AnyOf([Trait(Raw), Trait(SmackDown)])]))),
         ),
 
@@ -186,5 +205,38 @@
         ),
         // Reversing after the maneuver has done its damage and keeping cards under it are not supported yet.
         "Hitting the G-Spot": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+
+        // Enforcers (Raw)
+        "Stone Cold, Triple H, or ... Christian?": (
+            enforcer_abilities: [
+                [Activated(cost: [], effects: [Draw(who: You, n: 1), HandToArsenalBottom(who: You, n: 1)])],
+                [],
+                // Approximation: draws on cards your opponent plays from anywhere are blanked, not only from hand.
+                [BlankOpponentCardDraws],
+            ],
+        ),
+        "Chris Jericho, Kane, or ... D-Von Dudley?": (
+            enforcer_abilities: [
+                [Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
+                [StartOfTurn([Mill(who: Opponent, n: 1)])],
+                [OnPlayMatching(filter: Maneuver, effects: [Optional([Draw(who: You, n: 1)])])],
+            ],
+        ),
+
+        // Enforcers (SmackDown!)
+        "Rock, Deadman, or ... Matt Hardy?": (
+            enforcer_abilities: [
+                [StartOfTurn([RingsideToArsenalBottom(who: You, n: 1)])],
+                [Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)])],
+                [OnPlayMatching(filter: ManeuverType(HighRisk), effects: [RingsideToArsenal(who: You, n: 6, up_to: true)])],
+            ],
+        ),
+        "Rikishi, Chris Benoit, or ... Eddie Guerrero?": (
+            enforcer_abilities: [
+                [Activated(cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [Search(filter: Maneuver)])],
+                [EscalatingManeuverDamage],
+                [FirstOfTurnIrreversible(ManeuverType(HighRisk))],
+            ],
+        ),
     },
 )

@@ -28,7 +28,6 @@
             OnPlayMatching(filter: ManeuverType(HighRisk), effects: [EndTurn]),
             PacksLogos(["Rob Van Dam"]),
         ],
-        // Enforcer opponents are not recognised.
         "The Ultimate Survivor": [
             EndOfPrematch([
                 If(
@@ -36,6 +35,7 @@
                         AnyOf([
                             OpponentSuperstar("Edge"),
                             OpponentSuperstar("Leader of the Edge Army"),
+                            HasEnforcer(Opponent),
                             OpponentIs("Legend"),
                             OpponentIs("Tag Team"),
                         ]),
@@ -625,14 +625,31 @@
         ),
         // Making a chosen card Permanent and reversing discards are not supported yet.
         "Can U Believe the Witte Retort?": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Enforcers are not supported yet.
-        // Approximation: the Manager is removed from his Ring only.
+        // Hiding an Enforcer card and reversing card effects (Superstar or Enforcer abilities) are not supported
+        // yet. Approximation: the Manager is removed from his Ring only; the cards that switch Enforcers are a list
+        // of the known titles, reversed while your opponent has an Enforcer chosen.
         "This Is Between You and Me": (
             on_play: [
                 RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(TitleContains("Managed by")), pick: Controller),
                 Draw(who: You, n: 1),
             ],
-            reverses: Some((targets: Keyword("Run-in"))),
+            reverses: Some((
+                targets: AnyOf([
+                    Keyword("Run-in"),
+                    All([
+                        AnyOf([
+                            Title("You're Fired!"),
+                            Title("I Know How to Use Them"),
+                            Title("Suplex into the Ring"),
+                            Title("Didn't I Already Fire You?"),
+                            Title("Why Can't We Just Dance?"),
+                            Title("Uncle Eric's Karate Kick"),
+                            Title("Billion Dollar Princess"),
+                        ]),
+                        Holds(HasEnforcer(You)),
+                    ]),
+                ]),
+            )),
         ),
         "BASH: Great American Style": (
             play_after: Some(Maneuver),
@@ -1062,8 +1079,9 @@
         ),
         // Choosing which of his cards may reverse it is not supported yet.
         "Grapple With Your Faith": (),
-        // Enforcers are not supported yet.
-        "Billion Dollar Princess": (on_play: [RingToHand(who: You, n: 1, filter: Trait(Unique))]),
+        "Billion Dollar Princess": (
+            on_play: [RingToHand(who: You, n: 1, filter: Trait(Unique)), Optional([ChooseEnforcer(who: You)])],
+        ),
         "The Chain Gang: Hustle, Loyalty, and Respect": (
             not_reversed_by: Some(Title("A Revolution of the Mind")),
             on_play: [

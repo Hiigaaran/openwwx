@@ -1,8 +1,8 @@
 // Hand-written scripts for Divas Overload cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Enforcer cards and That One Thing are skipped by the importer: Enforcers and
-// "Maneuver: Special" cards are not supported yet.
+// That One Thing is skipped by the importer: "Maneuver: Special" cards are not supported yet.
+// Enforcer cards set `enforcer_abilities`, one list per printed Enforcer, in order.
 // "Female", "Male", "Diva", "GM" and "Tag Team" are read from the Superstar cards
 // (female flag and printed Superstar traits).
 (
@@ -20,9 +20,11 @@
             CardFortitude(title: "Jackhammer", delta: -100),
             DamageFor(filter: AnyOf([Title("Spear"), Title("Jackhammer")]), delta: 3),
         ],
-        // Enforcers (her printed Hand Size is 0+), the 50-card Arsenal, Diversion being a Set-up card and the
-        // Managed by Stacy Keibler part are not supported yet.
+        // The 50-card Arsenal, Diversion being a Set-up card and the Managed by Stacy Keibler part are not
+        // supported yet.
+        // Approximation: she may choose any Enforcer on all her packed Enforcer cards, not only on 1 revealed card.
         "Stacy Keibler": [
+            RevealEnforcers(Any),
             CardFortitude(title: "Diversion", delta: -9),
             OpponentCannotPlay("Keibler's Cookies"),
             OpponentCannotPlay("Managed by Stacy Keibler"),
@@ -61,9 +63,11 @@
                 ],
             ),
         ],
-        // Enforcers (her printed Hand Size is 0+) and the 50-card Arsenal are not supported yet.
-        // Approximation: the ability is used once per turn instead of twice.
+        // The 50-card Arsenal is not supported yet.
+        // Approximation: the ability is used once per turn instead of twice, and she may choose any Enforcer on
+        // all her packed Enforcer cards, not only on 1 revealed card.
         "Sable": [
+            RevealEnforcers(Any),
             Activated(cost: [Mill(who: You, n: 2)], effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)]),
             OpponentCannotPlay("Sable Bomb"),
             OpponentCannotPlay("Sable-licious"),
@@ -359,7 +363,7 @@
         ),
         // Revealing the card and what happens if it is or is not the next card played are not supported yet.
         "I'll Take a Shot": (on_play: [Draw(who: You, n: 1)]),
-        // Approximation: Enforcers are not supported, so the opponent always discards 2 cards.
+        // Approximation: counting revealed Enforcer cards is not supported, so the opponent always discards 2 cards.
         "The Hubbub Backstage": (
             requires: Some(OpponentRingHas(filter: Title("Backstage Politics"), n: 1)),
             irreversible: true,
@@ -782,8 +786,8 @@
         "Pump Me Up": (
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), effects: [DrawUpTo(who: You, n: 2)])),
         ),
-        // Enforcers are not supported yet.
         "I Know How to Use Them": (
+            on_play: [Optional([ChooseEnforcer(who: You)])],
             ring_ability: Some((sacrifice: true, effects: [RemoveFromRing(who: Opponent, n: 1, filter: Any)])),
         ),
 
@@ -882,13 +886,13 @@
                 ],
             )),
         ),
-        // Choosing a different Enforcer is not supported yet.
         "For the Women that Want to Be Me...": (
             reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]), requires: Some(OpponentIs("Diva")))),
             ringside_ability: Some((
                 effects: [
                     Mill(who: You, n: 3),
                     MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("For the Women that Want to Be Me..."))),
+                    Optional([ChooseEnforcer(who: You)]),
                 ],
             )),
         ),
@@ -1178,6 +1182,93 @@
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
             in_ring_on_play: [
                 (whose: Some(You), filter: Keyword("Foreign Object"), effects: [Optional([RingsideToArsenal(who: You, n: 3, up_to: true)])]),
+            ],
+        ),
+
+        // Enforcers (Raw)
+        "Test or Freakzilla?": (
+            enforcer_abilities: [
+                [
+                    StartOfTurn([
+                        Counted(
+                            count: AtMost(Minus(OpponentHandSize, HandPlus(2)), 2),
+                            effect: Discard(who: Opponent, n: 0, pick: Chosen),
+                        ),
+                    ]),
+                ],
+                [
+                    Activated(
+                        cost: [Discard(who: You, n: 2, pick: Chosen)],
+                        effects: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -8))],
+                    ),
+                    CannotPlayMatching(All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 2)])),
+                ],
+            ],
+        ),
+        // Raising the Mid-match limit by 2 when the card is revealed is not supported yet.
+        "RVD or Booker T?": (
+            enforcer_abilities: [
+                [
+                    Activated(
+                        cost: [
+                            DiscardMatching(who: You, n: 1, filter: AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]), pick: Chosen),
+                        ],
+                        effects: [
+                            Counted(
+                                count: LastDiscardedFortitude,
+                                effect: Boost((
+                                    applies_to: AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]),
+                                    duration: NextCard,
+                                    fortitude: -1,
+                                )),
+                            ),
+                        ],
+                    ),
+                ],
+                [
+                    StartOfTurn([
+                        If(
+                            condition: FortitudeAboveOpponent,
+                            effects: [Optional([RingsideToArsenalBottom(who: You, n: 2)])],
+                        ),
+                    ]),
+                ],
+            ],
+        ),
+
+        // Enforcers (SmackDown!)
+        // Approximation: the APA bonus and ban also apply to cards played from elsewhere than your hand.
+        "APA or A-Train?": (
+            enforcer_abilities: [
+                [DamageFor(filter: Maneuver, delta: 1), CannotPlayMatching(All([Action, Not(Trait(Unique))]))],
+                [
+                    Activated(
+                        cost: [Discard(who: You, n: 1, pick: Chosen)],
+                        effects: [
+                            Search(
+                                filter: All([
+                                    Not(Trait(Unique)),
+                                    AnyOf([TitleContains("power"), TitleContains("bomb"), TitleContains("slam")]),
+                                ]),
+                            ),
+                        ],
+                    ),
+                    FortitudeFor(filter: AnyOf([TitleContains("power"), TitleContains("bomb"), TitleContains("slam")]), delta: -4),
+                ],
+            ],
+        ),
+        // Edge's "+#" Hand Size uses HandSizeFromOpponentValue (twice the opponent's Superstar Value; it replaces
+        // the printed Hand Size, which is 0 for every Superstar that may reveal this card).
+        // Not playing cards that raise the opponent's Superstar Value and starting after the Pre-match phase
+        // are not supported yet.
+        "Edge or Big Show?": (
+            enforcer_abilities: [
+                [HandSizeFromOpponentValue(times: 2, min: 0)],
+                [
+                    PlayCost(filter: All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 1)]), discard: 2),
+                    CannotPlayMatching(ManeuverType(HighRisk)),
+                    OpponentDamageCap(filter: ManeuverType(Grapple), max: 3),
+                ],
             ],
         ),
     },

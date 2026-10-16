@@ -1,7 +1,7 @@
 // Hand-written scripts for Unforgiven cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Backstage cards and Enforcers are skipped by the importer: they are not supported yet.
+// Backstage cards are skipped by the importer: they are not supported yet. Enforcer cards go in the Backstage Area.
 // Volley cards are matched by the "Volley" keyword; Female, Diva, Legend, GM and Chairman Superstars by their
 // printed traits.
 // "Card with the word 'diva' or 'female' in the text" is a list of the known titles with that text.
@@ -49,8 +49,16 @@
         ],
         // Checking a card's text for the word 'reverse' is not supported yet.
         "Rowdy Roddy Piper": [],
-        // Enforcers, the 50-card Arsenal and blocking Stipulation cards are not supported yet.
+        // The 50-card Arsenal and blocking Stipulation cards are not supported yet.
         "SmackDown! GM Theodore Long": [
+            RevealEnforcers(
+                AnyOf([
+                    Trait(SmackDown),
+                    Title("Mankind / Cactus Jack, or ... Dude Love?"),
+                    Title("The People's Champ, The Big Freak'n Machine, or The Game?"),
+                    Title("The Hurricane, Hardcore Holly, or Umaga?"),
+                ]),
+            ),
             Activated(
                 cost: [],
                 requires: Some(HandAtLeast(2)),
@@ -960,6 +968,26 @@
             reverses: Some((targets: Not(Trait(Unique)))),
         ),
 
+        // Enforcers
+        // Approximation: John Cena's "from your hand" is any maneuver not played from the Ringside pile (a Mid-match
+        // maneuver from the Backlash deck also counts).
+        "Your Freaking Hero or John Cena?": (
+            enforcer_abilities: [
+                [OnPlayMatching(filter: Trait(Chain), effects: [Optional([Draw(who: You, n: 1)])])],
+                [
+                    OnPlayMatching(
+                        filter: All([Maneuver, Holds(Not(PlayedFromRingside))]),
+                        effects: [
+                            Optional([
+                                Discard(who: You, n: 1, pick: Chosen),
+                                BacklashToRingside(who: Opponent, n: 3, random: true),
+                            ]),
+                        ],
+                    ),
+                ],
+            ],
+        ),
+
         // SmackDown! GM Theodore Long
         "Haterade": (
             ring_ability: Some((
@@ -1251,11 +1279,16 @@
             no_backlash_reversal: true,
             reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]))),
         ),
-        // Enforcers are not supported yet.
         "Uncle Eric's Karate Kick": (
             bonuses: [(fortitude: -5)],
-            on_play: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique))))])],
-            reverses: Some((targets: All([Not(Trait(Unique)), Trait(MidMatch)]))),
+            on_play: [
+                Optional([RingsideToHand(who: You, n: 1, filter: Some(Not(Trait(Unique))))]),
+                Optional([ChooseEnforcer(who: You)]),
+            ],
+            reverses: Some((
+                targets: All([Not(Trait(Unique)), Trait(MidMatch)]),
+                effects: [Optional([ChooseEnforcer(who: You)])],
+            )),
         ),
         "Daddy's Little Girl": (
             requires: Some(
