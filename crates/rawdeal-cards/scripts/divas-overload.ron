@@ -2,12 +2,9 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Enforcer cards and That One Thing are skipped by the importer: Enforcers and
-// "Maneuver: Special" cards are not supported yet. Removing cards from the game is
-// not supported yet either.
-// Approximation: there is no "you are Female" condition, so "Female Superstar" and
-// "Diva Superstar" are read from Superstar names. Divas are the Superstars printed
-// with the Diva trait (this set and the next ones); Female Superstars are the Divas
-// plus Chyna, Lita, Trish Stratus, Stephanie McMahon, Mae Young and The Fabulous Moolah.
+// "Maneuver: Special" cards are not supported yet.
+// "Female", "Male", "Diva", "GM" and "Tag Team" are read from the Superstar cards
+// (female flag and printed Superstar traits).
 (
     abilities: {
         // Reversing by discarding 3 cards is not supported yet.
@@ -65,10 +62,9 @@
             ),
         ],
         // Enforcers (her printed Hand Size is 0+) and the 50-card Arsenal are not supported yet.
-        // Approximation: the ability is used once per turn, and the opponent's top card goes to his Ringside pile
-        // instead of leaving the game.
+        // Approximation: the ability is used once per turn instead of twice.
         "Sable": [
-            Activated(cost: [Mill(who: You, n: 2)], effects: [Mill(who: Opponent, n: 1)]),
+            Activated(cost: [Mill(who: You, n: 2)], effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)]),
             OpponentCannotPlay("Sable Bomb"),
             OpponentCannotPlay("Sable-licious"),
         ],
@@ -105,10 +101,10 @@
     },
     scripts: {
         // High Risk
-        // Drawing when the opponent removes it from the Ring is not supported yet.
         "Show and Go": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Female"],
             play_after: Some(Action),
+            on_removed_by_opponent: [If(condition: YouAre("Diva"), effects: [Optional([Draw(who: You, n: 1)])])],
         ),
         "Diving Bulldog": (requires: Some(All([ReversedLastTurn(Any), FirstCardThisTurn]))),
         "Suicide Dive": (
@@ -120,7 +116,7 @@
         // Strikes
         // Stopping Over Sell Maneuver right after it is not supported yet.
         "Girly Punch": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Female"],
             not_reversed_by: Some(Not(DamageAtMost(0))),
         ),
         "Boot Lace": (
@@ -156,14 +152,14 @@
         // Reversing cards that search the Arsenal is not supported yet.
         "Ax Kick": (reverses: Some((targets: Not(Any)))),
         "Spinning Clothesline": (bonuses: [(reversal_damage: 2)]),
-        // Getting it back from the Ringside pile is not supported yet.
         "Chick Kick": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James", "Trish Stratus"],
-            on_play: [If(condition: Not(OpponentFemale), effects: [Mill(who: Opponent, n: 4)])],
+            only_packed_by: ["Diva", "Trish Stratus"],
+            on_play: [If(condition: OpponentIs("Male"), effects: [Mill(who: Opponent, n: 4)])],
             ring_ability: Some((
                 sacrifice: true,
                 effects: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6))],
             )),
+            ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Hand), EndTurn])),
         ),
         // Playing it from hand after the opponent's successful Double Clothesline Takedown is not supported yet.
         "Double Clothesline Takedown": (
@@ -197,15 +193,16 @@
                 ),
             ],
         ),
-        // Approximation: the card from the opponent's hand is discarded instead of leaving the game.
         "Reverse Fall-away Slam": (
-            on_play: [Choice([[], [RingsideToHand(who: You, n: 1)], [Discard(who: Opponent, n: 1, pick: Random)]])],
+            on_play: [
+                Choice([[], [RingsideToHand(who: You, n: 1)], [RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Random)]]),
+            ],
         ),
 
         // Submissions
         // Being reversed only by cards that reverse Clutch onto Opponent is not supported yet.
         "Modified Clutch Onto Opponent": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             on_play: [
                 Choice([[Draw(who: You, n: 1)], [LookAtHand(who: Opponent)]]),
                 NextCardMustBe(Not(AnyOf([Title("Maintain Hold"), Title("Apply Illegal Leverage")]))),
@@ -232,28 +229,27 @@
         "Front Chancery": (on_play: [AsOpponent([Optional([RingsideToArsenal(who: You, n: 1)])])]),
         // Locking both players until it is reversed and its repeated damage are not supported yet.
         "Lady's Grapevine": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             not_reversed_by: Some(Title("Backlash!")),
             play_after: Some(ManeuverType(Submission)),
             reverses: Some((targets: AnyOf([Title("Backslide"), Title("Roll Up"), Title("Inside Cradle"), Title("Victory Roll")]))),
         ),
 
         // Actions
-        // Approximation: the only GM opponent is Eric Bischoff.
         "Girl on Girl Action!": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Female"],
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(All([Action, Not(Trait(Unique))])))],
             reverses: Some((
                 targets: All([Action, Not(Trait(Unique))]),
-                requires: Some(AnyOf([OpponentFemale, OpponentSuperstar("Eric Bischoff")])),
+                requires: Some(AnyOf([OpponentIs("Female"), OpponentIs("GM")])),
             )),
         ),
         "Some Gals Don't Get Any Action": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Female"],
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique))])))],
             reverses: Some((
                 targets: All([Action, Not(Trait(SetUp)), Not(Trait(Unique))]),
-                requires: Some(Not(OpponentFemale)),
+                requires: Some(OpponentIs("Male")),
             )),
         ),
         "Overshot Your Mark": (
@@ -277,10 +273,10 @@
         "You Fight Like a Woman": (
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique))]),
-                requires: Some(OpponentFemale),
+                requires: Some(OpponentIs("Female")),
                 effects: [
                     If(
-                        condition: Not(AnyOf([OpponentSuperstar("Stacy Keibler"), OpponentSuperstar("Gail Kim and Molly Holly"), OpponentSuperstar("Sable"), OpponentSuperstar("Torrie Wilson"), OpponentSuperstar("Victoria"), OpponentSuperstar("Nidia"), OpponentSuperstar("Babe of the Year"), OpponentSuperstar("Christy"), OpponentSuperstar("X-treme Diva"), OpponentSuperstar("Mickie James")])),
+                        condition: Not(OpponentIs("Diva")),
                         effects: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
                     ),
                 ],
@@ -334,18 +330,24 @@
             ],
         ),
         // The "fewer Action cards in your Ring" requirement is not supported yet.
-        // Approximation: the card goes to the Ringside pile instead of leaving the game.
         "The Name of the Game Is Wrestling": (
             in_ring_on_play: [
                 (
                     whose: Some(Opponent),
                     filter: All([Action, Not(Trait(SetUp))]),
-                    effects: [AsOpponent([Optional([SacrificeThis, EndTurn])])],
+                    effects: [
+                        AsOpponent([
+                            Optional([
+                                RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(Title("The Name of the Game Is Wrestling"))),
+                                EndTurn,
+                            ]),
+                        ]),
+                    ],
                 ),
             ],
         ),
         "I've Got a Leg Up On You": (
-            irreversible_when: Some(AnyOf([Superstar("Stacy Keibler"), Superstar("Gail Kim and Molly Holly"), Superstar("Sable"), Superstar("Torrie Wilson"), Superstar("Victoria"), Superstar("Nidia"), Superstar("Babe of the Year"), Superstar("Christy"), Superstar("X-treme Diva"), Superstar("Mickie James")])),
+            irreversible_when: Some(YouAre("Diva")),
             ring_ability: Some((
                 requires: Some(FortitudeAboveOpponent),
                 effects: [Mill(who: You, n: 1), Mill(who: Opponent, n: 2)],
@@ -353,7 +355,7 @@
         ),
         // Overturning cards onto this card is not supported yet.
         "I've Got a Nice ... Bottom": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             requires: Some(Never),
         ),
         // Revealing the card and what happens if it is or is not the next card played are not supported yet.
@@ -366,21 +368,33 @@
         ),
         // Overturning cards equal to the damage of the discarded cards is not supported yet.
         "Get a Look at These": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             requires: Some(Never),
         ),
-        // Removing cards in the opponent's Ringside pile from the game is not supported yet.
-        "So Solly! So Sorey!": (requires: Some(Never)),
+        // Approximation: a reversal from the Arsenal at the end of the last turn also counts.
+        "So Solly! So Sorey!": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [
+                RemoveFromGame(who: Opponent, from: Ringside, n: 3, up_to: true, pick: Controller),
+                AsOpponent([Optional([RingsideToArsenal(who: You, n: 1)])]),
+            ],
+        ),
         // Removing it from the game in place of other cards is not supported yet.
         "Sump'tin' Be Started": (
             bonuses: [(when: InYourRing(Title("I Aims ta be Startin' Sump'tin'")), fortitude: -9)],
             on_play: [BacklashToRingside(who: Opponent, n: 2, random: true)],
         ),
-        // Using it from the Ringside pile is not supported yet.
         "This Diva's Got Claws!": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             while_in_ring: [(applies_to: ManeuverType(Strike), damage: 1)],
             in_ring_on_play: [(whose: Some(You), filter: All([Maneuver, Not(ManeuverType(Strike))]), effects: [SacrificeThis])],
+            ringside_ability: Some((
+                effects: [
+                    RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Title("This Diva's Got Claws!"))),
+                    RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Strike))),
+                ],
+            )),
         ),
         "Shake My Hand, Boy!": (
             on_play: [
@@ -397,12 +411,12 @@
         "My New Gimmick": (on_play: [Draw(who: You, n: 1)]),
         // Putting cards under this card is not supported yet.
         "Puppy Love": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Female"],
             requires: Some(Never),
         ),
         "What Are You Gawking At?": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
-            requires: Some(Not(OpponentFemale)),
+            only_packed_by: ["Diva"],
+            requires: Some(OpponentIs("Male")),
             on_play: [
                 If(
                     condition: OpponentHandHas(Title("Break the Hold")),
@@ -423,7 +437,7 @@
             ],
         ),
         "Where's the Payoff?": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Male"],
             on_play: [
                 If(
                     condition: OpponentHandHas(AnyOf([Title("Escape Move"), Title("Step Aside")])),
@@ -468,10 +482,10 @@
             irreversible_when: Some(InYourRing(Title("First to Tap Out Match"))),
             on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
         ),
-        // Approximation: no card is removed from the game; you put 1 card from your Ringside pile into your hand.
+        // Putting a removed card back into the Ringside pile is not supported yet (removed cards never come back).
         "If You're Not Cheating, You're Not Trying": (
             irreversible_when: Some(Superstar("Los Guerreros")),
-            on_play: [RingsideToHand(who: You, n: 1)],
+            on_play: [RemoveFromGame(who: You, from: Ringside, n: 1), RingsideToHand(who: You, n: 1)],
         ),
 
         // Pre-match
@@ -486,15 +500,15 @@
         ),
         // Approximation: only Reversals can be played during the first turn of the match only.
         "Distractingly Divalicious": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
-            requires: Some(Not(OpponentFemale)),
+            only_packed_by: ["Male"],
+            requires: Some(OpponentIs("Male")),
             restricts_opponent: Some((when: FirstTurnOfGame, filter: Not(Reversal))),
             restricts_self: Some((when: FirstTurnOfGame, filter: Not(Reversal))),
         ),
         // Approximation: the opponent shuffles 3 cards of the starting hand back into the Arsenal.
         "You Should Cover Your Eyes": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
-            end_of_prematch: [If(condition: OpponentFemale, effects: [HandToArsenal(who: Opponent, n: 3)])],
+            only_packed_by: ["Male"],
+            end_of_prematch: [If(condition: OpponentIs("Female"), effects: [HandToArsenal(who: Opponent, n: 3)])],
         ),
         // Being Active only without Back to Basics is not supported yet. Approximation: Backlash cards are Mid-match cards.
         "Old School Psychology": (
@@ -506,8 +520,8 @@
         // Checking the Falls Count Anywhere win is not supported yet.
         "Falls Count Anywhere Match": (requires: Some(Never)),
         "Skirt vs. Skirt Match": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
-            requires: Some(OpponentFemale),
+            only_packed_by: ["Female"],
+            requires: Some(OpponentIs("Female")),
             end_of_prematch: [
                 Optional([
                     DiscardMatching(who: You, n: 1, filter: Action, pick: Chosen),
@@ -526,8 +540,18 @@
                 ]),
             ],
         ),
-        // Tag Team cards are not supported yet.
-        "Perennial Fan Favorites": (requires: Some(Never)),
+        // Approximation: "can only be packed if your Superstar card says you cannot play any title belt except the
+        // Tag Team Title Belts" is read as Superstars with the Tag Team trait.
+        "Perennial Fan Favorites": (
+            only_packed_by: ["Tag Team"],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    RingsideToArsenal(who: You, n: 6, up_to: true),
+                    RingsideToHand(who: You, n: 1, filter: Some(Trait(Face))),
+                ],
+            )),
+        ),
         "Run the Gauntlet": (),
         // Putting cards from the Ringside pile into the Ring is not supported yet.
         "Backstage Interview with Terri": (
@@ -535,18 +559,16 @@
             ring_ability: Some((sacrifice: true, effects: [DrawUpTo(who: You, n: 2)])),
         ),
         // Title Belts are not supported yet.
-        "I've Had More Championships than You've Had Women": (requires: Some(Never)),
+        "I've Had More Championships than You've Had Women": (not_packed_by: ["GM"], requires: Some(Never)),
         // Comparing Pre-match cards and removing it from the game in place of other cards are not supported yet.
         "I'm Gonna Break You": (requires: Some(Never)),
         // Reversing by discarding cards while it stays in the Ring is not supported yet.
         "Rules Were Meant to be Broken": (requires: Some(Never)),
         // Putting a Pre-match card from the Ringside pile into the Ring is not supported yet.
         "Managed by Miss Jackie": (
-            extra_traits: [UniversallyUnique],
             end_of_prematch: [Optional([RingsideToArsenal(who: You, n: 10, up_to: true)])],
         ),
         "Managed by Theodore Long": (
-            extra_traits: [UniversallyUnique],
             ring_ability: Some((
                 requires: Some(OpponentHandLarger),
                 sacrifice: true,
@@ -559,13 +581,13 @@
         "Took That on the Chin": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Its text names nothing to reverse. The BASH packing limit is not supported yet.
         "Skirt the Issue": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             requires: Some(Never),
             reverses: Some((targets: Not(Any))),
         ),
-        // The extra Mid-match slot is not supported yet.
         "Get the Tables!": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Male"],
+            mid_match_limit: 1,
             irreversible_when: Some(AnyOf([Superstar("Dudley Boyz"), Superstar("Buh-Buh Ray Dudley"), Superstar("D-Von Dudley")])),
             on_play: [
                 Search(filter: Title("Table! Table! Table!")),
@@ -593,7 +615,7 @@
         ),
         // Putting a "mark" card from the Ringside pile into the Ring is not supported yet.
         "That's Gonna Leave a Mark!": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "The Fabulous Moolah", "Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Male"],
             on_play: [
                 RingsideToHand(who: You, n: 2, up_to: true, filter: Some(ManeuverType(Grapple))),
                 Boost((applies_to: All([ManeuverType(Grapple), DamageAtMost(4)]), duration: NextCard, damage: 5)),
@@ -606,9 +628,10 @@
                 Boost((applies_to: All([Maneuver, DamageAtMost(8)]), duration: NextCard, ignore_play_after: true, irreversible: true)),
             ],
         ),
-        // Approximation: the cards "packed by a Female/Diva Superstar" are the ones of this set.
+        // Approximation: the cards "packed by a Female/Diva Superstar" are the ones of this set. Packing it
+        // regardless of the Superstar ability (Torrie Wilson's and Nidia's damage limits) is not supported yet.
         "Divas Overload!": (
-            only_packed_by: ["Stacy Keibler", "Gail Kim and Molly Holly", "Sable", "Torrie Wilson", "Victoria", "Nidia", "Babe of the Year", "Christy", "X-treme Diva", "Mickie James"],
+            only_packed_by: ["Diva"],
             play_after: Some(All([Maneuver, PlayerRingHas(filter: AnyOf([Title("Show and Go"), Title("Girly Punch"), Title("Chick Kick"), Title("Modified Clutch Onto Opponent"), Title("Lady's Grapevine"), Title("Girl on Girl Action!"), Title("Some Gals Don't Get Any Action"), Title("I've Got a Nice ... Bottom"), Title("Get a Look at These"), Title("This Diva's Got Claws!"), Title("Puppy Love"), Title("What Are You Gawking At?"), Title("Skirt vs. Skirt Match"), Title("Divas Overload!")]), n: 3)])),
         ),
         "It's Over": (on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))]),
@@ -647,11 +670,10 @@
 
         // Stacy Keibler
         // The discard on the opponent's first turn is not supported yet.
-        // Approximation: the chosen card is discarded instead of leaving the game.
         "Straddle the Ropes": (
             ring_ability: Some((
                 sacrifice: true,
-                effects: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+                effects: [LookAtHand(who: Opponent), RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Controller)],
             )),
         ),
         "Superior Leg Work": (
@@ -749,13 +771,13 @@
                 targets: Any,
                 requires: Some(InYourRing(Title("For the Women that Want to Be Me..."))),
                 effects: [
-                    If(condition: Not(OpponentFemale), effects: [Counted(count: SuperstarValue, effect: Discard(who: Opponent, n: 0, pick: Chosen))]),
+                    If(condition: OpponentIs("Male"), effects: [Counted(count: SuperstarValue, effect: Discard(who: Opponent, n: 0, pick: Chosen))]),
                 ],
             )),
         ),
-        // Coming back from the Ringside pile and Enforcers are not supported yet.
+        // Coming back from the Ringside pile into the Ring and Enforcers are not supported yet.
         "For the Women that Want to Be Me...": (
-            reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]), requires: Some(AnyOf([OpponentSuperstar("Stacy Keibler"), OpponentSuperstar("Gail Kim and Molly Holly"), OpponentSuperstar("Sable"), OpponentSuperstar("Torrie Wilson"), OpponentSuperstar("Victoria"), OpponentSuperstar("Nidia"), OpponentSuperstar("Babe of the Year"), OpponentSuperstar("Christy"), OpponentSuperstar("X-treme Diva"), OpponentSuperstar("Mickie James")])))),
+            reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]), requires: Some(OpponentIs("Diva")))),
         ),
         // Letting a Male opponent reverse it by removing 3 cards from the game is not supported yet.
         "Sable Bomb": (reverses: Some((targets: Title("Back Body Drop")))),
@@ -763,10 +785,10 @@
         // Torrie Wilson
         // Playing with the hand revealed against Male opponents is not supported yet.
         "WWE Centerfold of the Year": (
-            in_ring_start_of_turn: [If(condition: OpponentFemale, effects: [Mill(who: Opponent, n: 1)])],
+            in_ring_start_of_turn: [If(condition: OpponentIs("Female"), effects: [Mill(who: Opponent, n: 1)])],
         ),
         "Torrie's DDT": (
-            bonuses: [(when: OpponentFemale, fortitude: -2)],
+            bonuses: [(when: OpponentIs("Female"), fortitude: -2)],
             on_play: [RingsideToArsenal(who: You, n: 4, up_to: true)],
         ),
         "Does This Look Good on Me?": (
@@ -782,16 +804,23 @@
         "The Boise Beauty": (on_play: [DrawUpTo(who: You, n: 2), RingsideToArsenal(who: You, n: 8, up_to: true)]),
 
         // Victoria
-        // Coming back from the Ringside pile is not supported yet.
-        "Widow's Peak": (requires: Some(All([ReversedLastTurn(Any), FirstCardThisTurn]))),
-        // The smaller Pre-match limit and coming back from the Ringside pile are not supported yet.
-        "Managed by Stevie Richards": (reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))])))),
-        // Removing a card in the opponent's Ringside pile from the game is not supported yet.
+        "Widow's Peak": (
+            requires: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            ringside_ability: Some((
+                effects: [RemoveFromGame(who: You, from: Backlash, n: 60, pick: Random), ReturnThis(to: Hand)],
+            )),
+        ),
+        // Coming back from the Ringside pile into the Ring is not supported yet.
+        "Managed by Stevie Richards": (
+            pre_match_limit: -1,
+            reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+        ),
         "All the Things She Said...": (
             on_play: [
                 RingsideToArsenal(who: You, n: 1),
                 Draw(who: You, n: 1),
                 RingsideToHand(who: You, n: 1),
+                RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller),
                 Discard(who: Opponent, n: 1, pick: Chosen),
             ],
         ),
@@ -811,8 +840,10 @@
         ),
 
         // Nidia
-        // Coming back from the Ringside pile is not supported yet.
-        "The Special Kiss": (in_ring_start_of_turn: [Mill(who: Opponent, n: 2)]),
+        "The Special Kiss": (
+            in_ring_start_of_turn: [Mill(who: Opponent, n: 2)],
+            ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
         "Managed by Jamie Noble": (
             ring_ability: Some((
                 requires: Some(FortitudeBelowOpponent),
@@ -820,16 +851,12 @@
                 effects: [RingsideToHand(who: You, n: 2, up_to: true)],
             )),
         ),
-        // Coming back from the Ringside pile is not supported yet.
-        // Approximation: the card from your hand is discarded instead of leaving the game.
         "Trailer Park Slap": (
-            ring_ability: Some((
-                cost: [Discard(who: You, n: 1, pick: Chosen)],
-                effects: [RingToHand(who: You, n: 1, filter: Title("Trailer Park Slap"))],
-            )),
+            ring_ability: Some((cost: [RemoveFromGame(who: You, from: Hand, n: 1)], effects: [ReturnThis(to: Hand)])),
+            ringside_ability: Some((cost: [RemoveFromGame(who: You, from: Hand, n: 1)], effects: [ReturnThis(to: Hand)])),
         ),
         "Drop Dead Gorgeous": (
-            irreversible_when: Some(Not(OpponentFemale)),
+            irreversible_when: Some(OpponentIs("Male")),
             on_play: [DiscardAll(who: You, filter: Any), DiscardAll(who: Opponent, filter: Any)],
         ),
         "Jamie Noble Interferes": (
@@ -864,14 +891,20 @@
         ),
 
         // The Rock
-        // Superstar Value changes are not supported yet.
-        "The Peep's Champ": (requires: Some(Never)),
+        "The Peep's Champ": (
+            value_bonus: 3,
+            opponent_value_bonus: -3,
+            restricts_opponent: Some((
+                when: All([FortitudeAboveOpponent, Not(SuperstarValueAtMostOpponent)]),
+                filter: SuperstarSpecific,
+            )),
+        ),
 
         // Triple H
-        // Going from the Ringside pile to the Backlash deck is not supported yet.
         "A Beating You'll Never Forget": (
             not_packed_by: ["Two-Man Power Trip"],
             ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1, filter: Some(Maneuver))])),
+            ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),
         ),
 
         // Kane
@@ -1005,7 +1038,7 @@
         // Shawn Michaels
         "I'm Just a Sexy Boy": (
             requires: Some(FirstCardThisTurn),
-            irreversible_when: Some(OpponentFemale),
+            irreversible_when: Some(OpponentIs("Female")),
             on_play: [DrawUpTo(who: You, n: 6)],
             reverses: Some((targets: Action, effects: [Discard(who: Opponent, n: 4, pick: Chosen)])),
         ),
@@ -1014,8 +1047,12 @@
         "The World's Greatest Suplex": (on_play: [Optional([RingsideToHand(who: You, n: 1, filter: Some(Maneuver))])]),
 
         // Test
-        // Playing it before the Pre-match and the larger Pre-match and Mid-match limits are not supported yet.
-        "Once You Go Test, You Forget the Rest": (reverses_from_ring: Some((targets: Any, requires: Some(OpponentFemale)))),
+        // Putting it into the Ring before the Pre-match is not supported yet.
+        "Once You Go Test, You Forget the Rest": (
+            pre_match_limit: 1,
+            mid_match_limit: 1,
+            reverses_from_ring: Some((targets: Any, requires: Some(OpponentIs("Female")))),
+        ),
 
         // Rhyno
         "Unstoppable": (

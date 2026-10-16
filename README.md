@@ -114,6 +114,11 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Divas Overload, Wrestlemania Tin, Vengeance, Summerslam Tin, Lethal Library, Survivor Series 3, Armageddon,
   Unforgiven, Royal Rumble, No Way Out y Great American Bash: sus Superstars y cartas con los mecanismos que ya
   existían. Ahora se leen los rasgos Fan Favorite, Cheater y Universally Unique, y "Volley" reconoce "Volley: 6".
+- Mecánicas nuevas en todos los sets: cartas retiradas del juego, cartas que se juegan o se usan desde el
+  Ringside, Superstars femeninas, Divas y otros rasgos de Superstar (Tag Team, Legend, GM) para armar el mazo y en
+  los efectos, llevar cartas de otra Superstar sin contar como ella, cambios de Superstar Value, de los límites de
+  Pre-match y Mid-match y del Hand Size rival, cartas que bajan su F descartando, reacciones cuando el rival saca
+  una carta de tu Ring y cartas que no se pueden revertir desde el Backlash.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

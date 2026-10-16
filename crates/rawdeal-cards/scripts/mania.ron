@@ -100,15 +100,7 @@
             reverses: Some((targets: Not(Any))),
         ),
         "Stackplex": (
-            only_packed_by: [
-                "Dudley Boyz",
-                "Edge and Christian",
-                "Hardy Boyz",
-                "Right to Censor",
-                "Two-Man Power Trip",
-                "Brothers of Destruction",
-                "APA",
-            ],
+            only_packed_by: ["Tag Team"],
             bonuses: [(when: AnyOf([Superstar("Dudley Boyz"), Superstar("Edge and Christian")]), fortitude: -7)],
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(5)]), Title("Throw Into the Corner Turnbuckle")])),
             on_play: [HandToArsenalTop(who: Opponent, n: 2)],
@@ -204,15 +196,7 @@
             reverses: Some((targets: ManeuverType(Strike))),
         ),
         "Tandem Flapjack": (
-            only_packed_by: [
-                "Dudley Boyz",
-                "Edge and Christian",
-                "Hardy Boyz",
-                "Right to Censor",
-                "Two-Man Power Trip",
-                "Brothers of Destruction",
-                "APA",
-            ],
+            only_packed_by: ["Tag Team"],
             on_play: [RingsideToArsenalBottom(who: You, n: 1), Search(filter: Action)],
         ),
         "Running Bulldog": (
@@ -330,15 +314,7 @@
             reverses: Some((targets: All([AnyOf([Maneuver, Action]), Draws]), from_hand_only: true)),
         ),
         "Little She Devil": (
-            only_packed_by: [
-                "Dudley Boyz",
-                "Edge and Christian",
-                "Hardy Boyz",
-                "Right to Censor",
-                "Two-Man Power Trip",
-                "Brothers of Destruction",
-                "APA",
-            ],
+            only_packed_by: ["Tag Team"],
             on_play: [
                 Choice([
                     [
@@ -550,11 +526,15 @@
         ),
 
         // Pre-match
-        // The extra Mid-match slots are not supported yet.
-        "Superior Training": (requires: Some(InYourRing(Title("Study the Tapes"))), on_play: [Mill(who: You, n: 3)]),
+        // That it cannot be removed from your Ring is not enforced.
+        "Superior Training": (
+            requires: Some(InYourRing(Title("Study the Tapes"))),
+            on_play: [Mill(who: You, n: 3)],
+            mid_match_limit: 2,
+        ),
         // Who goes first on a tie is not changed.
         "Slandered Online": (on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Title("Fans Love an Underdog"))]),
-        // Superstar Value changes are not supported yet.
+        // A Superstar Value change that depends on your own Value and on the opponent's Face cards is not supported yet.
         "Product Endorsements": (requires: Some(Never)),
         "Backstage Ambush Attempt": (
             on_play: [
@@ -569,16 +549,19 @@
             restricts_self: Some((filter: AnyOf([Title("Disqualification!"), Title("Hebner Calls It")]))),
             restricts_opponent: Some((filter: AnyOf([Title("Disqualification!"), Title("Hebner Calls It")]))),
         ),
-        // The Superstar Value and Spectacular Ring Entrance parts are not supported yet.
+        // The Spectacular Ring Entrance part is not supported yet.
         "Personal Appearance": (
+            value_bonus: 1,
             ring_ability: Some((
                 requires: Some(InYourRing(Title("Here a Mark, There a Mark, Everywhere a Mark Mark..."))),
                 sacrifice: true,
                 effects: [Choice([[Arrange(who: You, n: 5)], [Shuffle(who: You)]])],
             )),
         ),
-        "Snubbed by the Fans": (requires: Some(Never)),
-        "Not Done with Any Flair": (requires: Some(Never)),
+        // The exception for an opponent with a Pre-match Heel card is not checked.
+        "Snubbed by the Fans": (opponent_value_bonus: 1),
+        // Stopping a Victory Condition by discarding the hand is not supported yet.
+        "Not Done with Any Flair": (on_play: [Mill(who: You, n: 3)], pre_match_limit: 1),
         // Only you can use its ability, and the Dem Damn Dudleyz! part is not supported yet.
         "Chicago Street Fight": (
             on_play: [Mill(who: You, n: 3)],
@@ -587,8 +570,8 @@
                 effects: [RingsideToHand(who: You, n: 1, filter: Some(Keyword("Foreign Object")))],
             )),
         ),
-        // The extra Pre-match and Mid-match slots are not supported yet.
-        "Four Corners Match": (),
+        // The pin victory is on the Touch Turnbuckle cards.
+        "Four Corners Match": (pre_match_limit: 1, mid_match_limit: 1),
         // Moving cards from Ringside piles is not blocked yet.
         "Hell in a Cell Match": (
             restricts_self: Some((filter: Keyword("Run-in"))),
@@ -619,15 +602,7 @@
         ),
         // Approximation: the face-up hand is shown once, and the smaller Mid-match limit is not an option.
         "Handicap Match": (
-            only_packed_by: [
-                "Dudley Boyz",
-                "Edge and Christian",
-                "Hardy Boyz",
-                "Right to Censor",
-                "Two-Man Power Trip",
-                "Brothers of Destruction",
-                "APA",
-            ],
+            only_packed_by: ["Tag Team"],
             end_of_prematch: [OpponentChooses(n: 1, options: [[RevealHand(who: Opponent)], [Mill(who: Opponent, n: 10)]])],
         ),
         "Signed Contract with Linda McMahon": (
@@ -686,8 +661,10 @@
                 ),
             )),
         ),
-        // Touch Turnbuckles go to the Ringside pile, not back to the Backlash deck.
+        // Approximation: Touch Turnbuckles go back to the Backlash deck from the Ringside pile
+        // with a once-per-turn Ringside ability, not right away.
         "Touch Turnbuckle #1": (
+            ringside_ability: Some((effects: [ReturnThis(to: Backlash)])),
             requires: Some(
                 All([
                     InYourRing(Title("Four Corners Match")),
@@ -708,6 +685,7 @@
             ],
         ),
         "Touch Turnbuckle #2": (
+            ringside_ability: Some((effects: [ReturnThis(to: Backlash)])),
             play_after: Some(Maneuver),
             requires: Some(All([InYourRing(Title("Four Corners Match")), FortitudeAboveOpponent])),
             on_play: [
@@ -723,6 +701,8 @@
             ],
         ),
         "Touch Turnbuckle #3": (
+            ringside_ability: Some((effects: [ReturnThis(to: Backlash)])),
+            mid_match_limit: 1,
             requires: Some(
                 All([
                     InYourRing(Title("Four Corners Match")),
@@ -742,6 +722,7 @@
             ],
         ),
         "Touch Turnbuckle #4": (
+            ringside_ability: Some((effects: [ReturnThis(to: Backlash)])),
             requires: Some(All([InYourRing(Title("Four Corners Match")), HandHas(Reversal)])),
             on_play: [
                 DiscardMatching(who: You, n: 3, filter: Reversal, pick: Chosen),
@@ -1072,12 +1053,22 @@
             not_packed_by: ["Two-Man Power Trip"],
             ring_ability: Some((sacrifice: true, effects: [BacklashToRingside(who: Opponent, n: 1)])),
         ),
-        // The overturned card goes to the Ringside pile instead of leaving the game.
+        // Approximation: the opponent removes a card of the chosen type from his Ringside pile,
+        // which may be another one than the card just overturned.
         "You Will Respect Me": (
             end_of_prematch: [
                 OpponentChooses(
                     n: 1,
-                    options: [[MillUntil(who: Opponent, filter: Action)], [MillUntil(who: Opponent, filter: Reversal)]],
+                    options: [
+                        [
+                            MillUntil(who: Opponent, filter: Action),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Action)),
+                        ],
+                        [
+                            MillUntil(who: Opponent, filter: Reversal),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal)),
+                        ],
+                    ],
                 ),
             ],
         ),
@@ -1094,11 +1085,12 @@
                 ],
             )),
         ),
-        // Drawing when it leaves the Ring is not supported yet.
+        // It draws only when your opponent's effect takes it out of your Ring.
         "Cerebral Assassin": (
             not_packed_by: ["Two-Man Power Trip"],
             blanks_opponent_ability: true,
             blanks_when: Some(Not(HandAtLeast(5))),
+            on_removed_by_opponent: [DrawUpTo(who: You, n: 4)],
         ),
         "Born of Hellfire": (on_play: [Mill(who: Opponent, n: 6)], while_in_ring: [(applies_to: Maneuver, damage: 2)]),
         "Would You Please ... Shut the Hell Up!": (requires: Some(Never)),

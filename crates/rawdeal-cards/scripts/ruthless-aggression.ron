@@ -60,8 +60,8 @@
                 EndTurn,
             ],
         ),
-        // Searching when an opponent's effect removes it from the Ring is not supported yet.
         "Look Into My Eyes ... Do You Trust Me?": (
+            on_removed_by_opponent: [Optional([Search(filter: Any)])],
             ring_ability: Some((
                 cost: [RevealHand(who: You), Discard(who: You, n: 3, pick: Chosen)],
                 effects: [Search(filter: Any)],
@@ -69,14 +69,14 @@
         ),
 
         // Reversals
-        // Removing the reversed card from the game is not supported yet.
+        // Removing the reversed card from the game is not supported yet (RemoveFromGame cannot pick
+        // the reversed card itself).
         "So Long ... Goodbye!": (
             reverses: Some((targets: All([Action, Not(SuperstarSpecific)]), effects: [Mill(who: You, n: 3)])),
         ),
 
         // Pre-match
         "Managed by Paul Heyman": (
-            extra_traits: [UniversallyUnique],
             ring_ability: Some((
                 sacrifice: true,
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
@@ -89,11 +89,10 @@
                 ],
             )),
         ),
-        // The smaller Pre-match limit is not supported yet.
         // Approximation: blanking a Stipulation, the Title Belt and the extra Mid-match slot
         // are one option that does nothing.
         "Managed by Vince McMahon": (
-            extra_traits: [UniversallyUnique],
+            pre_match_limit: -1,
             end_of_prematch: [
                 OpponentChooses(n: 2, options: [[], [RingsideToHand(who: You, n: 1, up_to: true)], [WinGame]]),
             ],

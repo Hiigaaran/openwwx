@@ -2,9 +2,7 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Backstage, "Trademark Finisher: Run-In" and "Action: Movie" cards are skipped by the importer.
-// "Female Superstars" are read from the names Chyna, Lita, Trish Stratus, Stephanie McMahon,
-// Mae Young and Mickie James. Removing cards from the game, playing cards from the Ringside
-// pile, keeping cards under other cards and Volley are not supported yet.
+// Keeping cards under other cards and the Volley rules are not supported yet.
 (
     abilities: {
         // Burying a card at the end of the opponent's turn and the 40 extra Arsenal cards are not supported yet.
@@ -21,80 +19,88 @@
         "Lashley": [],
         "Ken Kennedy": [],
         // The opponent's part of the Draw Segment rule and taking the bottom card of the Arsenal are not supported yet.
-        // Approximation: the card put on the bottom of the Arsenal is chosen, not random, and Diva means female.
+        // Approximation: the card put on the bottom of the Arsenal is chosen, not random.
         "Mickie James": [
             StartOfTurn([HandToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)]),
-            DamageFor(filter: All([Maneuver, Holds(OpponentFemale)]), delta: 3),
+            DamageFor(filter: All([Maneuver, Holds(OpponentIs("Diva"))]), delta: 3),
         ],
         // Discarding to ignore "Can only be played" text and the Arsenal-only reversals are not supported yet.
-        // Approximation: he counts as Rob Van Dam for card effects too.
         "Mr. Pay-Per-View": [
             OnPlayMatching(filter: ManeuverType(HighRisk), effects: [EndTurn]),
-            CountsAs(["Rob Van Dam"]),
+            PacksLogos(["Rob Van Dam"]),
         ],
-        // Legend, Tag Team and Enforcer opponents are not recognised.
-        // Approximation: the cards are shuffled into the Arsenal instead of put on the bottom, and he
-        // counts as Matt Hardy for card effects too.
+        // Enforcer opponents are not recognised.
+        // Approximation: the cards are shuffled into the Arsenal instead of put on the bottom.
         "The Ultimate Survivor": [
             EndOfPrematch([
                 If(
-                    condition: Not(AnyOf([OpponentSuperstar("Edge"), OpponentSuperstar("Leader of the Edge Army")])),
+                    condition: Not(
+                        AnyOf([
+                            OpponentSuperstar("Edge"),
+                            OpponentSuperstar("Leader of the Edge Army"),
+                            OpponentIs("Legend"),
+                            OpponentIs("Tag Team"),
+                        ]),
+                    ),
                     effects: [Counted(count: OpponentValueTimes(1), effect: HandToArsenal(who: You, n: 0))],
                 ),
             ]),
             Activated(cost: [], effects: [Search(filter: All([SuperstarSpecific, Not(Reversal)]))]),
-            CountsAs(["Matt Hardy"]),
+            PacksLogos(["Matt Hardy"]),
             CannotPack("Version 1.0"),
         ],
-        // Removing Ringside reversals from the game and blocking Pre-match cards by their text are not supported yet.
+        // Blocking Pre-match cards by their text is not supported yet.
         "The Boogeyman": [
+            Activated(
+                cost: [],
+                effects: [RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal), pick: Controller)],
+            ),
             CannotPackMatching(All([AnyOf([Maneuver, Action]), Not(Reversal), Not(TitleContains("BASH"))])),
         ],
         // Revealing and hiding Superstars and the Set-up part are not supported yet.
         "The Spirit Squad": [FortitudeFor(filter: TitleContains("Give me"), delta: -5)],
         // Playing a Strike as a High Risk maneuver is not supported yet.
-        // Approximation: he counts as The Spirit Squad for card effects too.
-        "Johnny": [CountsAs(["The Spirit Squad"])],
+        "Johnny": [PacksLogos(["The Spirit Squad"])],
         // Extra Stun Value and making maneuvers Multi are not supported yet.
-        // Approximation: he counts as The Spirit Squad for card effects too.
-        "Kenny": [CountsAs(["The Spirit Squad"])],
-        // Approximation: the Reversal is discarded instead of removed from the game, and he counts as
-        // The Spirit Squad for card effects too.
+        "Kenny": [PacksLogos(["The Spirit Squad"])],
         "Mikey": [
             Activated(
-                cost: [DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen)],
+                requires: Some(HandHas(Reversal)),
+                cost: [RemoveFromGame(who: You, from: Hand, n: 1, filter: Some(Reversal))],
                 effects: [RingsideToHand(who: You, n: 1, filter: Some(Action))],
             ),
-            CountsAs(["The Spirit Squad"]),
+            PacksLogos(["The Spirit Squad"]),
         ],
-        // Approximation: the opponent chooses the 2 cards instead of picking them at random, and he counts as
-        // The Spirit Squad for card effects too.
+        // Approximation: the opponent chooses the 2 cards instead of picking them at random.
         "Mitch": [
             Activated(
                 cost: [DiscardMatching(who: You, n: 1, filter: Action, pick: Chosen), Mill(who: You, n: 1)],
                 effects: [HandToArsenalBottom(who: Opponent, n: 2)],
             ),
-            CountsAs(["The Spirit Squad"]),
+            PacksLogos(["The Spirit Squad"]),
         ],
         // Comparing the damage of the removed card with the maneuver's is not supported yet.
-        // Approximation: he counts as The Spirit Squad for card effects too.
-        "Nicky": [CountsAs(["The Spirit Squad"])],
+        "Nicky": [PacksLogos(["The Spirit Squad"])],
     },
     scripts: {
         // High Risk
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Elbow Drop": (play_after: Some(AnyOf([Maneuver, SuperstarSpecific]))),
+        // The +3D and the 2 discards when it is played from the Ringside pile are not supported yet.
+        "Blindside Elbow Drop": (play_after: Some(AnyOf([Maneuver, SuperstarSpecific])), from_ringside: Some(Always)),
         "BASH Drop Kick": (play_after: Some(TitleContains("BASH"))),
-        // Removing cards from the game is not supported yet.
         // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "Technical Splash in the Corner": (
             play_after: Some(Any),
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
-            as_action: Some((fortitude: Some(4), on_play: [ShuffleThisIntoArsenal])),
+            as_action: Some((
+                fortitude: Some(4),
+                on_play: [
+                    ShuffleThisIntoArsenal,
+                    RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller),
+                ],
+            )),
         ),
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "BASH Aerial Clothesline": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            not_packed_by: ["Female"],
             play_after: Some(TitleContains("BASH")),
             on_play: [Counted(count: YourRingMatching(TitleContains("BASH")), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
         ),
@@ -121,22 +127,20 @@
         ),
 
         // Strikes
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "BASH Punch": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            not_packed_by: ["Female"],
         ),
-        // Volley is not supported yet.
-        "Straight Head Butt": (),
-        // Approximation: Female Superstars are the ones named at the top of this file.
+        // The Volley +2 is not supported yet.
+        "Straight Head Butt": (bonuses: [(per: Some(Keyword("Volley")), damage: 2)]),
         "Shoot Kicker Hold": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            not_packed_by: ["Female"],
             bonuses: [(when: After(TitleContains("shoot")), damage: 5)],
             not_reversed_by: Some(Title("A Revolution of the Mind")),
         ),
         // Effects from the Ringside pile and making maneuvers Multi are not supported yet.
         "Sizzling Clothesline": (),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Hook": (on_play: [Draw(who: Opponent, n: 1)]),
+        // Removing a card in your hand when it is played from the Ringside pile is not supported yet.
+        "Blindside Hook": (from_ringside: Some(Always), on_play: [Draw(who: Opponent, n: 1)]),
         "BASH Kick": (),
         // Approximation: you put 1 of the top 3 cards into his Ringside pile, and the other 2 stay on top in
         // the order you choose instead of going to the bottom.
@@ -145,10 +149,14 @@
             not_reversed_by: Some(Title("A Revolution of the Mind")),
             on_play: [Arrange(who: Opponent, n: 3), Mill(who: Opponent, n: 1)],
         ),
-        // Volley is not supported yet.
+        // The -1F (and the Volley +1) for each Volley card in your Ringside pile is not supported yet.
         "The Ol' Straight-Arm Shot": (),
-        // Effects from the Ringside pile and removing cards from the game are not supported yet.
-        "Thrust Knee Lift": (),
+        // Approximation: this card is shuffled into the Arsenal instead of put on the bottom.
+        "Thrust Knee Lift": (
+            ringside_ability: Some((
+                effects: [ReturnThis(to: Arsenal), RemoveFromGame(who: Opponent, from: Ringside, n: 2, pick: Random)],
+            )),
+        ),
         // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom, and the
         // card taken from his Ring may be an F: 0 maneuver.
         "Technical Lunging Lariat": (
@@ -173,14 +181,15 @@
         "Precision Haymaker": (),
 
         // Grapples
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "BASH Suplex": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            not_packed_by: ["Female"],
         ),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Drop Toe Hold": (),
-        // Effects from the Ringside pile are not supported yet.
-        "Leaping DDT": (),
+        // The opponent putting one of your Pre-match or Mid-match cards into your Ringside pile when it is played
+        // from the Ringside pile is not supported yet.
+        "Blindside Drop Toe Hold": (from_ringside: Some(Always)),
+        // Approximation: it is used in your Main Segment while a maneuver is the last card you successfully played,
+        // and it is shuffled into the Arsenal instead of put on the bottom.
+        "Leaping DDT": (ringside_ability: Some((requires: Some(After(Maneuver)), effects: [ReturnThis(to: Arsenal)]))),
         // Making the next maneuver Multi is not supported yet.
         // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "Technical Monkey Flip": (
@@ -196,8 +205,8 @@
         "BASH Slam": (),
         // Removing cards from the game is not supported yet.
         "Quick Snap Suplex": (),
-        // Removing cards from the game to lower its F is not supported yet.
-        "Precision Reverse Neck Breaker": (),
+        // Approximation: the cards overturned for less F go to the Ringside pile instead of leaving the game.
+        "Precision Reverse Neck Breaker": (fortitude_discount: Some((per: 2, max: 5, overturn: true))),
         "BASH Drop Over the Ropes": (
             on_play: [Counted(count: YourRingMatching(All([Maneuver, TitleContains("BASH")])), effect: Draw(who: You, n: 0))],
         ),
@@ -216,15 +225,14 @@
         ),
 
         // Submissions
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "BASH Headlock": (
-            not_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            not_packed_by: ["Female"],
             on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
         ),
         // Approximation: Female Superstars are the ones named at the top of this file, and only Heel cards
         // count for the extra damage (not cards with 'female' or 'Diva' in the text).
         "Diva Lock": (
-            only_packed_by: ["Chyna", "Lita", "Trish Stratus", "Stephanie McMahon", "Mae Young", "Mickie James"],
+            only_packed_by: ["Female"],
             bonuses: [(per: Some(Trait(Heel)), damage: 1)],
             ring_ability: Some((sacrifice: true, effects: [RingsideToArsenalBottom(who: You, n: 2)])),
         ),
@@ -236,16 +244,16 @@
             on_play: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(All([Action, Trait(Chain)])))],
         ),
         "BASH Vice": (bonuses: [(per_hand: true, damage: 1)]),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Sleeper": (),
-        // Removing cards from the game is not supported yet.
+        // The opponent removing one of your Ring cards when it is played from the Ringside pile is not supported yet.
+        "Blindside Sleeper": (from_ringside: Some(Always)),
+        // Putting removed cards back on the Arsenal is not supported yet.
         // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
         "Technical Bear Hug": (
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((fortitude: Some(10), on_play: [ShuffleThisIntoArsenal])),
         ),
-        // Lowering its F for the cards shuffled in is not supported yet.
-        "Precision Figure Four": (),
+        // Approximation: the cards for less F are discarded instead of shuffled into the Arsenal.
+        "Precision Figure Four": (fortitude_discount: Some((per: 2, max: 5))),
         // Making it Multi and its Ring effect are not supported yet.
         "Shoot Lock-up": (not_reversed_by: Some(TitleContains("Counter"))),
         "Neck Torque": (
@@ -318,8 +326,18 @@
             on_forced_discard: [Discard(who: Opponent, n: 1, pick: Chosen)],
             reverses: Some((targets: Not(Any))),
         ),
-        // Volley is not supported yet.
-        "Volleyed Beyond the Edge": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Volleyed Beyond the Edge": (
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique)), Not(AnyOf([Trait(Chain), Keyword("Heat")]))]),
+                requires: Some(InYourRing(All([Maneuver, Keyword("Volley")]))),
+            )),
+            ring_ability: Some((
+                effects: [
+                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(Title("Volleyed Beyond the Edge"))),
+                    RemoveFromGame(who: Opponent, from: Ringside, n: 4, up_to: true, pick: Controller),
+                ],
+            )),
+        ),
 
         // Actions
         // Approximation: you choose the card instead of your opponent.
@@ -378,8 +396,14 @@
                 ]),
             )),
         ),
-        // Removing cards from the game is not supported yet.
         "Straight-Shootin' Interview": (
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, TitleContains("shoot")]),
+                    effects: [RemoveFromGame(who: You, from: Arsenal, n: 1), RemoveFromGame(who: Opponent, from: Arsenal, n: 2)],
+                ),
+            ],
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
@@ -400,8 +424,17 @@
         "It's Time for a Great American BASH": (requires: Some(Never)),
         // Drawing up to the printed Starting Hand Size is not supported yet.
         "The Best Laid Plans...": (requires: Some(Never)),
-        // Removing cards from the game is not supported yet.
+        // Approximation: the removed card may be the one just played.
         "Not On My Broadcast": (
+            in_ring_on_play: [
+                (
+                    filter: All([
+                        AnyOf([Action, SuperstarSpecific]),
+                        EarlierThisTurn(filter: AnyOf([Action, SuperstarSpecific]), n: 1),
+                    ]),
+                    effects: [AsOpponent([Optional([RemoveFromGame(who: Opponent, from: Ring, n: 1, pick: Controller)])])],
+                ),
+            ],
             restricts_self: Some((filter: All([Action, Not(SuperstarSpecific), Not(Trait(SetUp)), SameTitleInRing]))),
             restricts_opponent: Some((filter: All([Action, Not(SuperstarSpecific), Not(Trait(SetUp)), SameTitleInRing]))),
         ),
@@ -425,33 +458,34 @@
             )),
         ),
         "Cheaters Never Win": (
-            on_play: [LookAtHand(who: Opponent), DiscardAll(who: Opponent, filter: AnyOf([Trait(Heel), Keyword("Cheater")]))],
-            reverses: Some((targets: AnyOf([All([Action, TitleContains("BASH")]), Keyword("Cheater")]))),
+            on_play: [LookAtHand(who: Opponent), DiscardAll(who: Opponent, filter: AnyOf([Trait(Heel), Trait(Cheater)]))],
+            reverses: Some((targets: AnyOf([All([Action, TitleContains("BASH")]), Trait(Cheater)]))),
         ),
         "Throw Down - Don't Kiss Up": (
             on_play: [
                 LookAtHand(who: Opponent),
-                DiscardAll(who: Opponent, filter: AnyOf([Trait(Face), Keyword("Fan Favorite")])),
+                DiscardAll(who: Opponent, filter: AnyOf([Trait(Face), Trait(FanFavorite)])),
             ],
-            reverses: Some((targets: AnyOf([All([Action, TitleContains("BASH")]), Keyword("Fan Favorite")]))),
+            reverses: Some((targets: AnyOf([All([Action, TitleContains("BASH")]), Trait(FanFavorite)]))),
         ),
         "Trevor Murdoch Is Gonna BASH Your Brains In": (on_play: [Search(filter: All([Maneuver, TitleContains("BASH")]))]),
         // Counting the Reversals in his hand and the conditional hand reversal limit are not supported yet.
         "Backfire": (
             on_play: [LookAtHand(who: Opponent), Counted(count: OpponentRingMatching(Reversal), effect: Mill(who: Opponent, n: 0))],
         ),
-        // GM and Legend Superstars are not supported yet.
-        // Approximation: the Reversals are discarded instead of removed from the game, and the Manager is put
-        // into his Ringside pile from his Ring only (a Manager is a card with "Managed by" in the title).
+        // Being a Multi card against a GM or Legend Superstar is not supported yet.
+        // Approximation: the Manager is removed from his Ring only (a Manager is a card with "Managed by" in the
+        // title).
         "A Phoenix Rising": (
             requires: Some(FortitudeAtMostOpponent),
+            bonuses: [(when: AnyOf([OpponentIs("GM"), OpponentIs("Legend")]), fortitude: -7)],
             on_play: [
                 OpponentChooses(
                     n: 1,
                     options: [
-                        [DiscardMatching(who: Opponent, n: 3, filter: Reversal, pick: Chosen)],
+                        [RemoveFromGame(who: Opponent, from: Hand, n: 3, filter: Some(Reversal))],
                         [
-                            RemoveFromRing(who: Opponent, n: 1, filter: TitleContains("Managed by")),
+                            RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(TitleContains("Managed by")), pick: Controller),
                             Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 30)),
                         ],
                     ],
@@ -461,9 +495,12 @@
         // Permanent cards and reversing discards are not supported yet.
         "Can U Believe the Witte Retort?": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Enforcers are not supported yet.
-        // Approximation: the Manager goes from his Ring to his Ringside pile instead of leaving the game.
+        // Approximation: the Manager is removed from his Ring only.
         "This Is Between You and Me": (
-            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: TitleContains("Managed by")), Draw(who: You, n: 1)],
+            on_play: [
+                RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(TitleContains("Managed by")), pick: Controller),
+                Draw(who: You, n: 1),
+            ],
             reverses: Some((targets: Keyword("Run-in"))),
         ),
         "BASH: Great American Style": (
@@ -474,29 +511,25 @@
         // Andre the Giant
         // Needing 3 Reversals and the search depending on the discarded card's Fortitude are not supported yet.
         "Giant Head Butt": (on_play: [Discard(who: You, n: 1, pick: Random)]),
-        // Volley cards are not blocked.
         "Obey": (
             reverses: Some((
                 targets: Any,
                 effects: [Choice([[DiscardAll(who: Opponent, filter: Any)], [BacklashToRingside(who: Opponent, n: 60)]])],
             )),
-            restricts_self: Some((filter: AnyOf([Trait(Chain), Keyword("Heat")]))),
-            restricts_opponent: Some((filter: AnyOf([Trait(Chain), Keyword("Heat")]))),
+            restricts_self: Some((filter: AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")]))),
+            restricts_opponent: Some((filter: AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")]))),
             in_ring_opponent_start_of_turn: [Optional([SacrificeThis, EndTurn])],
         ),
-        // Coming back from the Ringside pile is not supported yet.
         // Approximation: the cards taken from his Ring may be F: 0 maneuvers.
         "The 8th Wonder of the World": (
             on_play: [Mill(who: You, n: 8), RemoveFromRing(who: Opponent, n: 8, filter: Any)],
-            ring_ability: Some((
-                cost: [Discard(who: You, n: 2, pick: Chosen)],
-                effects: [RingToHand(who: You, n: 1, filter: Title("The 8th Wonder of the World"))],
-            )),
+            ring_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+            ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
-        // Coming back from the Ringside pile is not supported yet.
         "It's Not My Fault Being the biggest and the Strongest": (
             on_play: [ShuffleThisIntoArsenal, Draw(who: You, n: 3)],
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), overturned_only: true)),
+            ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
 
         // Lashley
@@ -522,8 +555,12 @@
         "Hard Hitting": (
             reverses: Some((targets: Action, effects: [Search(filter: All([Maneuver, Not(Trait(Unique))]))])),
         ),
-        // Reversing unique maneuvers with Hard Hitting in the Ring and the Ringside pile effect are not supported yet.
-        "Soft Spoken": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), overturned_only: true))),
+        // Reversing unique maneuvers with Hard Hitting in the Ring is not supported yet.
+        // Approximation: from the Ringside pile it is shuffled into the Arsenal instead of put on the bottom.
+        "Soft Spoken": (
+            reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), overturned_only: true)),
+            ringside_ability: Some((effects: [ReturnThis(to: Arsenal), AsOpponent([Optional([Draw(who: You, n: 1)])])])),
+        ),
 
         // Ken Kennedy
         // Approximation: the Reversal goes to his Ringside pile instead of leaving the game.
@@ -697,8 +734,14 @@
             ],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
-        // Reversing only non-hybrid cards and removing cards from the game are not supported yet.
-        "The Bottomless Pit": (reverses: Some((targets: Not(Any)))),
+        // Reversing only non-hybrid cards is not supported yet.
+        "The Bottomless Pit": (
+            reverses: Some((targets: Not(Any))),
+            after_damage: [
+                RemoveFromGame(who: You, from: Ringside, n: 255, pick: Random),
+                RemoveFromGame(who: Opponent, from: Ringside, n: 255, pick: Random),
+            ],
+        ),
         "Mouthful of Worms": (
             as_action: Some((
                 fortitude: Some(2),
@@ -714,9 +757,9 @@
         // Skipping the Draw Segment to search and blanking cards by their text are not supported yet.
         "S-P-I-R-I-T-S-Q-U-A-D ... SPIRIT SQUAD!": (requires: Some(Never)),
         "The Johnny-Go-Round Kick": (),
-        // Removing cards from the game is not supported yet.
         "Trampoline Leap": (
             play_after: Some(AnyOf([All([Action, Trait(SetUp)]), All([Maneuver, DamageAtLeast(5)])])),
+            on_play: [RemoveFromGame(who: Opponent, from: Ringside, n: 5, up_to: true, pick: Controller)],
         ),
         "Air Kenny": (
             play_after: Some(AnyOf([All([Action, Trait(SetUp)]), All([Maneuver, DamageAtLeast(5)])])),
@@ -748,9 +791,11 @@
         "The Rated R Superstar": (reverses: Some((targets: Action))),
         // Keeping cards under it is not supported yet.
         "You Won't See It Coming...": (requires: Some(Never), reverses: Some((targets: ManeuverType(Submission)))),
-        // Approximation: hybrid maneuvers count and Volley cards do not.
+        // Approximation: hybrid maneuvers count.
         "Sharmell's Shenanigans": (
-            on_play: [RingsideToHand(who: You, n: 1, filter: Some(AnyOf([Maneuver, All([Action, Trait(Unique)])])))],
+            on_play: [
+                RingsideToHand(who: You, n: 1, filter: Some(AnyOf([Maneuver, All([Action, Trait(Unique)]), Keyword("Volley")]))),
+            ],
             while_in_ring: [(applies_to: All([Action, Trait(Unique)]), reversal_fortitude: 5)],
         ),
         // Approximation: he chooses the card instead of you.
@@ -762,9 +807,9 @@
                 from_hand_only: true,
             )),
         ),
-        // Pre-match slots and making cards Multi are not supported yet.
+        // Making the cards listed in your Superstar ability Multi is not supported yet.
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
-        "Regal Readying": (end_of_prematch: [Draw(who: You, n: 1)]),
+        "Regal Readying": (pre_match_limit: 1, end_of_prematch: [Draw(who: You, n: 1)]),
         // Approximation: any cards from your hand may be put back, not only Unique ones.
         "Hulkamania: Always in Style": (
             on_play: [
@@ -788,8 +833,10 @@
                 ]),
             ],
         ),
-        // Packing 4 copies and discarding a 'chop' card to lower its F are not supported yet.
+        // Packing 4 copies is not supported yet.
+        // Approximation: any card can be discarded for less F, not only a 'chop' card.
         "16-Time Heavyweight Champion": (
+            fortitude_discount: Some((per: 16, max: 1)),
             on_play: [
                 RingsideToArsenal(who: You, n: 4),
                 Search(filter: All([TitleContains("chop"), Not(SuperstarSpecific)]), n: 4, up_to: true),
@@ -878,8 +925,9 @@
                 ),
             ],
         ),
-        // Playing it and reversing from the Ringside pile are not supported yet.
-        "Blindside Spinebuster": (reverses: Some((targets: Not(Any)))),
+        // Reversing from the Ringside pile and removing a 'spinebuster' card when it is played from there are not
+        // supported yet.
+        "Blindside Spinebuster": (from_ringside: Some(Always), reverses: Some((targets: Not(Any)))),
         "Seen the Glory - Told the Story": (
             on_play: [Search(filter: TitleContains("sleeper"))],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("sleeper")]), damage: 2)],
@@ -897,8 +945,11 @@
         "Ground and Pound": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Removing cards from the game is not supported yet.
         "I Wish Monsoon Was Here": (on_play: [Search(filter: Any)]),
-        // Permanent cards and coming back from the Ringside pile are not supported yet.
+        // Permanent cards are not supported yet.
         "JYD's Chain": (
+            ringside_ability: Some((
+                effects: [ReturnThis(to: Hand), RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(Grapple)))],
+            )),
             on_play: [Choice([[DiscardAll(who: Opponent, filter: Any)], [BacklashToRingside(who: Opponent, n: 60)]])],
             in_ring_start_of_turn: [Discard(who: Opponent, n: 1, pick: Chosen), Mill(who: Opponent, n: 1)],
         ),
@@ -914,8 +965,9 @@
         "Divided You Fall": (on_play: [Draw(who: You, n: 1)]),
         // His discard and the Arsenal part are not supported yet.
         "Who's Under the Paint?": (on_play: [Counted(count: OpponentHandExcess, effect: Draw(who: You, n: 0))]),
-        // Coming back from the Ringside pile is not supported yet.
-        "Carlito's Cool Carribean Neck Breaker": (),
+        "Carlito's Cool Carribean Neck Breaker": (
+            ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
         // Hand-only reversals after a DDT are not supported yet.
         "The Snakeline": (
             play_after: Some(Any),

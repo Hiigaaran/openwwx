@@ -2,8 +2,6 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Enforcer cards are skipped by the importer: Enforcers are not supported yet.
-// No Superstar is marked female, so "Female Superstar" is read from the names
-// Chyna, Lita, Stephanie McMahon and Mae Young.
 (
     abilities: {
         // Enforcers (and the Arsenal search that comes with revealing them) and blocking
@@ -29,9 +27,8 @@
         ),
 
         // Strikes
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "Overhand Chairshot": (
-            not_packed_by: ["Chyna", "Lita", "Stephanie McMahon", "Mae Young"],
+            not_packed_by: ["Female"],
             not_reversed_by: Some(Title("Back Rake")),
             reverses_from_ring: Some((targets: AnyOf([Keyword("Foreign Object"), After(Title("Roll Out of the Ring"))]))),
         ),
@@ -48,33 +45,13 @@
             ],
         ),
         "This Has Gone Over By ... Three Minutes": (on_play: [Discard(who: Opponent, n: 3, pick: Random)]),
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "Caution: Dangerous Curves Ahead": (
             irreversible_when: Some(Superstar("Torrie Wilson")),
-            bonuses: [
-                (
-                    when: AnyOf([
-                        Superstar("Chyna"),
-                        Superstar("Lita"),
-                        Superstar("Stephanie McMahon"),
-                        Superstar("Mae Young"),
-                    ]),
-                    fortitude: -3,
-                ),
-            ],
+            bonuses: [(when: YouAre("Female"), fortitude: -3)],
             on_play: [Mill(who: You, n: 6), RingsideToArsenal(who: You, n: 9, up_to: true), EndTurn],
         ),
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "Divas! Divas! Divas!": (
-            irreversible_when: Some(
-                AnyOf([
-                    OpponentFemale,
-                    OpponentSuperstar("Chyna"),
-                    OpponentSuperstar("Lita"),
-                    OpponentSuperstar("Stephanie McMahon"),
-                    OpponentSuperstar("Mae Young"),
-                ]),
-            ),
+            irreversible_when: Some(OpponentIs("Female")),
             on_play: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
         ),
         // Approximation: it also stops Reversals from the Backlash deck.
@@ -90,7 +67,7 @@
         ),
 
         // Reversals
-        // Approximation: no card is ever removed from the game, so # is 0.
+        // Approximation: # is read as 0 (a Reversal's targets cannot depend on the number of removed cards).
         "Get Out of Here!": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher)), DamageAtMost(0)]),
@@ -103,8 +80,7 @@
         ),
 
         // Pre-match
-        // Changing the Pre-match and Mid-match limits is not supported yet.
-        "Elimination Chamber": (requires: Some(Never)),
+        "Elimination Chamber": (pre_match_limit: -2, mid_match_limit: -3, opponent_mid_match_limit: -3),
         // Approximation: the opponent shuffles 1 card of the starting hand back into the Arsenal.
         // Putting cards reversed from the opponent's hand on the bottom of your Arsenal is not supported yet.
         "Banned from Ringside": (end_of_prematch: [HandToArsenal(who: Opponent, n: 1)]),
@@ -128,36 +104,19 @@
         ),
         // Reversing after the maneuver has done its damage is not supported yet.
         "Undermine the Competition": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Approximation: Female Superstars are the ones named at the top of this file.
         "There Can Only Be One Dominant Female in WWE": (
-            requires: Some(
-                AnyOf([Superstar("Chyna"), Superstar("Lita"), Superstar("Stephanie McMahon"), Superstar("Mae Young")]),
-            ),
+            requires: Some(YouAre("Female")),
             irreversible_when: Some(Superstar("Stephanie McMahon")),
             on_play: [
                 If(
-                    condition: AnyOf([
-                        OpponentFemale,
-                        OpponentSuperstar("Chyna"),
-                        OpponentSuperstar("Lita"),
-                        OpponentSuperstar("Stephanie McMahon"),
-                        OpponentSuperstar("Mae Young"),
-                    ]),
+                    condition: OpponentIs("Female"),
                     effects: [
                         Discard(who: Opponent, n: 3, pick: Chosen),
                         Counted(count: SuperstarValue, effect: Mill(who: Opponent, n: 0)),
                     ],
                 ),
                 If(
-                    condition: Not(
-                        AnyOf([
-                            OpponentFemale,
-                            OpponentSuperstar("Chyna"),
-                            OpponentSuperstar("Lita"),
-                            OpponentSuperstar("Stephanie McMahon"),
-                            OpponentSuperstar("Mae Young"),
-                        ]),
-                    ),
+                    condition: OpponentIs("Male"),
                     effects: [
                         Counted(count: SuperstarValue, effect: RingsideToArsenal(who: You, n: 0, up_to: true)),
                         DrawUpTo(who: You, n: 2),

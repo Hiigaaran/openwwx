@@ -60,12 +60,11 @@
             CannotPlayMatching(All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 2)])),
         ],
         // Blocking moves out of Ringside piles is not supported yet.
-        // Approximation: he counts as Stone Cold Steve Austin for card effects too.
-        "The Rattlesnake": [CountsAs(["Stone Cold Steve Austin"])],
+        "The Rattlesnake": [PacksLogos(["Stone Cold Steve Austin"])],
         // The extra Backlash and Arsenal cards are not supported yet.
         "Shawn Michaels": [],
         // Approximation: the discarded maneuver may be of any type, and up to 3 maneuvers of any type are shuffled
-        // into the Arsenal instead of put on the bottom. He also counts as Chris Benoit for card effects.
+        // into the Arsenal instead of put on the bottom.
         "The Crippler": [
             OnOpponentPlayMatching(
                 filter: ManeuverType(Strike),
@@ -91,11 +90,10 @@
                 cost: [DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen)],
                 effects: [RingsideToArsenal(who: You, n: 3, up_to: true, filter: Some(Maneuver))],
             ),
-            CountsAs(["Chris Benoit"]),
+            PacksLogos(["Chris Benoit"]),
         ],
-        // Reducing the damage of the opponent's cards is not supported yet.
-        // Approximation: he counts as Eddie Guerrero for card effects too.
-        "Los Guerreros": [CountsAs(["Eddie Guerrero"])],
+        // Removing Ringside cards to reduce the damage of the opponent's card and Title Belts are not supported yet.
+        "Los Guerreros": [PacksLogos(["Eddie Guerrero"])],
         // The opponent discarding when your Grapple or Submission is reversed is not supported yet.
         "Team Angle": [
             OnPlayMatching(
@@ -160,9 +158,10 @@
         // Grapples
         "Shake": (not_reversed_by: Some(Not(Title("Escape Move")))),
         "Capture Suplex": (reverses: Some((targets: All([Maneuver, After(Title("From the Top Rope"))])))),
-        // The Backlash deck limit and removing cards with an Activated Card Effect are not supported yet.
+        // Removing cards with an Activated Card Effect is not supported yet.
         // Approximation: the next card may ignore any "can only be played after" text.
         "Tossed Between the Ropes": (
+            no_backlash_reversal: true,
             on_play: [
                 Boost((applies_to: Any, duration: NextCard, ignore_play_after: true)),
                 If(condition: Superstar("Rey Mysterio"), effects: [Optional([Search(filter: Title("The 619"))])]),
@@ -182,8 +181,9 @@
             not_reversed_by: Some(Title("Backlash!")),
             on_play: [DrawUpTo(who: You, n: 2)],
         ),
-        // Removing cards from the game is not supported yet.
-        "Snap Slam": (),
+        "Snap Slam": (
+            on_play: [AsOpponent([Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)])])],
+        ),
         // The reversal limit after From the Top Rope is not supported yet.
         "Hangman's Neck Breaker": (
             in_ring_on_play: [
@@ -210,10 +210,40 @@
             ],
             as_action: Some((on_play: [DiscardThis, Boost((applies_to: Maneuver, duration: NextCard, damage: 3))])),
         ),
-        // Removing cards from the game is not supported yet.
-        "Body Vise": (),
-        // Removing cards from the game is not supported yet.
-        "Inverted Leg Lock": (),
+        "Body Vise": (
+            on_play: [Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)])],
+            on_reversed_from_hand: [
+                AsOpponent([Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)])]),
+            ],
+        ),
+        // Approximation: at most 5 cards are removed.
+        "Inverted Leg Lock": (
+            on_play: [
+                Choice([
+                    [],
+                    [
+                        RemoveFromGame(who: You, from: Ringside, n: 1),
+                        RingsideToArsenal(who: You, n: 1, filter: Some(Maneuver)),
+                    ],
+                    [
+                        RemoveFromGame(who: You, from: Ringside, n: 2),
+                        RingsideToArsenal(who: You, n: 2, filter: Some(Maneuver)),
+                    ],
+                    [
+                        RemoveFromGame(who: You, from: Ringside, n: 3),
+                        RingsideToArsenal(who: You, n: 3, filter: Some(Maneuver)),
+                    ],
+                    [
+                        RemoveFromGame(who: You, from: Ringside, n: 4),
+                        RingsideToArsenal(who: You, n: 4, filter: Some(Maneuver)),
+                    ],
+                    [
+                        RemoveFromGame(who: You, from: Ringside, n: 5),
+                        RingsideToArsenal(who: You, n: 5, filter: Some(Maneuver)),
+                    ],
+                ]),
+            ],
+        ),
 
         // Reversals
         // Continuing the turn after a reversal is not supported yet.
@@ -278,13 +308,12 @@
         ),
         // Keeping cards under it is not supported yet.
         "What's Mine is Mine and What's Yours is Mine": (requires: Some(Never)),
-        // Approximation: the card goes to the Ringside pile instead of leaving the game.
         "Beat You Raw": (
             bonuses: [(when: Not(OpponentRingHas(filter: Trait(SmackDown), n: 1)), fortitude: -6)],
             on_play: [
                 If(
                     condition: Not(OpponentRingHas(filter: Trait(SmackDown), n: 1)),
-                    effects: [Optional([DiscardThis, Draw(who: You, n: 1)])],
+                    effects: [Optional([RemoveThis, Draw(who: You, n: 1)])],
                 ),
                 If(
                     condition: OpponentRingHas(filter: Trait(SmackDown), n: 1),
@@ -292,30 +321,52 @@
                 ),
             ],
         ),
-        // Approximation: the card goes to the Ringside pile instead of leaving the game.
         "Forget the Smackdown, Jabronie!": (
             bonuses: [(when: Not(OpponentRingHas(filter: Trait(Raw), n: 1)), fortitude: -6)],
             on_play: [
                 If(
                     condition: Not(OpponentRingHas(filter: Trait(Raw), n: 1)),
-                    effects: [Optional([DiscardThis, Discard(who: Opponent, n: 1, pick: Chosen)])],
+                    effects: [Optional([RemoveThis, Discard(who: Opponent, n: 1, pick: Chosen)])],
                 ),
             ],
             reverses_from_ring: Some((
                 targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
                 fortitude: Some(0),
                 requires: Some(OpponentRingHas(filter: Trait(Raw), n: 1)),
+                effects: [
+                    RemoveFromGame(
+                        who: You,
+                        from: Ringside,
+                        n: 1,
+                        filter: Some(Title("Forget the Smackdown, Jabronie!")),
+                        pick: Controller,
+                    ),
+                ],
             )),
         ),
         // Removing it from the game to ignore Fortitude changes is not supported yet.
         "No One Wants to Watch Women Wrestle": (
             on_play: [
-                If(condition: Not(OpponentFemale), effects: [DiscardThis, Draw(who: You, n: 1)]),
-                If(condition: OpponentFemale, effects: [MillChosen(who: Opponent, n: 5, filter: Some(Maneuver))]),
+                If(condition: OpponentIs("Male"), effects: [DiscardThis, Draw(who: You, n: 1)]),
+                If(condition: OpponentIs("Female"), effects: [MillChosen(who: Opponent, n: 5, filter: Some(Maneuver))]),
             ],
         ),
-        // Coming back from the Ringside pile is not supported yet. Female Superstars here are Lita and Chyna.
-        "I Can't Be Reading This Right...": (requires: Some(Never), not_packed_by: ["Lita", "Chyna"]),
+        "I Can't Be Reading This Right...": (
+            not_packed_by: ["Female"],
+            ringside_ability: Some((
+                requires: Some(OpponentHandLarger),
+                cost: [
+                    RemoveFromGame(
+                        who: You,
+                        from: Ringside,
+                        n: 1,
+                        filter: Some(Not(Title("I Can't Be Reading This Right..."))),
+                        pick: Chosen,
+                    ),
+                ],
+                effects: [ReturnThis(to: Hand)],
+            )),
+        ),
         // Its Ring effect is not supported yet.
         "Pass the Buck": (
             irreversible_when: Some(InYourRing(Title("Backstage Politics"))),
@@ -356,8 +407,8 @@
         // Pre-match
         // Tag Team matches are not supported yet.
         "Give and Take": (requires: Some(Never)),
-        // Superstar Value changes are not supported yet.
-        "I'm the Underdog!": (requires: Some(Never)),
+        // Approximation: the opponent's Superstar Value is +1, however many Fans Love an Underdog are in your Ring.
+        "I'm the Underdog!": (requires: Some(InYourRing(Title("Fans Love an Underdog"))), opponent_value_bonus: 1),
         // The opponent's 4D damage cap is not supported yet.
         "Ring Psychology: Arm": (
             while_in_ring: [
@@ -456,9 +507,9 @@
                 (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 10)]), fortitude: -1),
             ],
         ),
-        // Changing the text of the Ring Psychology cards is not supported yet. Female Superstars here are Lita and Chyna.
+        // Changing the text of the Ring Psychology cards is not supported yet.
         "Man of 1000 Holds": (
-            requires: Some(Not(AnyOf([Superstar("Lita"), Superstar("Chyna")]))),
+            requires: Some(Not(YouAre("Female"))),
             restricts_opponent: Some((filter: Title("Old School Wrestling Match"))),
         ),
         "Premiere Raw Superstar": (
@@ -495,7 +546,7 @@
             )),
         ),
         "SmackDown! #1 Announcer Funaki": (end_of_prematch: [Draw(who: You, n: 3), HandToArsenalTop(who: You, n: 3)]),
-        // Losing the game is not supported yet.
+        // Losing the game when Face or Heel cards are found in your decks is not supported yet.
         "According to Linda and the Board of Executives": (requires: Some(Never)),
         // Moving cards between Ring areas and the Right to Censor part are not supported yet.
         // Approximation: the opponent shuffles 1 card from the starting hand back into the Arsenal.
@@ -514,18 +565,32 @@
             end_of_prematch: [Search(filter: Not(Trait(Unique)), n: 2)],
             restricts_self: Some((filter: SameTitleInRing)),
         ),
-        // Changing the Mid-match limit is not supported yet.
-        "Mangled Intro by Lillian Garcia": (requires: Some(Never)),
+        // Approximation: "you cannot play Pre-match cards" is a Pre-match limit 4 lower (1 with the default limit).
+        "Mangled Intro by Lillian Garcia": (pre_match_limit: -4, mid_match_limit: 2),
         // Stipulations under other cards are not supported yet.
         "Raw Roulette Wheel": (requires: Some(Never)),
-        // Changing the Stipulation limit is not supported yet.
+        // Changing the number of Stipulations you may play is not supported yet.
         "Series of Stipulations": (requires: Some(Never)),
 
         // Mid-match
-        // The Foreign Object goes to the Ringside pile instead of leaving the game.
+        // Approximation: a Foreign Object card of the opponent's Ringside pile is removed (the reversed one goes there).
         "The Ref Takes Control": (
             reverses: Some((
                 targets: AnyOf([Keyword("Foreign Object"), All([Maneuver, After(Title("Roll Out of the Ring"))])]),
+                effects: [
+                    If(
+                        condition: ReversedLastTurn(Keyword("Foreign Object")),
+                        effects: [
+                            RemoveFromGame(
+                                who: Opponent,
+                                from: Ringside,
+                                n: 1,
+                                filter: Some(Keyword("Foreign Object")),
+                                pick: Controller,
+                            ),
+                        ],
+                    ),
+                ],
             )),
         ),
         "Power Struggle": (
@@ -535,9 +600,9 @@
                 requires: Some(InYourRing(Title("Backstage Politics"))),
             )),
         ),
-        // Approximation: a Pre-match Manager is a card with "Managed by" in the title, and male means not Lita or Chyna.
+        // Approximation: a Pre-match Manager is a card with "Managed by" in the title.
         "Chase Off Manager": (
-            irreversible_when: Some(Not(AnyOf([Superstar("Lita"), Superstar("Chyna")]))),
+            irreversible_when: Some(YouAre("Male")),
             on_play: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: TitleContains("Managed by"))])],
             restricts_opponent: Some((filter: Title("Manager Interferes"))),
         ),
@@ -561,18 +626,17 @@
                 effects: [Search(filter: AnyOf([Trait(Face), Trait(Heel)]))],
             )),
         ),
-        // Approximation: it reverses any Action, whatever its printed F. The Mid-match limit is not changed.
+        // The Mid-match limit increase with Managed by Vince McMahon is not supported yet.
         "Don't Cross a McMahon": (
             reverses: Some((
-                targets: Action,
+                targets: All([Action, FortitudeAtLeast(5)]),
                 requires: Some(AnyOf([InYourRing(Title("Backstage Politics")), InYourRing(TitleContains("McMahon"))])),
             )),
         ),
-        // Approximation: the chosen card is discarded instead of leaving the game.
         "Give You the Runaround": (
             on_play: [
                 LookAtHand(who: Opponent),
-                DiscardMatching(who: Opponent, n: 1, filter: Not(Trait(Unique)), pick: Controller),
+                RemoveFromGame(who: Opponent, from: Hand, n: 1, filter: Some(Not(Trait(Unique))), pick: Controller),
                 DrawUpTo(who: Opponent, n: 3),
             ],
         ),
@@ -597,10 +661,11 @@
         "Show Me Something!": (
             in_ring_start_of_turn: [If(condition: Not(OpponentHandAtLeast(4)), effects: [Mill(who: Opponent, n: 1)])],
         ),
-        // Taking the reversed card back and returning to the Backlash deck are not supported yet.
+        // Taking the reversed card into your hand is not supported yet.
         "Chief Morley Says...": (requires: Some(Never)),
-        // Removing cards from the game is not supported yet.
-        "Real Predictable...": (requires: Some(Never)),
+        // Counting maneuvers of one type between Ring and Ringside pile, and removing chosen cards from the Arsenal,
+        // are not supported yet.
+        "Real Predictable...": (requires: Some(Never), not_packed_by: ["Female"]),
         // Approximation: a Pre-match Manager is a card with "Managed by" in the title.
         "Outside Interference": (
             reverses: Some((
@@ -696,8 +761,8 @@
         ),
 
         // Shawn Michaels
-        // Superstar Value changes are not supported yet.
         "The Icon ... The Showstoppa ... The Main Event": (
+            value_bonus: 1,
             end_of_prematch: [
                 Search(filter: Trait(Unique)),
                 Search(filter: All([Reversal, Not(Trait(Unique))])),
@@ -792,8 +857,9 @@
         ),
 
         // Team Angle
-        // Removing cards from the game is not supported yet.
+        // The "When this card is Eliminated" line of the newer wording is not supported.
         "Collegiate Champions": (
+            end_of_prematch: [RemoveFromGame(who: Opponent, from: Ringside, n: 1, pick: Controller)],
             ring_ability: Some((
                 cost: [Discard(who: You, n: 3, pick: Chosen)],
                 effects: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
@@ -828,8 +894,12 @@
             )),
             while_in_ring_opponent: [(applies_to: Title("Dirty Low Blow"), damage: 2)],
         ),
-        // Putting Pre-match cards from the Ringside pile into the Ring is not supported yet.
-        "Stacy Keibler, Marketing Manager": (requires: Some(Never)),
+        // Putting Pre-match cards from the Ringside pile into the Ring, and making Keibler's Cookies Permanent and not
+        // Active, are not supported yet.
+        "Stacy Keibler, Marketing Manager": (
+            on_play: [RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller)],
+            while_in_ring: [(applies_to: Title("Keibler's Cookies"), irreversible: true)],
+        ),
         "Test's Pump Handle Slam": (reverses: Some((targets: ManeuverType(Strike)))),
         "Test's Running Boot": (requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)]))),
 
@@ -878,23 +948,17 @@
             extra_traits: [Multi],
             bonuses: [
                 (
-                    when: AnyOf([
-                        Superstar("Dudley Boyz"),
-                        Superstar("Edge and Christian"),
-                        Superstar("Hardy Boyz"),
-                        Superstar("Right to Censor"),
-                        Superstar("Two-Man Power Trip"),
-                        Superstar("Brothers of Destruction"),
-                        Superstar("APA"),
-                        Superstar("Los Guerreros"),
-                        Superstar("Team Angle"),
-                    ]),
+                    when: YouAre("Tag Team"),
                     fortitude: -5,
                 ),
             ],
         ),
-        // Superstar Value changes, Title Belts and Pre-match limits are not supported yet.
-        "You're a Human Vacuum Cleaner ... You Suck and Blow at the Same Time": (requires: Some(Never)),
+        // Title Belts and the Pre-match limit against the named Superstars are not supported yet.
+        // Approximation: it can only be played when the opponent's Superstar Value is 2 or less.
+        "You're a Human Vacuum Cleaner ... You Suck and Blow at the Same Time": (
+            requires: Some(OpponentSuperstarValueAtMost(2)),
+            opponent_value_bonus: 1,
+        ),
         "I Ain't Not No Sucka Neitha!": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
@@ -906,9 +970,9 @@
                 (whose: Some(You), filter: ManeuverType(Grapple), effects: [RingsideToArsenal(who: You, n: 4, up_to: true)]),
             ],
         ),
-        // Approximation: the +2 starting hand is drawn at the end of the Pre-match phase. The Mid-match limit is not
-        // changed.
+        // Approximation: the +2 starting hand is drawn at the end of the Pre-match phase.
         "X-treme Sendoff": (
+            mid_match_limit: 1,
             end_of_prematch: [Draw(who: You, n: 2)],
             in_ring_on_play: [
                 (
@@ -922,20 +986,22 @@
         "You Can't Manhandle the Big Show": (
             end_of_prematch: [Optional([HandToArsenalTop(who: You, n: 2), Search(filter: Not(Trait(Unique)))])],
         ),
-        // Shuffling it back into the Arsenal before your Draw Segment is not supported yet.
+        // Approximation: from the Ringside pile it is shuffled back during your Main Segment.
         "Dude ... Whatever": (
             irreversible: true,
+            in_ring_start_of_turn: [Optional([ReturnThis(to: Arsenal)])],
+            ringside_ability: Some((effects: [ReturnThis(to: Arsenal)])),
             reverses: Some((
                 targets: AnyOf([All([Maneuver, DamageAtLeast(8)]), Trait(Multi)]),
                 overturned_only: true,
             )),
         ),
-        // Punishing the opponent for removing it is not supported yet.
         "Yo Dawg, Respect da Bookerman": (
+            on_removed_by_opponent: [Discard(who: Opponent, n: 5, pick: Chosen)],
             in_ring_start_of_turn: [If(condition: FortitudeBelowOpponent, effects: [RingsideToArsenalBottom(who: You, n: 2)])],
         ),
-        // Shuffling cards in when the opponent removes it is not supported yet.
         "Proper Planning Prevents Piss-poor Performance": (
+            on_removed_by_opponent: [RingsideToArsenal(who: You, n: 3, up_to: true)],
             ring_ability: Some((
                 cost: [Discard(who: You, n: 2, pick: Chosen)],
                 effects: [RingsideToArsenal(who: You, n: 3, up_to: true)],
@@ -953,10 +1019,9 @@
             ],
             on_play: [Counted(count: SuperstarValue, effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
         ),
-        // Approximation: the cards go to the Ringside pile instead of leaving the game.
-        "You're Going to Space Mountain": (on_play: [Mill(who: Opponent, n: 4)]),
-        // Coming back from the Ringside pile is not supported yet.
+        "You're Going to Space Mountain": (on_play: [RemoveFromGame(who: Opponent, from: Arsenal, n: 4)]),
         "X-treme Hedonism": (
+            ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
             in_ring_on_play: [
                 (
                     whose: Some(You),
@@ -994,7 +1059,10 @@
         // Approximation: any 3 random Backlash cards are discarded, not only Pre-match ones. The Tag Team part is not
         // supported yet.
         "3 Minutes and We're Out": (on_play: [BacklashToRingside(who: Opponent, n: 3, random: true)]),
-        // Shuffling it back into the Arsenal from the Ringside pile is not supported yet.
-        "Nidia Interferes": (reverses: Some((targets: Maneuver, overturned_only: true))),
+        // Approximation: it is shuffled back from the Ringside pile during your Main Segment.
+        "Nidia Interferes": (
+            reverses: Some((targets: Maneuver, overturned_only: true)),
+            ringside_ability: Some((effects: [ReturnThis(to: Arsenal)])),
+        ),
     },
 )

@@ -1,13 +1,11 @@
 // Hand-written scripts for Survivor Series 3 cards, merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// Female Superstars (for "Cannot be packed by Female Superstars") are the ones listed on Kick.
 (
     abilities: {
-        // Approximation: he also counts as Chris Jericho for card effects.
         "The Highlight of the Night": [
             OnOpponentPlayMatching(filter: Action, effects: [CannotPlay(who: Opponent, filter: Action, turns: 1)]),
-            CountsAs(["Chris Jericho"]),
+            PacksLogos(["Chris Jericho"]),
         ],
         // Approximation: the extra cards for Superstar-specific Pre-match cards are drawn at the end of the
         // Pre-match phase.
@@ -29,13 +27,12 @@
             OnPlay(title: "Brothers from Another Mother", effects: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
             OpponentCannotPlay("Brotherly Love"),
         ],
-        // Approximation: he also counts as Edge for card effects.
         "Leader of the Edge Army": [
             OnOpponentPlayMatching(
                 filter: Action,
                 effects: [Draw(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)],
             ),
-            CountsAs(["Edge"]),
+            PacksLogos(["Edge"]),
         ],
     },
     scripts: {
@@ -62,20 +59,7 @@
 
         // Strikes
         "Kick": (
-            not_packed_by: [
-                "Chyna",
-                "Lita",
-                "Trish Stratus",
-                "Stephanie McMahon-Helmsley",
-                "Stephanie McMahon",
-                "Mae Young",
-                "Molly Holly",
-                "Jazz",
-                "Victoria",
-                "Ivory",
-                "Torrie Wilson",
-                "Stacy Keibler",
-            ],
+            not_packed_by: ["Female"],
         ),
         "Garbage Can Lid": (
             reverses_from_ring: Some((
@@ -84,13 +68,19 @@
                 fortitude: Some(0),
             )),
         ),
-        // Coming back from the Ringside pile is not supported yet.
-        "Steel Chain Shot": (reverses_from_ring: Some((targets: Trait(Unique), damage: None, fortitude: Some(0)))),
+        // Approximation: it comes back from the Ringside pile in your Main Segment right after a successful Unique
+        // card.
+        "Steel Chain Shot": (
+            reverses_from_ring: Some((targets: Trait(Unique), damage: None, fortitude: Some(0))),
+            ringside_ability: Some((requires: Some(After(Trait(Unique))), effects: [ReturnThis(to: Hand)])),
+        ),
         "Chop to the Chest": (
             on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 3, reversal_fortitude: 3))],
         ),
-        // The Irish Whip reversal limit and coming back from the Ringside pile are not supported yet.
-        "Knife-Edge Chop": (),
+        // The Irish Whip reversal limit is not supported yet.
+        "Knife-Edge Chop": (
+            ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
         // Approximation: you may discard up to 5 cards.
         "Gut Punch": (
             on_play: [
@@ -119,8 +109,7 @@
             reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]), from_hand_only: true)),
         ),
         "DDT": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
-        // Approximation: Backlash deck reversals are the Mid-match ones.
-        "Bulldog Takedown": (not_reversed_by: Some(Trait(MidMatch))),
+        "Bulldog Takedown": (no_backlash_reversal: true),
         "Corkscrew DDT": (reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]), fortitude: Some(5)))),
 
         // Submissions
@@ -177,8 +166,11 @@
         // Approximation: the other revealed cards go to the bottom of the Arsenal instead of the Ringside pile.
         "Battling the Voices": (on_play: [Dig(n: 6, take: 3)]),
         "Offer Handshake": (on_play: [DrawUpTo(who: You, n: 4), DrawUpTo(who: Opponent, n: 1)]),
-        // Removing cards from the game (the Action part) and reversing Arsenal searches are not supported yet.
-        "Enough With the Trash Talk": (requires: Some(Never), reverses: Some((targets: Draws, fortitude: Some(0)))),
+        // Reversing Arsenal searches is not supported yet.
+        "Enough With the Trash Talk": (
+            on_play: [RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller)],
+            reverses: Some((targets: Draws, fortitude: Some(0))),
+        ),
         "Comeback!": (on_play: [Discard(who: You, n: 1, pick: Chosen), LevelFortitude]),
         "Dem Damn Dudleyz!": (on_play: [Search(filter: Keyword("Foreign Object"))]),
         "Ladder in the Ring": (
@@ -227,8 +219,12 @@
             requires: Some(Not(OpponentFemale)),
             on_play: [RingsideToArsenal(who: You, n: 7, up_to: true), Draw(who: You, n: 2)],
         ),
-        // Removing cards from the game is not supported yet.
-        "Did I Just Say ... Three Minutes?": (requires: Some(Never)),
+        "Did I Just Say ... Three Minutes?": (
+            on_play: [
+                RemoveFromGame(who: Opponent, from: Ringside, n: 3, up_to: true, pick: Controller),
+                If(condition: InYourRing(Trait(Raw)), effects: [DiscardThis]),
+            ],
+        ),
         "Don't Cross the Boss": (
             in_ring_on_play: [
                 (whose: Some(Opponent), filter: Action, effects: [AsOpponent([Optional([Draw(who: You, n: 1)])])]),
@@ -298,20 +294,7 @@
         // Going back to the Backlash deck is not supported yet.
         "Immune to Pain": (while_in_ring_opponent: [(applies_to: Maneuver, damage: -1)]),
         "Chain Lashing": (
-            not_packed_by: [
-                "Chyna",
-                "Lita",
-                "Trish Stratus",
-                "Stephanie McMahon-Helmsley",
-                "Stephanie McMahon",
-                "Mae Young",
-                "Molly Holly",
-                "Jazz",
-                "Victoria",
-                "Ivory",
-                "Torrie Wilson",
-                "Stacy Keibler",
-            ],
+            not_packed_by: ["Female"],
             play_after: Some(Any),
             on_play: [BacklashToRingside(who: Opponent, n: 2, random: true)],
         ),
@@ -345,25 +328,52 @@
 
         // Undertaker / Deadman Inc
         "Undertaker's Flying Clothesline": (play_after: Some(All([Maneuver, DamageAtLeast(5)]))),
-        // The smaller Pre-match limit is not supported yet.
         // Approximation: the new ability is added, but your own ability is not replaced.
         "I'm the Biggest Dog on this Block!": (
+            pre_match_limit: -1,
             ring_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)])),
         ),
-        // Approximation: the overturned cards go to the Ringside pile instead of leaving the game.
+        // Approximation: you may remove any card of the chosen type in his Ringside pile, not only the one overturned.
         "You Will Respect Me": (
             end_of_prematch: [
                 OpponentChooses(
                     n: 1,
-                    options: [[MillUntil(who: Opponent, filter: Action)], [MillUntil(who: Opponent, filter: Reversal)]],
+                    options: [
+                        [
+                            MillUntil(who: Opponent, filter: Action),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Action), pick: Controller),
+                        ],
+                        [
+                            MillUntil(who: Opponent, filter: Reversal),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal), pick: Controller),
+                        ],
+                    ],
                 ),
                 OpponentChooses(
                     n: 1,
-                    options: [[MillUntil(who: Opponent, filter: Action)], [MillUntil(who: Opponent, filter: Reversal)]],
+                    options: [
+                        [
+                            MillUntil(who: Opponent, filter: Action),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Action), pick: Controller),
+                        ],
+                        [
+                            MillUntil(who: Opponent, filter: Reversal),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal), pick: Controller),
+                        ],
+                    ],
                 ),
                 OpponentChooses(
                     n: 1,
-                    options: [[MillUntil(who: Opponent, filter: Action)], [MillUntil(who: Opponent, filter: Reversal)]],
+                    options: [
+                        [
+                            MillUntil(who: Opponent, filter: Action),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Action), pick: Controller),
+                        ],
+                        [
+                            MillUntil(who: Opponent, filter: Reversal),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Reversal), pick: Controller),
+                        ],
+                    ],
                 ),
             ],
         ),
@@ -396,9 +406,9 @@
                 Boost((applies_to: Maneuver, duration: ThisTurn, damage: 3)),
             ],
         ),
-        // The smaller Pre-match limit is not supported yet.
         // Approximation: your opponent shuffles 3 cards of his choice back at the end of the Pre-match phase.
         "The Game Is Back, and The Game is Here to Stay!": (
+            pre_match_limit: -1,
             not_packed_by: ["Two-Man Power Trip"],
             end_of_prematch: [HandToArsenal(who: Opponent, n: 3)],
         ),
@@ -425,11 +435,12 @@
             end_of_prematch: [If(condition: Superstar("The People's Champ"), effects: [Draw(who: You, n: 2)])],
         ),
         // Approximation: any Reversal that ended the opponent's last turn counts, and Reversals from the Backlash
-        // deck are stopped too. Overturning and moving it to the Backlash deck are not supported yet.
+        // deck are stopped too.
         "Remove the People's Elbow Pad": (
             play_after: Some(Any),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
             on_play: [Boost((applies_to: Any, duration: ThisTurn, no_hand_reversal: true))],
+            in_ring_start_of_turn: [Optional([Mill(who: You, n: 1), ReturnThis(to: Backlash)])],
         ),
         "Get Ready ... Your Candy Ass is Next!": (
             on_play: [Draw(who: You, n: 1), Boost((applies_to: Any, duration: NextCard, no_hand_reversal: true))],
@@ -518,16 +529,16 @@
             requires: Some(InYourRing(Title("Study for Your GED"))),
             on_play: [RingsideToArsenal(who: You, n: 10, up_to: true), DrawUpTo(who: You, n: 3)],
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts, and Backlash deck reversals are
-        // the Mid-match ones.
+        // Approximation: any Reversal that ended the opponent's last turn counts, not only one from your hand.
         "Eddie's Roll Up": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
-            not_reversed_by: Some(Trait(MidMatch)),
+            no_backlash_reversal: true,
             on_play: [If(condition: HandLargerBy(5), effects: [WinByPin])],
         ),
-        // The larger Pre-match limit and changing the Superstar ability are not supported yet.
+        // Changing the Superstar ability is not supported yet.
         "Yo, Ese, I Know You, Homes!": (
+            pre_match_limit: 1,
             while_in_ring: [
                 (applies_to: AnyOf([Title("Guerrero Frog Splash"), Title("Eddie's Roll Up")]), fortitude: -10),
             ],
@@ -620,8 +631,7 @@
             irreversible_when: Some(After(Title("From the Top Rope"))),
             reverses: Some((targets: AnyOf([After(Title("Irish Whip")), After(Trait(SetUp))]))),
         ),
-        // Changing the Pre-match card limit is not supported yet.
-        "You're a Human Vacuum Cleaner ... You Suck and Blow at the Same Time": (requires: Some(Never)),
+        "You're a Human Vacuum Cleaner ... You Suck and Blow at the Same Time": (pre_match_limit: 3),
 
         // Christian
         "Christian's Shades": (hand_size_bonus: 1, reverses_from_ring: Some((targets: Action, fortitude: Some(0)))),
@@ -715,11 +725,10 @@
             )),
         ),
         "The Game Interferes!": (reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)])))),
-        // Approximation: the cards go to the Ringside pile instead of leaving the game, and the -4F only lasts
-        // until the end of your first turn.
+        // Approximation: the -4F only lasts until the end of your first turn.
         "You're Going to Space Mountain": (
             on_play: [
-                Mill(who: Opponent, n: 4),
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 4),
                 Boost((applies_to: All([Not(Trait(Unique)), Not(Reversal)]), duration: NextMatching, fortitude: -4)),
             ],
         ),

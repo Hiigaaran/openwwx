@@ -987,8 +987,8 @@ pub enum Effect {
     DiscardThis,
     /// The card being played is removed from the game instead of going to the Ring.
     RemoveThis,
-    /// The card whose effect this is moves to its owner's hand, Backlash deck
-    /// or Arsenal (shuffled), from wherever it is.
+    /// The card whose effect this is moves to its owner's hand, Backlash deck,
+    /// Arsenal (shuffled) or out of the game, from wherever it is.
     ReturnThis {
         to: crate::state::Zone,
     },

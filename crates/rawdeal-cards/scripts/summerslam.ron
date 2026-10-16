@@ -50,7 +50,7 @@
         ],
         // Drawing when the opponent reverses from hand and Title Belts are not supported yet.
         "Billy and Chuck": [],
-        // The No Sell Maneuver part and getting Head back from the Ringside pile are not supported yet.
+        // The No Sell Maneuver part is not supported yet; getting Head back from the Ringside pile is on Head.
         "Al Snow": [Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [LookAtHand(who: Opponent)])],
         "Tajiri": [
             Activated(
@@ -121,8 +121,7 @@
             on_play: [CannotPlay(who: Opponent, filter: Action, turns: 1)],
             reverses: Some((targets: Not(Any))),
         ),
-        // Blocking reversals from the Backlash deck is not supported yet.
-        "Back Splash": (play_after: Some(Title("From the Top Rope")), no_arsenal_reversal: true),
+        "Back Splash": (play_after: Some(Title("From the Top Rope")), no_arsenal_reversal: true, no_backlash_reversal: true),
 
         // Strikes
         // The Irish Whip reversal limit is not supported yet.
@@ -190,8 +189,7 @@
             not_reversed_by: Some(Title("Elbow to the Face")),
             on_play: [Search(filter: Title("Clothesline"))],
         ),
-        // Blocking reversals from the Backlash deck is not supported yet.
-        "Kangaroo Kick": (play_after: Some(All([Maneuver, TitleContains("kick")]))),
+        "Kangaroo Kick": (play_after: Some(All([Maneuver, TitleContains("kick")])), no_backlash_reversal: true),
         "360-Degree Clothesline": (
             on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)],
             reverses: Some((targets: All([Maneuver, TitleContains("kick")]))),
@@ -246,7 +244,11 @@
             ),
             reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]))),
         ),
-        "Back Breaker Torture Rack": (requires: Some(FortitudeAboveOpponent), after_damage: [EndTurn]),
+        "Back Breaker Torture Rack": (
+            not_packed_by: ["Female"],
+            requires: Some(FortitudeAboveOpponent),
+            after_damage: [EndTurn],
+        ),
 
         // Submissions
         "Arm Wringer": (on_play: [If(condition: FortitudeAboveOpponent, effects: [RevealHand(who: You)])]),
@@ -372,7 +374,7 @@
         // Counting the maneuvers revealed from hand is not supported yet.
         "Give It All I Got": (requires: Some(Never)),
         // Letting "cannot be reversed" maneuvers be reversed is not supported yet.
-        "Beating the Odds": (on_play: [Draw(who: You, n: 1)]),
+        "Beating the Odds": (on_play: [Draw(who: You, n: 1)], on_removed_by_opponent: [EndTurn]),
         // Copying the opponent's Ringside-to-Arsenal shuffles is not supported yet.
         "Smart Mark": (requires: Some(Never)),
         // Title Belts are not supported yet.
@@ -489,7 +491,7 @@
                 ]),
             ],
         ),
-        // Superstar Value changes are not supported, so there is nothing for it to stop.
+        // Stopping cards from raising a Superstar Value is not supported yet.
         "Glass Ceiling": (),
         // Approximation: your opponent picks the card that goes back.
         "In the Interest of Fairness...": (
@@ -529,8 +531,19 @@
             ),
             ring_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [RingsideToHand(who: You, n: 1)])),
         ),
-        // Changing the Mid-match card limit is not supported yet.
-        "Just Who in the Blue Hell Do You Think You Are?": (requires: Some(Never)),
+        "Just Who in the Blue Hell Do You Think You Are?": (
+            requires: Some(
+                AnyOf([
+                    OpponentSuperstar("Stone Cold Steve Austin"),
+                    OpponentSuperstar("Triple H"),
+                    OpponentSuperstar("Chris Jericho"),
+                    OpponentSuperstar("Undertaker"),
+                    OpponentSuperstar("Deadman Inc"),
+                    OpponentSuperstar("Booker T"),
+                ]),
+            ),
+            opponent_mid_match_limit: -3,
+        ),
         // Approximation: your opponent shuffles 3 cards of his choice back at the end of the Pre-match phase.
         "The Game Is Back, and The Game Is Here to Stay!": (
             requires: Some(
@@ -561,19 +574,26 @@
             while_in_ring: [(applies_to: Maneuver, damage: 2)],
         ),
         // Blanking a Stipulation card is not supported yet.
-        "Bra and Panties Match": (only_packed_by: ["Chyna", "Lita", "Trish Stratus"], requires: Some(Never)),
-        // Removing cards from the game is not supported yet.
-        "Lethal nWo Poison": (requires: Some(Never)),
-        // Superstar Value changes are not supported yet.
-        "Living Legend": (requires: Some(Never)),
-        // Changing Ring card limits and blanking a Stipulation card are not supported yet.
-        "Managed by Stephanie McMahon-Helmsley": (extra_traits: [UniversallyUnique], requires: Some(Never)),
+        "Bra and Panties Match": (only_packed_by: ["Female"], requires: Some(Never)),
+        // Putting it into the Ringside pile when you end a turn without attempting a maneuver is not supported yet.
+        "Lethal nWo Poison": (
+            requires: Some(AnyOf([InYourRing(Keyword("nWo")), YouAre("nWo")])),
+            in_ring_opponent_start_of_turn: [RemoveFromGame(who: You, from: Ringside, n: 2)],
+            on_removed_by_opponent: [Discard(who: Opponent, n: 3, pick: Chosen)],
+        ),
+        "Living Legend": (requires: Some(InYourRing(Trait(Face))), value_bonus: 2),
+        // Blanking a Stipulation card is not supported yet.
+        "Managed by Stephanie McMahon-Helmsley": (
+            extra_traits: [UniversallyUnique],
+            pre_match_limit: -1,
+            mid_match_limit: 1,
+        ),
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
         // Reversing cards that let the opponent look at your hand is not supported yet.
         "Managed by Torrie Wilson": (extra_traits: [UniversallyUnique], end_of_prematch: [Draw(who: You, n: 1)]),
-        // The smaller Pre-match limit is not enforced.
         "Managed by Stacy Keibler": (
             extra_traits: [UniversallyUnique],
+            pre_match_limit: -1,
             ring_ability: Some((
                 sacrifice: true,
                 effects: [Optional([LookAtHand(who: Opponent)]), Search(filter: Any), EndTurn],
@@ -623,8 +643,8 @@
         "My God! He's Broken in Half!": (requires: Some(Never)),
         "Tag Out": (requires: Some(Never)),
         "It's All in the Teamwork!": (requires: Some(Never)),
-        // The extra Mid-match slot is not supported yet.
         "Save da Drama fo' yo' Mama": (
+            mid_match_limit: 1,
             reverses: Some((targets: All([ManeuverType(HighRisk), EarlierThisTurn(filter: ManeuverType(HighRisk), n: 1)]))),
         ),
         "Turn Up the Heat": (
@@ -830,8 +850,15 @@
         // Al Snow
         "Snow Plow": (requires: Some(InYourRing(Title("Head"))), reverses: Some((targets: ManeuverType(Grapple)))),
         // Being Permanent with What Does Everybody Need? is not supported yet.
+        // Approximation: Al Snow gets Head back from the Ringside pile in his Main Segment, not before his
+        // Draw Segment.
         "Head": (
             extra_draw: 1,
+            ringside_ability: Some((
+                requires: Some(YouAre("Al Snow")),
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [ReturnThis(to: Hand)],
+            )),
             irreversible_when: Some(InYourRing(Title("What Does Everybody Need?"))),
             in_ring_opponent_start_of_turn: [
                 If(
@@ -907,8 +934,7 @@
         "Whassupwitdat?!?!?": (reverses: Some((targets: Action, effects: [Discard(who: You, n: 1, pick: Chosen)]))),
 
         // Cards for earlier Superstars
-        // Counting half your own Fortitude is not supported yet.
-        "In the Presence of the Kanenites": (requires: Some(Never)),
+        "In the Presence of the Kanenites": (on_play: [RingsideToArsenalCount(who: You, count: HalfYourFortitude)]),
         "I'm a Bad Man...": (
             ring_ability: Some((
                 sacrifice: true,
@@ -948,8 +974,13 @@
                 Boost((applies_to: Maneuver, duration: ThisTurn, damage: 3)),
             ],
         ),
-        // Coming back from the Ringside pile before the Draw Segment is not supported yet.
-        "Edge-acution": (play_after: Some(Maneuver), reverses: Some((targets: ManeuverType(Submission)))),
+        // Approximation: it comes back from the Ringside pile in your Main Segment, shuffled into the Arsenal
+        // instead of put at the bottom, and you draw the card right away.
+        "Edge-acution": (
+            play_after: Some(Maneuver),
+            reverses: Some((targets: ManeuverType(Submission))),
+            ringside_ability: Some((effects: [ReturnThis(to: Arsenal), Draw(who: You, n: 1)])),
+        ),
         "Temper Tantrum": (
             requires: Some(AnyOf([FortitudeBelowOpponent, OpponentHandLarger])),
             on_play: [Search(filter: Any, n: 2), EndTurn],

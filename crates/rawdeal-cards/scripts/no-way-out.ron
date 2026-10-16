@@ -20,14 +20,301 @@
                 effects: [LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)],
             ),
         ],
-        // Removing cards from the game is not supported yet. He counts as The Million Dollar Man so he can pack
-        // the cards with that logo.
-        "The Million Dollar Man Ted DiBiase": [CountsAs(["The Million Dollar Man"])],
-        // Volley is not supported yet.
-        // Approximation: he counts as Booker T for card effects too.
-        "The Bookerman": [CountsAs(["Booker T"])],
+        // Approximation: the two abilities share one use per turn and can only be used during your turn. The first
+        // one is listed once for each Damage of the removed card (20 or more counts as 20).
+        "The Million Dollar Man Ted DiBiase": [
+            CountsAs(["The Million Dollar Man"]),
+            Activated(
+                cost: [],
+                effects: [
+                    Choice([
+                        [],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(1), DamageAtMost(1)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(1), DamageAtMost(1)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -3)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(2), DamageAtMost(2)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(2), DamageAtMost(2)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -6)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(3), DamageAtMost(3)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(3), DamageAtMost(3)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -9)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(4), DamageAtMost(4)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(4), DamageAtMost(4)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -12)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(5), DamageAtMost(5)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(5), DamageAtMost(5)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -15)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(6), DamageAtMost(6)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(6), DamageAtMost(6)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -18)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(7), DamageAtMost(7)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(7), DamageAtMost(7)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -21)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(8), DamageAtMost(8)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(8), DamageAtMost(8)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -24)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(9), DamageAtMost(9)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(9), DamageAtMost(9)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -27)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(10), DamageAtMost(10)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(10), DamageAtMost(10)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -30)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(11), DamageAtMost(11)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(11), DamageAtMost(11)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -33)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(12), DamageAtMost(12)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(12), DamageAtMost(12)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -36)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(13), DamageAtMost(13)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(13), DamageAtMost(13)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -39)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(14), DamageAtMost(14)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(14), DamageAtMost(14)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -42)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(15), DamageAtMost(15)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(15), DamageAtMost(15)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -45)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(16), DamageAtMost(16)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(16), DamageAtMost(16)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -48)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(17), DamageAtMost(17)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(17), DamageAtMost(17)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -51)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(18), DamageAtMost(18)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(18), DamageAtMost(18)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -54)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(19), DamageAtMost(19)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(19), DamageAtMost(19)]))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -57)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(DamageAtLeast(20)),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(DamageAtLeast(20))),
+                                    Boost((applies_to: Any, duration: NextCard, fortitude: -60)),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(0), DamageAtMost(0)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(0), DamageAtMost(0)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(0)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(1), DamageAtMost(1)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(1), DamageAtMost(1)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(1)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(2), DamageAtMost(2)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(2), DamageAtMost(2)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(2)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(3), DamageAtMost(3)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(3), DamageAtMost(3)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(3)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(4), DamageAtMost(4)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(4), DamageAtMost(4)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(4)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(5), DamageAtMost(5)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(5), DamageAtMost(5)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(5)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(6), DamageAtMost(6)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(6), DamageAtMost(6)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(6)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(7), DamageAtMost(7)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(7), DamageAtMost(7)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(7)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(8), DamageAtMost(8)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(8), DamageAtMost(8)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(8)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(All([DamageAtLeast(9), DamageAtMost(9)])),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(All([DamageAtLeast(9), DamageAtMost(9)]))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(9)]))),
+                                ],
+                            ),
+                        ],
+                        [
+                            If(
+                                condition: InYourRing(DamageAtLeast(10)),
+                                effects: [
+                                    RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(DamageAtLeast(10))),
+                                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(All([Reversal, DamageAtLeast(10)]))),
+                                ],
+                            ),
+                        ],
+                    ]),
+                ],
+            ),
+        ],
+        // His restriction on Reversals to his Volley cards (Volley rules) is not supported yet.
+        "The Bookerman": [PacksLogos(["Booker T"])],
         // Your opponent removing a Ring card when you end your turn without a maneuver is not supported yet.
-        // Approximation: he counts as Big Show for card effects too.
         "The Largest Athlete in Sports Entertainment": [
             CannotPackMatching(ManeuverType(HighRisk)),
             FortitudeFor(
@@ -38,16 +325,14 @@
                 delta: -100,
             ),
             OnPlayMatching(filter: Maneuver, effects: [EndTurn]),
-            CountsAs(["Big Show"]),
+            PacksLogos(["Big Show"]),
         ],
-        // Approximation: the 2 cards go to the Ringside pile instead of leaving the game. She counts as Lita for
-        // card effects too.
         "X-treme Diva": [
             OnOpponentPlayMatching(
                 filter: Maneuver,
-                effects: [Choice([[Mill(who: Opponent, n: 2)], [Mill(who: Opponent, n: 3)]])],
+                effects: [Choice([[RemoveFromGame(who: Opponent, from: Arsenal, n: 2)], [Mill(who: Opponent, n: 3)]])],
             ),
-            CountsAs(["Lita"]),
+            PacksLogos(["Lita"]),
         ],
         // Approximation: only one of the two abilities can be used each turn.
         "Chavo Guerrero": [
@@ -108,9 +393,10 @@
             play_after: Some(AnyOf([All([Action, Trait(SetUp)]), TitleContains("shoot")])),
             not_reversed_by: Some(AnyOf([Title("Lift a Boot"), Title("Overshot Your Mark")])),
         ),
-        // Discarding Backlash cards for less F is not supported yet.
+        // Approximation: the cards for less F are discarded from your hand instead of your Backlash deck.
         "Precision Knee Drop": (
             play_after: Some(All([Maneuver, DamageAtLeast(2)])),
+            fortitude_discount: Some((per: 2, max: 5)),
             on_play: [
                 RingsideToHand(who: You, n: 1, filter: Some(ManeuverType(HighRisk))),
                 RingsideToHand(who: You, n: 1),
@@ -138,12 +424,18 @@
                 ],
             )),
         ),
-        // Volley is not supported yet.
         "Straight Clothesline": (bonuses: [(when: FortitudeAtMostOpponent, fortitude: -4)]),
-        // Coming back from the Ringside pile and Volley are not supported yet.
-        "Thrust Kick": (),
-        // Keeping the opponent from playing Over Sell Maneuver and removing cards from the game are not supported yet.
-        "Shoot Punch": (not_reversed_by: Some(Title("Step Aside"))),
+        // Approximation: it comes back to your hand in your Main Segment, while a Volley maneuver is the last card
+        // you successfully played.
+        "Thrust Kick": (
+            ringside_ability: Some((requires: Some(After(All([Maneuver, Keyword("Volley")]))), effects: [ReturnThis(to: Hand)])),
+        ),
+        // Keeping the opponent from playing Over Sell Maneuver is not supported yet, and the removal only happens
+        // when it is reversed from his hand.
+        "Shoot Punch": (
+            not_reversed_by: Some(Title("Step Aside")),
+            on_reversed_from_hand: [RemoveFromGame(who: Opponent, from: Ringside, n: 2, up_to: true, pick: Controller)],
+        ),
         "Dynamic Forearm": (
             as_action: Some((
                 fortitude: Some(0),
@@ -205,8 +497,8 @@
         ),
         // Naming a number above 0 for less F is not supported yet (it is played as naming 0).
         "Precision Kick": (no_arsenal_reversal: true, on_play: [Discard(who: You, n: 1, pick: Chosen)]),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Tornado Strike": (),
+        // Removing your Ring Reversals when it is played from the Ringside pile is not supported yet.
+        "Blindside Tornado Strike": (from_ringside: Some(Always)),
         "Whirling Elbow": (
             on_play: [
                 Choice([
@@ -229,9 +521,12 @@
                 ],
             )),
         ),
-        // Removing cards from the game and Volley are not supported yet. Female Superstars cannot play it anyway
-        // (Multi).
-        "Punch After Punch": (),
+        // Approximation: the opponent's top cards go to his Ringside pile instead of chosen cards leaving the game
+        // (a counted removal is not supported yet).
+        "Punch After Punch": (
+            not_packed_by: ["Female"],
+            on_play: [Counted(count: YourRingMatching(All([Maneuver, Keyword("Volley")])), effect: Mill(who: Opponent, n: 0))],
+        ),
 
         // Grapples
         // Putting discarded DDT cards on the bottom of the Arsenal to draw is not supported yet.
@@ -258,8 +553,9 @@
         ),
         // Approximation: the overturned card is drawn even when it is a Heat card.
         "Delayed Atomic Drop": (on_play: [Draw(who: You, n: 1)]),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Beal Toss": (),
+        // Discarding a Backlash card chosen by the opponent when it is played from the Ringside pile is not
+        // supported yet.
+        "Blindside Beal Toss": (from_ringside: Some(Always)),
         "Rolling Neck Breaker": (
             not_reversed_by: Some(All([Reversal, AnyOf([Maneuver, Action])])),
             reverses: Some((targets: TitleContains("dynamic"))),
@@ -369,8 +665,8 @@
                 ],
             )),
         ),
-        // Playing it from the Ringside pile is not supported yet.
-        "Blindside Abdominal Stretch": (),
+        // Removing your other Ringside cards when it is played from the Ringside pile is not supported yet.
+        "Blindside Abdominal Stretch": (from_ringside: Some(Always)),
         // Approximation: the chosen cards are discarded instead of kept under it, so the -2F to your cards is lost.
         "Arm Wrench": (
             not_reversed_by: Some(All([Reversal, AnyOf([Maneuver, Action])])),
@@ -468,22 +764,29 @@
         ),
         // Removing cards from the game and the +10F to the opponent's Mid-match Reversals are not supported yet.
         "The Coach Says, 'Today's the Day!'": (reverses: Some((targets: Trait(MidMatch)))),
-        // Its Ringside pile ability is not supported yet.
+        // Approximation: its Ringside pile ability can be used with fewer than 8 cards in the Ringside pile.
         "Once Again, Kissing Up to the Fans!": (
             reverses: Some((
                 targets: AnyOf([
-                    Keyword("Fan Favorite"),
-                    All([Not(Trait(Unique)), PlayerRingHas(filter: Keyword("Fan Favorite"), n: 4)]),
+                    Trait(FanFavorite),
+                    All([Not(Trait(Unique)), PlayerRingHas(filter: Trait(FanFavorite), n: 4)]),
                 ]),
             )),
+            ringside_ability: Some((
+                cost: [RemoveFromGame(who: You, from: Ringside, n: 8)],
+                effects: [Search(filter: AnyOf([Trait(Cheater), Trait(FanFavorite)]))],
+            )),
         ),
-        // Its Ringside pile ability is not supported yet.
         "You Can't Cheat an Honest Man...": (
             reverses: Some((
                 targets: AnyOf([
-                    Keyword("Cheater"),
-                    All([Not(Trait(Unique)), PlayerRingHas(filter: Keyword("Cheater"), n: 4)]),
+                    Trait(Cheater),
+                    All([Not(Trait(Unique)), PlayerRingHas(filter: Trait(Cheater), n: 4)]),
                 ]),
+            )),
+            ringside_ability: Some((
+                cost: [RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Title("You Can't Cheat an Honest Man...")))],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(AnyOf([Trait(Cheater), Trait(FanFavorite)])))],
             )),
         ),
 
@@ -499,8 +802,16 @@
         ),
         // Playing cards from the Ringside pile is not supported yet.
         "Between the Ropes": (requires: Some(Never)),
-        // Removing cards from the game is not supported yet.
-        "Over the Ropes": (requires: Some(Never)),
+        // "It can only be reversed by hybrid or unique Reversal cards" is not supported yet.
+        // Approximation: any maneuver in your Ringside pile can be removed, whatever its Fortitude.
+        "Over the Ropes": (
+            on_play: [
+                Optional([
+                    RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Maneuver)),
+                    Counted(count: YourRemoved, effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -2))),
+                ]),
+            ],
+        ),
         "Painfully Obvious Precision": (
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true, filter: Some(TitleContains("precision")))],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("precision")]), stun_value: 1)],
@@ -527,8 +838,9 @@
         ),
 
         // Pre-match
-        // Approximation: the other 3 cards go to the bottom of the Arsenal instead of leaving the game.
-        "Givin' 'em High Fives": (end_of_prematch: [Dig(n: 5, take: 2)]),
+        "Givin' 'em High Fives": (
+            end_of_prematch: [Arrange(who: You, n: 5), Draw(who: You, n: 2), RemoveFromGame(who: You, from: Arsenal, n: 3)],
+        ),
         // Comparing the Reversal cards in both hands is not supported yet.
         "In The Interest Of Fairness": (requires: Some(Never)),
         "Technically Sound and Brutal": (
@@ -647,18 +959,17 @@
                 ],
             )),
         ),
-        // Approximation: Volley maneuvers cannot be told apart, so they cannot be searched for or played, and the
-        // two cards found do not have to be different.
+        // Approximation: the two cards found do not have to be different.
         "You Will Witness History": (
             end_of_prematch: [
                 Search(
-                    filter: All([Maneuver, Not(Trait(Unique)), AnyOf([Trait(Chain), Keyword("Heat")])]),
+                    filter: All([Maneuver, Not(Trait(Unique)), AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")])]),
                     n: 2,
                 ),
             ],
             restricts_self: Some((
                 filter: AnyOf([
-                    All([Maneuver, Not(AnyOf([SuperstarSpecific, Trait(Chain), Keyword("Heat")]))]),
+                    All([Maneuver, Not(AnyOf([SuperstarSpecific, Trait(Chain), Keyword("Heat"), Keyword("Volley")]))]),
                     All([Maneuver, SameTitleInRing]),
                 ]),
             )),
@@ -689,7 +1000,6 @@
         "That's Value!": (requires: Some(Never)),
 
         // Mid-match
-        // Approximation: Kick Out! goes to the Ringside pile instead of leaving the game.
         "Go For the Cover!": (
             play_after: Some(Maneuver),
             requires: Some(FortitudeAboveOpponent),
@@ -700,7 +1010,7 @@
                         OpponentChooses(
                             n: 1,
                             options: [
-                                [RemoveFromRing(who: Opponent, n: 1, filter: Title("Kick Out!"))],
+                                [RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(Title("Kick Out!")))],
                                 [
                                     MillUntil(who: Opponent, filter: All([Reversal, Not(AnyOf([Maneuver, Action]))])),
                                     MillUntil(who: Opponent, filter: All([Reversal, Not(AnyOf([Maneuver, Action]))])),
@@ -747,7 +1057,7 @@
             requires: Some(Not(SuperstarValueAtMostOpponent)),
             on_play: [
                 Counted(
-                    count: YourRingMatching(Keyword("Fan Favorite")),
+                    count: YourRingMatching(Trait(FanFavorite)),
                     effect: Boost((applies_to: Maneuver, duration: ThisTurn, damage: 1)),
                 ),
                 Counted(count: SuperstarValue, effect: Boost((applies_to: Maneuver, duration: ThisTurn, damage: 1))),
@@ -755,9 +1065,13 @@
         ),
 
         // Carlito
-        // Changing the Pre-match limit and its Ringside pile ability are not supported yet.
         "Carlito's Cabana": (
+            pre_match_limit: 1,
             ring_ability: Some((sacrifice: true, effects: [Search(filter: All([Maneuver, Not(Trait(Unique))]))])),
+            ringside_ability: Some((
+                cost: [RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Title("Carlito's Cabana")))],
+                effects: [RingsideToArsenal(who: You, n: 4, up_to: true)],
+            )),
         ),
         "I Spit In the Face Of...": (
             on_play: [
@@ -868,8 +1182,10 @@
                 ),
             ],
         ),
-        // Counting your cards removed from the game is not supported yet.
-        "Everybody's Gonna Pay": (requires: Some(Never)),
+        "Everybody's Gonna Pay": (
+            irreversible_when: Some(InYourRing(Title("Everybody's Got a Price"))),
+            on_play: [Counted(count: YourRemoved, effect: Discard(who: Opponent, n: 0, pick: Chosen))],
+        ),
         "The Million Dollar Dream": (
             on_play: [
                 Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
@@ -891,21 +1207,27 @@
             reverses: Some((targets: ManeuverType(Submission))),
         ),
         "Spinning Straight Elbow": (on_play: [Optional([Search(filter: SuperstarSpecific)])]),
-        // Approximation: the 5 cards go to the Ringside pile instead of leaving the game.
+        // Approximation: the top 5 cards of the opponent's Arsenal are removed instead of 5 chosen cards.
         "Distracted by Sharmell": (
             on_play: [
-                MillChosen(who: Opponent, n: 5),
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 5),
                 Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 25)),
             ],
         ),
 
         // Big Show
-        // Changing the Pre-match and Mid-match limits is not supported yet.
-        // Approximation: you draw 1 card and the opponent shuffles 1 card from his hand into his Arsenal at the end
-        // of the Pre-match phase.
-        "Mine Is Bigger Than Yours": (end_of_prematch: [Draw(who: You, n: 1), HandToArsenal(who: Opponent, n: 1)]),
-        // Discarding cards for less F is not supported yet.
-        "The Biggest Precision Spine Buster": (),
+        // Keeping the opponent's Pre-match cards from reducing your Starting Hand Size is not supported yet.
+        // Approximation: for the Starting Hand Sizes you draw 1 card and the opponent shuffles 1 card from his hand
+        // into his Arsenal at the end of the Pre-match phase.
+        "Mine Is Bigger Than Yours": (
+            pre_match_limit: 1,
+            mid_match_limit: 1,
+            opponent_pre_match_limit: -1,
+            opponent_mid_match_limit: -1,
+            end_of_prematch: [Draw(who: You, n: 1), HandToArsenal(who: Opponent, n: 1)],
+        ),
+        // Approximation: any cards can be discarded for less F, not only Superstar-specific ones.
+        "The Biggest Precision Spine Buster": (fortitude_discount: Some((per: 10, max: 2))),
         "Colossal Clubbing": (),
         "Big Enough to Eat Somebody": (
             bonuses: [(fortitude: -6)],
@@ -947,8 +1269,8 @@
                 effects: [Optional([RingsideToArsenal(who: You, n: 1), Draw(who: You, n: 1)])],
             )),
         ),
-        // Changing the opponent's Pre-match limit is not supported yet.
         "My Life For You": (
+            opponent_pre_match_limit: -1,
             end_of_prematch: [Search(filter: AnyOf([ManeuverType(HighRisk), Keyword("Foreign Object")]))],
         ),
         // Checking the size of your own Arsenal is not supported yet.
@@ -996,7 +1318,6 @@
         ),
 
         // Mexicools
-        // Approximation: Volley maneuvers cannot be told apart, so the Ring reversal also stops them.
         "Lawn Maintenance Professionals": (
             while_in_ring: [
                 (applies_to: TitleContains("blindside"), fortitude: -1),
@@ -1004,7 +1325,7 @@
                 (applies_to: All([Maneuver, TitleContains("technical")]), damage: 1),
             ],
             reverses_from_ring: Some((
-                targets: All([Maneuver, Not(AnyOf([Trait(Chain), Keyword("Heat")]))]),
+                targets: All([Maneuver, Not(AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")]))]),
                 fortitude: Some(0),
             )),
         ),
@@ -1028,11 +1349,32 @@
         "Mexi-Leg-Lace Powerbomb": (before_reversal: [Mill(who: You, n: 3)]),
 
         // Viscera
-        // Its Ringside pile ability is not supported yet.
-        "The Sex Drive": (play_after: Some(Maneuver)),
-        // Approximation: the cards go to the Ringside piles instead of leaving the game.
+        "The Sex Drive": (
+            play_after: Some(Maneuver),
+            ringside_ability: Some((
+                requires: Some(
+                    All([
+                        InYourRing(Title("Irish Whip")),
+                        InYourRing(Title("Throw Into the Corner Turnbuckle")),
+                        InYourRing(Title("Gut Wrench")),
+                    ]),
+                ),
+                effects: [
+                    ReturnThis(to: Hand),
+                    RingToHand(who: You, n: 1, filter: Title("Irish Whip")),
+                    RingToHand(who: You, n: 1, filter: Title("Throw Into the Corner Turnbuckle")),
+                    RingToHand(who: You, n: 1, filter: Title("Gut Wrench")),
+                ],
+            )),
+        ),
         "A Big Man Has A Big ... Appetite": (
-            reverses: Some((targets: Not(Trait(Unique)), effects: [Mill(who: You, n: 5), Mill(who: Opponent, n: 5)])),
+            reverses: Some((
+                targets: Not(Trait(Unique)),
+                effects: [
+                    RemoveFromGame(who: You, from: Arsenal, n: 5),
+                    RemoveFromGame(who: Opponent, from: Arsenal, n: 5),
+                ],
+            )),
         ),
         "500 Pound Love Machine": (
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 5)],
@@ -1091,19 +1433,17 @@
             as_action: Some((fortitude: Some(0), on_play: [DiscardThis, RingsideToArsenalBottom(who: You, n: 3)])),
             reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), effects: [Search(filter: Any)])),
         ),
-        // Raising the Mid-match limit is not supported yet.
-        "Liaison with Lita": (on_play: [Search(filter: Title("Roll Out of the Ring"), ringside: true)]),
+        "Liaison with Lita": (mid_match_limit: 1, on_play: [Search(filter: Title("Roll Out of the Ring"), ringside: true)]),
         "It's Us vs. Them": (
             on_play: [Counted(count: YourRingMatching(SuperstarSpecific), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Submission)]))),
         ),
-        // Approximation: the opponent chooses the card he puts on top of his Arsenal, and the 4 cards go to his
-        // Ringside pile instead of leaving the game.
+        // Approximation: the opponent chooses the card he puts on top of his Arsenal.
         "Nobody Gets Higher": (
             on_play: [
                 LookAtHand(who: Opponent),
                 HandToArsenalTop(who: Opponent, n: 1),
-                OpponentChooses(n: 1, options: [[Mill(who: Opponent, n: 4)], [Mill(who: Opponent, n: 20)]]),
+                OpponentChooses(n: 1, options: [[RemoveFromGame(who: Opponent, from: Arsenal, n: 4)], [Mill(who: Opponent, n: 20)]]),
             ],
         ),
         "Walking a Golden Mile": (
@@ -1118,9 +1458,9 @@
             reverses: Some((targets: All([Maneuver, DamageAtMost(9)]))),
             while_in_ring: [(applies_to: Maneuver, damage: 2)],
         ),
-        // Packing 4 copies and raising the Pre-match limit are not supported yet.
+        // Packing 4 copies is not supported yet.
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
-        "Walk That Aisle": (end_of_prematch: [Draw(who: You, n: 1), HandToArsenalBottom(who: You, n: 1)]),
+        "Walk That Aisle": (pre_match_limit: 1, end_of_prematch: [Draw(who: You, n: 1), HandToArsenalBottom(who: You, n: 1)]),
         "Trish's Chick Kick": (bonuses: [(fortitude: -16)], reverses: Some((targets: Any))),
         // Continuing the turn after a reversal is not supported yet.
         "Old School Luche Libre Extravaganza": (requires: Some(Never)),
@@ -1238,17 +1578,26 @@
                 Arrange(who: Opponent, n: 8),
             ],
         ),
-        // Discarding a card for less F is not supported yet.
-        "No Fault Drop": (),
-        // Removing cards from the game for its Ring ability is not supported yet.
+        "No Fault Drop": (fortitude_discount: Some((per: 10, max: 1))),
+        // Approximation: its Ring ability can be used with fewer than 3 cards in the Ringside pile.
         "Jillian Hall: The Fixer": (
             reverses: Some((
                 targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
                 fortitude_when: Some((FortitudeBelowOpponent, 0)),
             )),
+            ring_ability: Some((
+                cost: [RemoveFromGame(who: You, from: Ringside, n: 3)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(Trait(Unique)))],
+            )),
         ),
-        // Its Ringside pile ability is not supported yet.
-        "The Brain": (),
+        // Approximation: this card is shuffled into the Arsenal instead of put on the bottom.
+        "The Brain": (
+            ringside_ability: Some((
+                requires: Some(HandAtLeast(1)),
+                cost: [HandToArsenalBottom(who: You, n: 1)],
+                effects: [ReturnThis(to: Arsenal)],
+            )),
+        ),
         "The Thump": (bonuses: [(per: Some(ManeuverType(Grapple)), fortitude: -3, damage: 3)]),
         // Reversing non-damage card effects is not supported yet.
         // Approximation: as an action the card is shuffled into the Arsenal instead of put on the bottom.
@@ -1256,8 +1605,10 @@
             on_play: [ShuffleThisIntoArsenal, LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), overturned_only: true)),
         ),
-        // Overturning 3 cards for less F and the ACE ability are not supported yet.
+        // The ACE ability is not supported yet.
+        // Approximation: each overturned card is -4F (up to 3 cards) instead of -10F for overturning 3.
         "The Intensity of Ten Cities": (
+            fortitude_discount: Some((per: 4, max: 3, overturn: true)),
             on_play: [
                 Boost((applies_to: Maneuver, duration: NextCard, damage: 10)),
                 Boost((applies_to: Action, duration: NextCard, fortitude: -10)),
@@ -1265,8 +1616,16 @@
         ),
         // Shuffling removed cards back is not supported yet, so overturning gains nothing.
         "Should've Seen This Coming": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true))),
-        // Approximation: one of the opponent's top cards goes to the Ringside pile instead of leaving the game, the
-        // other stays on top; you take 1 of your top 3 cards and the rest go to the bottom of your Arsenal.
-        "Pails o' Fun": (end_of_prematch: [Mill(who: Opponent, n: 2), Dig(n: 3, take: 1)]),
+        // Approximation: the card for your Backstage area goes to your Ringside pile.
+        "Pails o' Fun": (
+            end_of_prematch: [
+                Arrange(who: Opponent, n: 3),
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 1),
+                Mill(who: Opponent, n: 1),
+                Arrange(who: You, n: 3),
+                Draw(who: You, n: 1),
+                Mill(who: You, n: 2),
+            ],
+        ),
     },
 )

@@ -3,15 +3,13 @@
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Backstage cards (Remember Who Pays Your Salary!, King's Crown) and the Enforcer
 // Shane O' Mac or Stephanie? are skipped by the importer: they are not supported yet.
-// Female Superstars for packing limits are Chyna, Lita, Mae Young, Stephanie McMahon,
-// Trish Stratus and The Fabulous Moolah.
 (
     abilities: {
-        // Packing both Raw and SmackDown! cards, No Chance in Hell being a Set-up card that ignores its
-        // "played from your opponent's hand" text, and only playing F:0 or Foreign Object maneuvers (a
-        // printed-Fortitude filter) are not supported yet.
+        // Packing both Raw and SmackDown! cards and No Chance in Hell being a Set-up card that ignores its
+        // "played from your opponent's hand" text are not supported yet.
         // Approximation: the cards with "Vince" in the title are the ones imported so far.
         "Vince McMahon": [
+            CannotPlayMatching(All([Maneuver, Not(FortitudeAtMost(0)), Not(Keyword("Foreign Object"))])),
             OpponentCannotPlay("I'm Vincent Kennedy McMahon, Dammit!"),
             OpponentCannotPlay("Managed by Vince McMahon"),
             OpponentCannotPlay("Vince McMahon Interferes!"),
@@ -22,7 +20,7 @@
         // Approximation: one random Backlash deck card is discarded, Mid-match or not.
         "Sucker Punch": (before_reversal: [BacklashToRingside(who: You, n: 1, random: true)]),
         "Gut Punch Body Slam": (
-            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus", "The Fabulous Moolah"],
+            not_packed_by: ["Female"],
             on_play: [
                 If(
                     condition: FortitudeAboveOpponent,
@@ -76,7 +74,8 @@
         ),
 
         // Actions
-        // Cards removed from the game are not supported yet, so only the Ringside half is scripted.
+        // Shuffling removed cards back is not supported yet (removed cards never come back), so only the Ringside
+        // half is scripted.
         "McMahon Family Values": (
             on_play: [
                 RingsideToArsenal(who: You, n: 30, up_to: true, filter: Some(AnyOf([Trait(Unique), TitleContains("McMahon")]))),
@@ -112,7 +111,6 @@
         ),
 
         // Reversals
-        // Approximation: the 2 cards go to the Ringside pile instead of being removed from the game.
         "The Price We Pay": (
             reverses: Some((targets: All([Action, Not(Trait(SetUp))]))),
             in_ring_on_play: [
@@ -120,7 +118,7 @@
                     filter: All([Action, Not(Trait(SetUp))]),
                     effects: [
                         Choice([
-                            [Mill(who: You, n: 2)],
+                            [RemoveFromGame(who: You, from: Arsenal, n: 2)],
                             [AsOpponent([RingsideToArsenal(who: You, n: 2, up_to: true)])],
                         ]),
                     ],
@@ -130,7 +128,7 @@
 
         // Pre-match
         // Switching Superstar abilities is not supported yet.
-        "White Wedding": (requires: Some(Never), extra_traits: [UniversallyUnique]),
+        "White Wedding": (requires: Some(Never)),
         "Osaka, Japan": (
             end_of_prematch: [
                 If(
@@ -155,14 +153,29 @@
                 ]),
             ],
         ),
-        // Removing cards from the game is not supported yet.
-        "I Don't Care About the Heat": (requires: Some(Never)),
+        // Approximation: the opponent's removal happens at the start of his turn, before his Draw Segment.
+        "I Don't Care About the Heat": (
+            ring_ability: Some((
+                effects: [
+                    Choice([
+                        [RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Not(Keyword("Heat"))), pick: Controller)],
+                        [
+                            RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(Title("I Don't Care About the Heat"))),
+                            RemoveFromGame(who: Opponent, from: Ringside, n: 3, up_to: true, pick: Controller),
+                        ],
+                    ]),
+                ],
+            )),
+            in_ring_opponent_start_of_turn: [
+                Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Not(Keyword("Heat"))), pick: Controller)]),
+            ],
+        ),
 
         // Mid-match
-        // Putting it back into the Backlash deck (or Ringside pile) from the Ring or Ringside pile to end the turn
-        // is not supported yet.
         "Change in Programming Lineup": (
             on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent)],
+            ring_ability: Some((effects: [Choice([[ReturnThis(to: Backlash)], [SacrificeThis]]), EndTurn])),
+            ringside_ability: Some((effects: [ReturnThis(to: Backlash), EndTurn])),
         ),
         // Approximation: it reverses the Mid-match card as it is played, instead of blanking it after it succeeds.
         // Making an opponent with 15 or more cards discard down to 5 is not supported yet.
@@ -170,10 +183,9 @@
             on_play: [DiscardThis, Draw(who: You, n: 1)],
             reverses: Some((targets: All([Trait(MidMatch), Not(Trait(Unique))]))),
         ),
-        // Approximation: the 10 cards go to the Ringside pile instead of being removed from the game.
         "Suicide Strike": (
-            not_packed_by: ["Chyna", "Lita", "Mae Young", "Stephanie McMahon", "Trish Stratus", "The Fabulous Moolah"],
-            on_play: [Mill(who: You, n: 10)],
+            not_packed_by: ["Female"],
+            on_play: [RemoveFromGame(who: You, from: Arsenal, n: 10)],
             on_reversed_from_hand: [Mill(who: You, n: 5), Mill(who: Opponent, n: 5)],
         ),
         // Removing a maneuver in your Ring from the game to reverse a maneuver of the same type is not supported yet.
@@ -182,8 +194,8 @@
         "How Important Is It?": (requires: Some(Never)),
 
         // Vince McMahon
-        // Changing the opponent's Starting Hand Size, Superstar Value and Pre-match/Mid-match limits is not
-        // supported yet.
+        // Letting the opponent choose between Starting Hand Size, Superstar Value and Ring limit changes is not
+        // supported yet (the Ring limits are fixed card fields, not effects).
         "Master of Promotion": (requires: Some(Never)),
         "I'm Vincent Kennedy McMahon, Dammit!": (
             on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
