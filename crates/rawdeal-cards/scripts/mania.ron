@@ -669,6 +669,7 @@
                 All([
                     InYourRing(Title("Four Corners Match")),
                     ReversedLastTurn(Maneuver),
+                    YouReversedFrom([Hand]),
                     FirstCardThisTurn,
                 ]),
             ),
@@ -872,7 +873,7 @@
         "Rolling Thunder": (
             irreversible: true,
             play_after: Some(All([Maneuver, DamageAtLeast(4), Not(Title("From the Top Rope"))])),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver), YouReversedFrom([Hand])])),
             on_play: [Optional([Draw(who: You, n: 1)])],
         ),
 
@@ -1024,7 +1025,7 @@
         // Raven
         "Raven Effect DDT": (
             play_after: Some(Maneuver),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver), YouReversedFrom([Hand])])),
             reverses: Some((
                 targets: AnyOf([ManeuverType(Grapple), Title("Back Body Drop")]),
                 from_hand_only: true,

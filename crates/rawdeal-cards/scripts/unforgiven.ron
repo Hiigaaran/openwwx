@@ -34,11 +34,17 @@
             CannotPackMatching(All([Maneuver, DamageAtLeast(3)])),
             OnPlayMatching(filter: Action, effects: [Optional([RingsideToArsenalBottom(who: You, n: 3)])]),
         ],
-        // Discarding when you play a Reversal and packing No Sell Maneuver are not supported yet.
+        // Packing No Sell Maneuver is not supported yet.
         "The Immortal One": [
             PacksLogos(["Hollywood Hulk Hogan"]),
             OnOpponentReverses([
                 If(condition: OpponentReversedFrom([Hand, Backlash, Ringside]), effects: [Optional([Draw(who: You, n: 1)])]),
+            ]),
+            OnYouReverse([
+                If(
+                    condition: YouReversedFrom([Hand, Backlash, Ringside]),
+                    effects: [Discard(who: You, n: 1, pick: Chosen)],
+                ),
             ]),
         ],
         // Checking a card's text for the word 'reverse' is not supported yet.
@@ -1070,10 +1076,9 @@
         // The HurriFriends
         // Cards under another card are not supported yet.
         "The Hurri-Friends' Armory": (requires: Some(Never)),
-        // Approximation: any Reversal that ended the opponent's last turn counts.
         "The Super Storm Front": (
             play_after: Some(All([Maneuver, SuperstarSpecific])),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
         ),
 
         // Other logos
@@ -1288,7 +1293,8 @@
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true)],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
         ),
-        // Reversing Activated Card Effects and continuing the turn are not supported yet.
+        // Reversing Activated Card Effects and checking the overturned cards for a non-hybrid Action are not
+        // supported yet.
         "McMahon-us Interrupt-us": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Approximation: the opponent's draw happens at the start of his turn.
         "Gentlemen's Establishment": (

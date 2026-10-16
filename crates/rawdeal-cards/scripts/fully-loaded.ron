@@ -662,7 +662,8 @@
         ),
         // Repeating the suplex is not supported yet: it plays as a normal Grapple.
         "Series of Suplexes": (),
-        "Rabid Wolverine": (requires: Some(Never)),
+        // Only a turn ended by a reversal can go on; other turn ends are not supported yet.
+        "Rabid Wolverine": (on_opponent_reverses: [Optional([Discard(who: You, n: 1, pick: Chosen), ContinueTurn])]),
 
         // Eddie Guerrero
         "Guerrero Frog Splash": (

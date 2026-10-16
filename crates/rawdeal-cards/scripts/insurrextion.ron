@@ -339,10 +339,31 @@
         ),
 
         // Reversals
-        // Continuing the turn after a reversal is not supported yet.
-        "Dude, Try Something Else": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Continuing the turn after a reversal is not supported yet.
-        "Fall into the Corner": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Dude, Try Something Else": (
+            reverses: Some((
+                targets: AnyOf([Not(Trait(Unique)), Holds(OpponentSuperstar("Rob Van Dam"))]),
+                from_hand_only: true,
+                fortitude_when: Some((OpponentSuperstar("Dude Love"), 6)),
+                on_reverse: [
+                    If(condition: OpponentSuperstar("Dude Love"), effects: [AsOpponent([ReversedCardTo(to: Removed)])]),
+                    ContinueTurn,
+                ],
+            )),
+        ),
+        // Playing the opponent's next card as if after Throw Into the Corner Turnbuckle is not supported yet.
+        "Fall into the Corner": (
+            reverses: Some((
+                targets: All([Maneuver, DamageAtMost(8)]),
+                from_hand_only: true,
+                on_reverse: [
+                    ContinueTurn,
+                    If(
+                        condition: OpponentSuperstar("Rikishi"),
+                        effects: [AsOpponent([Optional([Search(filter: Title("Stink Face"))])])],
+                    ),
+                ],
+            )),
+        ),
         // Reversing Activated Card Effects is not supported yet.
         "Don't Try This at Home": (
             on_play: [Search(filter: Title("From the Top Rope"))],

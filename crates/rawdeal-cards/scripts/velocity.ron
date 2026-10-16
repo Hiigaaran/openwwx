@@ -23,8 +23,13 @@
             StartOfTurn([Boost((applies_to: Maneuver, duration: ThisTurn, no_backlash_reversal: true))]),
             PacksLogos(["The Rock"]),
         ],
-        // Continuing the turn after being reversed is not supported yet.
         "Rey Mysterio": [
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversedFrom([Hand, Backlash]),
+                    effects: [Optional([Discard(who: You, n: 2, pick: Chosen), ContinueTurn])],
+                ),
+            ]),
             CardFortitude(title: "From the Top Rope", delta: -5),
             CardFortitude(title: "Springboard", delta: -5),
         ],
@@ -193,12 +198,11 @@
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, AnyOf([Action, Reversal])]))), EndTurn],
             reverses: Some((targets: Trait(SmackDown))),
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts.
         "Measure Him": (
             on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 2))],
             in_ring_start_of_turn: [
                 If(
-                    condition: ReversedLastTurn(Any),
+                    condition: All([ReversedLastTurn(Any), YouReversedFrom([Hand])]),
                     effects: [Boost((applies_to: Maneuver, duration: NextCard, damage: 2))],
                 ),
             ],
@@ -690,16 +694,17 @@
         ),
 
         // Rey Mysterio
-        // The "continue your turn" choice is not supported yet.
         "Luche Libre Extravaganza": (
             on_opponent_reverses: [
-                If(condition: OpponentReversedFrom([Arsenal]), effects: [Optional([SacrificeThis, DrawUpTo(who: You, n: 3)])]),
+                If(
+                    condition: OpponentReversedFrom([Arsenal]),
+                    effects: [Optional([SacrificeThis, Choice([[DrawUpTo(who: You, n: 3)], [ContinueTurn]])])],
+                ),
             ],
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts.
         "The West Coast Pop": (
             play_after: Some(All([Maneuver, DamageAtLeast(6)])),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
             on_play: [If(condition: HandLargerBy(5), effects: [WinByPin])],
         ),
         "Too Fast For You": (reverses: Some((targets: Maneuver, effects: [DrawUpTo(who: You, n: 2)]))),

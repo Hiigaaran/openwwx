@@ -561,10 +561,9 @@
             requires: Some(InYourRing(Title("Study for Your GED"))),
             on_play: [RingsideToArsenal(who: You, n: 10, up_to: true), DrawUpTo(who: You, n: 3)],
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts, not only one from your hand.
         "Eddie's Roll Up": (
             play_after: Some(Maneuver),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
             no_backlash_reversal: true,
             on_play: [If(condition: HandLargerBy(5), effects: [WinByPin])],
         ),
@@ -815,10 +814,9 @@
         "Whassupwitdat?!?!?": (reverses: Some((targets: Action))),
 
         // Rey Mysterio
-        // Approximation: any Reversal that ended the opponent's last turn counts.
         "The West Coast Pop": (
             play_after: Some(All([Maneuver, DamageAtLeast(6)])),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
             on_play: [If(condition: HandLargerBy(5), effects: [WinByPin])],
         ),
         "Who's That Jumpin' Out The Sky?": (

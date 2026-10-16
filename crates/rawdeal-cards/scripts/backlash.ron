@@ -286,7 +286,7 @@
             ],
         ),
         "Set Him Up": (
-            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver)])),
+            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver), YouReversedFrom([Hand])])),
             on_play: [Optional([Search(filter: All([Maneuver, Not(Trait(Unique))]))])],
         ),
         "Great Technical Knowledge": (
@@ -372,9 +372,14 @@
                 If(condition: Not(OpponentHandHas(Trait(Face))), effects: [DiscardAll(who: You, filter: Any)]),
             ],
         ),
-        // Continuing the turn after a reversal is not supported yet.
         "Lita to the Xtreme": (
             requires: Some(All([Not(Superstar("Lita")), Not(OpponentSuperstar("Lita"))])),
+            on_opponent_reverses: [
+                If(
+                    condition: OpponentReversed(All([Maneuver, DamageAtLeast(4)])),
+                    effects: [Optional([SacrificeThis, ContinueTurn])],
+                ),
+            ],
             on_play: [
                 Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, ignore_play_after: true)),
                 NextCardMustBe(ManeuverType(HighRisk)),
@@ -846,7 +851,7 @@
         ),
         "Eddie's Roll Up": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
             after_damage: [If(condition: HandLargerBy(5), effects: [WinByPin])],
         ),
         "Pac's Back": (irreversible: true, on_play: [RingsideToArsenalCount(who: You, count: HalfOpponentFortitude)]),

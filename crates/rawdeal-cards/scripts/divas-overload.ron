@@ -121,7 +121,7 @@
         ),
         "Boot Lace": (
             no_hand_reversal: true,
-            requires: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            requires: Some(All([ReversedLastTurn(Any), YouReversedFrom([Hand, Arsenal]), FirstCardThisTurn])),
             as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)])),
         ),
         "Chop Block": (
@@ -371,10 +371,9 @@
             only_packed_by: ["Diva"],
             requires: Some(Never),
         ),
-        // Approximation: a reversal from the Arsenal at the end of the last turn also counts.
         "So Solly! So Sorey!": (
             play_after: Some(Maneuver),
-            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), YouReversedFrom([Hand]), FirstCardThisTurn])),
             on_play: [
                 RemoveFromGame(who: Opponent, from: Ringside, n: 3, up_to: true, pick: Controller),
                 AsOpponent([Optional([RingsideToArsenal(who: You, n: 1)])]),
@@ -1026,7 +1025,7 @@
         // Being Permanent is not supported yet.
         "Mr. Monday Night": (
             play_after: Some(Maneuver),
-            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand, Backlash])])),
             no_hand_reversal: true,
         ),
 

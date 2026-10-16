@@ -1564,8 +1564,11 @@
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
         "Walk That Aisle": (pre_match_limit: 1, end_of_prematch: [Draw(who: You, n: 1), HandToArsenalBottom(who: You, n: 1)]),
         "Trish's Chick Kick": (bonuses: [(fortitude: -16)], reverses: Some((targets: Any))),
-        // Continuing the turn after a reversal is not supported yet.
-        "Old School Luche Libre Extravaganza": (requires: Some(Never)),
+        "Old School Luche Libre Extravaganza": (
+            on_opponent_reverses: [
+                If(condition: OpponentReversedFrom([Arsenal]), effects: [Optional([ReturnThis(to: Removed), ContinueTurn])]),
+            ],
+        ),
         "Tuning Up the Band": (
             on_play: [
                 Search(filter: Trait(Unique), ringside: true),

@@ -387,8 +387,14 @@
             on_play: [Mill(who: Opponent, n: 1)],
             in_ring_on_play: [(whose: Some(Opponent), filter: Maneuver, effects: [Mill(who: You, n: 1)])],
         ),
-        // Continuing the turn after a reversal is not supported yet.
-        "J.R. Style Push": (requires: Some(Never)),
+        "J.R. Style Push": (
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversed(Action), Not(SuperstarValueBelowOpponent)]),
+                    effects: [Optional([SacrificeThis, ContinueTurn, NextCardMustBe(Not(Action))])],
+                ),
+            ],
+        ),
         // Approximation: he skips at most 1 turn (with 3 or more Reversals in his Ring).
         "Now or Never": (
             requires: Some(CountBelow(a: YourRingMatching(Reversal), b: OpponentRingMatching(Reversal))),
@@ -509,8 +515,15 @@
         "Immune to Pain": (while_in_ring_opponent: [(applies_to: Maneuver, damage: -1)]),
         // Title Belts are not supported yet.
         "Number One Contender": (requires: Some(Never)),
-        // Effects when you play a Reversal are not supported yet.
-        "The Beautiful People": (requires: Some(Never)),
+        "The Beautiful People": (
+            requires: Some(AnyOf([OpponentRingHas(filter: Trait(SmackDown), n: 1), OpponentIs("Female")])),
+            on_you_reverse: [
+                If(
+                    condition: YouReversedFrom([Hand, Backlash, Ringside]),
+                    effects: [Optional([Draw(who: You, n: 1), Discard(who: You, n: 1, pick: Chosen)])],
+                ),
+            ],
+        ),
         // The reversal part (reversing effects that change your Reversals) is not supported yet.
         "Grab the Ref": (
             reverses: Some((targets: Not(Any))),
@@ -704,10 +717,23 @@
             reverses: Some((targets: ManeuverType(Grapple))),
         ),
         "Edge Kick": (on_play: [Optional([Search(filter: Title("Roll Out of the Ring"), ringside: true)])]),
-        // The opponent's option to remove his Ringside pile, take the reversed card and continue his turn is not
-        // supported yet (continuing a turn after a reversal), so the reversed card is always removed from the game.
         "Scream If You Want It": (
-            reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true, reversed_removed: true)),
+            reverses: Some((
+                targets: Not(ManeuverType(TrademarkFinisher)),
+                from_hand_only: true,
+                on_reverse: [
+                    AsOpponent([
+                        Choice([
+                            [
+                                ReversedCardTo(to: Hand),
+                                RemoveFromGame(who: You, from: Ringside, n: 255, up_to: true, pick: Random),
+                                ContinueTurn,
+                            ],
+                            [ReversedCardTo(to: Removed)],
+                        ]),
+                    ]),
+                ],
+            )),
         ),
         "`Cause I Want More": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -4)],

@@ -133,6 +133,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Quinto lote: saber de dónde vino el Reversal del rival (mano, Backlash, Ringside o volteado del Arsenal) y qué
   carta revirtió, reacciones a los Reversals también en Superstars y en el Ringside, y sumas de conteos. Unas 15
   cartas más quedan completas.
+- Sexto lote: seguir jugando el turno después de un Reversal, reacciones cuando tú reviertes y saber de dónde vino
+  tu último Reversal. Unas 25 cartas más quedan completas o jugables (por ejemplo Rey Mysterio, Lita to the Xtreme,
+  I Won't Stop y J.R. Style Push).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

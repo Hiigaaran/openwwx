@@ -1050,9 +1050,8 @@
                 damage: SameAsReversed,
             )),
         ),
-        // Approximation: the reversal that ended the opponent's turn does not need to come from your hand.
         "Lita's Twist of Fate": (
-            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
+            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])])),
             reverses: Some((targets: ManeuverType(Grapple))),
         ),
         "Dude, Nice Hang Time!": (

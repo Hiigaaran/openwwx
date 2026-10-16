@@ -232,7 +232,7 @@
         "I Gotta Say, Out of Play": (
             reverses: Some((targets: AnyOf([Keyword("Throwback"), Keyword("Volley")]), reversed_removed: true)),
         ),
-        // Reversing after a maneuver succeeded and letting the opponent continue his turn are not supported yet.
+        // Reversing a maneuver after it was successfully played is not supported yet.
         "Raw and Ready": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
 
         // Actions
@@ -251,10 +251,9 @@
             ],
         ),
         "Back in Style": (on_play: [RingsideToArsenal(who: You, n: 5, up_to: true, filter: Some(Keyword("Throwback")))]),
-        // Approximation: any Reversal that ended the opponent's last turn counts, not only one from the Arsenal.
         "From the Middle Turnbuckle": (
             play_after: Some(Maneuver),
-            play_after_unless: Some(ReversedLastTurn(Any)),
+            play_after_unless: Some(All([ReversedLastTurn(Any), YouReversedFrom([Arsenal])])),
             on_play: [
                 RingsideToHand(who: You, n: 1, filter: Some(All([ManeuverType(HighRisk), Not(Trait(Unique))]))),
                 Boost((
@@ -272,10 +271,9 @@
                 CannotPlay(who: You, filter: Title("Throw Opponent Out of the Ring"), turns: 1),
             ],
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts, not only one from hand or Backlash.
         "From the Top Rope": (
             play_after: Some(AnyOf([ManeuverType(Strike), ManeuverType(Grapple)])),
-            play_after_unless: Some(ReversedLastTurn(Any)),
+            play_after_unless: Some(All([ReversedLastTurn(Any), YouReversedFrom([Hand, Backlash])])),
             on_play: [
                 Search(filter: ManeuverType(HighRisk)),
                 Boost((
@@ -387,8 +385,21 @@
                 ]),
             ],
         ),
-        // Continuing the turn after a reversal is not supported yet.
-        "I Won't Stop": (requires: Some(Never)),
+        "I Won't Stop": (
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversedFrom([Hand]), OpponentReversed(Maneuver)]),
+                    effects: [
+                        Optional([
+                            ReturnThis(to: Removed),
+                            Discard(who: You, n: 1, pick: Chosen),
+                            RingsideToHand(who: You, n: 1, filter: Some(Trait(Chain))),
+                            ContinueTurn,
+                        ]),
+                    ],
+                ),
+            ],
+        ),
         "Defensive Style": (
             reverses_from_ring: Some((
                 targets: All([
@@ -536,8 +547,28 @@
         "San Diego, California": (
             on_play: [BacklashToRingside(who: You, n: 6), AsOpponent([BacklashToRingside(who: You, n: 6)])],
         ),
-        // Continuing the turn after a reversal is not supported yet.
-        "Unbreakable Chain": (requires: Some(Never)),
+        "Unbreakable Chain": (
+            on_opponent_reverses: [
+                If(
+                    condition: OpponentReversed(Trait(Chain)),
+                    effects: [
+                        Optional([
+                            SacrificeThis,
+                            MoveCards(
+                                who: You,
+                                from: Ringside,
+                                to: Arsenal,
+                                n: 3,
+                                up_to: true,
+                                filter: Some(Trait(Chain)),
+                                bottom: true,
+                            ),
+                            ContinueTurn,
+                        ]),
+                    ],
+                ),
+            ],
+        ),
         // Enforcers are not supported yet.
         "All Alone in the Night": (requires: Some(Never)),
         // Approximation: the opponent picks which kind of card you get.
@@ -655,7 +686,7 @@
             play_after: Some(AnyOf([ManeuverType(Grapple), ManeuverType(Submission)])),
             not_reversed_by: Some(Trait(MidMatch)),
         ),
-        // Its Reversal (after a successful Action, the opponent continues his turn) is not supported yet.
+        // Its Reversal (reversing an Action after it was successfully played) is not supported yet.
         "Here Comes The Coach": (
             on_play: [Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 8))],
             reverses: Some((targets: Not(Any))),
@@ -664,10 +695,14 @@
             requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 15)),
             on_play: [RingsideToArsenal(who: You, n: 10, up_to: true)],
         ),
-        // Continuing the turn after a reversal is not supported yet.
+        // Approximation: any reversed card of yours with Stun Value counts, not only one reversed after it was
+        // successfully played.
         "You'll Really Be Stunned": (
             play_after: Some(StunValueAtLeast(1)),
             in_ring_on_play: [(whose: Some(You), filter: StunValueAtLeast(1), effects: [Mill(who: Opponent, n: 3)])],
+            on_opponent_reverses: [
+                If(condition: OpponentReversed(StunValueAtLeast(1)), effects: [Optional([SacrificeThis, ContinueTurn])]),
+            ],
         ),
         // The Managed by Dawn Marie condition is not supported yet.
         "The Darkness Before The Dawn": (

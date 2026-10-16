@@ -8,17 +8,16 @@ Interference (Tag Team). Se juegan sin una parte de su texto: Combination Attack
 Disqualification! (solo revierte maniobras HEEL; revertir un Reversal todavía no existe).
 
 Fully Loaded: no se pueden jugar todavía Surprise Hit y Double Clothesline (rival inactivo de Tag Team), Stare Down
-Opponent, Doing the Job, Defensive Posture, Inferno Match, Kick Out!, Rabid
-Wolverine y Let's Make Some Noise .... Se juegan sin una parte de su texto: Trash Can (volver a usarla desde el
+Opponent, Doing the Job, Defensive Posture, Inferno Match, Kick Out! y Let's Make Some Noise .... Se juegan sin una parte de su texto: Trash Can (volver a usarla desde el
 Ring), Series of Suplexes (repetirla), Small Package (ganar con tres seguidas), Attitude Adjustment (el -#F del turno
-siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Ref KO'd! y That's Gonna Cost You! (revertir Reversals). Están simplificadas: Masked Vengeance (descarta al
+siguiente), Huge Bump, Crippler Crossface (Maintain Hold), Rabid Wolverine (solo sigue el turno si acaba por un Reversal), Ref KO'd! y That's Gonna Cost You! (revertir Reversals). Están simplificadas: Masked Vengeance (descarta al
 azar de toda la mano) y Do You Like Pie? (eliges tú qué carta va a la mano, no el rival).
 
 Backlash: no se pueden jugar todavía Pop the Guy On the Apron, Tandem Atomic Drop, Propel Partner y Jump the Bell
 (Tag Team), Don't Mess with the Champ! (no hay Title Belts aún), The Brahma Bull y Over Sell Maneuver. Se juegan sin
 una parte de su texto: la habilidad de Edge and Christian, la de Edge (empezar después del Pre-match), la de Dudley
 Boyz (sus Foreign Objects siguen siendo Heel), Crucifix Rollup (el pin solo como maniobra), Clutch onto Opponent
-(Maintain Hold), Blown Spot (el -#F), Lita to the Xtreme (seguir el turno tras un Reversal), Swanton Bomb (buscarla
+(Maintain Hold), Blown Spot (el -#F), Swanton Bomb (buscarla
 como High Risk), Con-Chair-To (solo si la revierten desde la mano) y Captive Tag Out (sin compañero). Adrenaline Rush,
 Study the Tapes, Student of the Sport y Big Slide Into the Ring están simplificadas.
 
@@ -81,8 +80,7 @@ Velocity: no se pueden jugar todavía I'm the Champ - Nothin's Gonna Change That
 Title Belts aún), Hot Tag! (Tag Team), Backstage Warm-up Routine (cambia la mano inicial según el Superstar Value),
 A Victim of the Crippler (cambia la habilidad del Superstar), Hold the Phone!, Ring Psychology: Neck, Pay-Per-View
 Main Event, Raw or Smackdown - Pick a Brand!, See How It Feels, The Ref Got in the Way!, Hold On! It's Not Time to
-Show Yet! y Beg For Mercy. Se juegan sin una parte de su texto: Rey Mysterio y Luche Libre Extravaganza (seguir el
-turno tras un Reversal), 3 Minute Warning y Jamie Noble (Title Belts y Rico Enters!), Raisin' the Roof (I Did It For
+Show Yet! y Beg For Mercy. Se juegan sin una parte de su texto: 3 Minute Warning y Jamie Noble (Title Belts y Rico Enters!), Raisin' the Roof (I Did It For
 You), Roll Up y Lunging Choke Hold (su tipo no es Reversal, así que no revierten), Waist Lock y Singapore Cane (no dejan texto en blanco), Gettin' Beat Like a Government Mule
 (no repite el daño), Get the 'F' Out! (no revierte del todo una Multi), Back-and-Forth Action, Defensive Stance,
 He's Runnin' Like a Scalded Dawg, Ring Psychology: Back (solo la parte de 6 cartas), Managed by Eric Bischoff,
@@ -90,21 +88,22 @@ Dragged to the Center of the Ring, The Game's Sleeper y Hurrislam ("puede ser re
 Splash, Now I'm Gonna Get Some Respect, Yo, Ese, I Know You, Homes!, Dudley Tough, Never Gonna Stop Me, Five Time!
 Five Time! Five Time! Five Time! Five Time!. Están simplificadas: Big Freak'n
 Machine y The Fire Still Burns (los Reversals del Backlash tampoco valen), Breather Hold (juegas con la Fortitude
-del rival, no con una menos), Lariat Takedown (3 cartas al azar del Backlash), I Aims ta be Startin' Sump'tin', He's as Crazy as a Pet Raccoon, Measure Him, Unorthodox Style of Wrestling, Check This Out!, It's All About
-Control (va al Ringside al usarla), Remove the People's Elbow Pad, The Next Big Thing y The West Coast Pop.
+del rival, no con una menos), Lariat Takedown (3 cartas al azar del Backlash), I Aims ta be Startin' Sump'tin', He's as Crazy as a Pet Raccoon, Unorthodox Style of Wrestling, Check This Out!, It's All About
+Control (va al Ringside al usarla), Remove the People's Elbow Pad y The Next Big Thing.
 
 Survivor Series 2: no se puede jugar todavía Split Personalities Have Benefits (Superstars ocultos en el Backstage). Se
 juega sin una parte de su texto la habilidad de Dude Love (el robo extra del rival y llevar a Mankind o Cactus Jack
 ocultos).
 
 Insurrextion: no se pueden jugar todavía Blind Tag, Pump Up the Crowd, Give and Take, Cut the Ring in Half y Glad
-Someone Has My Back (Tag Team), Dude, Try Something Else y Fall into the Corner (seguir el turno tras revertir), What's
+Someone Has My Back (Tag Team), What's
 Mine is Mine and What's Yours is Mine, We Lie, We Cheat, We Steal y Raw Roulette Wheel (cartas debajo de otra), Series of
 Stipulations (jugar más Stipulations), Stephanie McMahon Decrees... (cambiar el texto de otras cartas), According to
 Linda and the Board of Executives (perder la partida), Toothless Aggression y There's No Holding Me Back (jugarse
 después del daño), Hey, Whatcha Doin'?, You Make Me Sick!,
 Rhyno's Garbage Can y
-Screw the Rules!. Se juegan sin una parte de su texto: Noggin Knocker (Title Belts y Tag Team), Tossed Between the
+Screw the Rules!. Se juegan sin una parte de su texto: Noggin Knocker (Title Belts y Tag Team), Fall into the Corner
+(la siguiente carta del rival no cuenta como jugada tras Throw Into the Corner Turnbuckle), Tossed Between the
 Ropes (cartas con efecto activado), Hangman's Neck Breaker (límite de Reversals tras From the Top Rope), Don't Try This
 at Home (revertir efectos activados), Always y Pass the Buck (su efecto en el Ring), No One Wants to Watch Women Wrestle
 (quitarla del juego para ignorar cambios de F), Ring Psychology: Arm (el máximo de 4D del rival), Take Care of Number
@@ -146,8 +145,7 @@ Special y Benoit's German Suplex (limitar sus Reversals), Series of Kicks (repet
 del primer turno), For the Women that Want to Be Me... (elegir otro Enforcer), Don't Cross the Boss (sus efectos desde
 el Ringside pile y con Managed by Vince McMahon), Once You Go Test... (ponerla antes del Pre-match), Divas Overload!
 (empacarla ignorando la habilidad), y los Enforcers de Stacy Keibler y Sable (su Hand Size impreso es 0+). Están
-simplificadas: la habilidad de Sable se usa una vez por turno, So Solly! So Sorey! acepta cualquier reversal del turno
-anterior, Perennial Fan Favorites la empacan las Superstars Tag Team, Dare to Take a Challenge hace una sola ronda, Distractingly Divalicious solo afecta al primer turno, I'm Always on Top... se comprueba al inicio del turno
+simplificadas: la habilidad de Sable se usa una vez por turno, Perennial Fan Favorites la empacan las Superstars Tag Team, Dare to Take a Challenge hace una sola ronda, Distractingly Divalicious solo afecta al primer turno, I'm Always on Top... se comprueba al inicio del turno
 siguiente, Asset Retrieval y Divas Overload! reconocen las cartas "packed by a Female/Diva Superstar" de esta
 expansión, Backstage Interview with Terri sólo devuelve al Ring las cartas Trash Talkin' Interview, y los cambios de
 mano inicial (You Should Cover Your Eyes, Gregory Helms, Ace Reporter) se aplican al final del Pre-match.
@@ -168,18 +166,16 @@ maniobra del Ringside), The Road to Victory (revierte la carta Mid-match al juga
 se juega aunque tú no uses la tuya), I Don't Care About the Heat (el rival retira su carta al inicio de su turno) y
 las cartas que Vince McMahon prohíbe al rival (solo las importadas).
 
-Vengeance: no se pueden jugar todavía The Beautiful People (efectos al jugar tú una Reversal), The Title Is On the Line!, Number One Contender y Bitter Rivals (Title Belts), You, Me,
+Vengeance: no se pueden jugar todavía The Title Is On the Line!, Number One Contender y Bitter Rivals (Title Belts), You, Me,
 and Whoever!?! y Desperate Tag (Tag Team), According to the Contract Table y The Best Surprises Sneak Up From Behind
 (nombrar una carta), For the Love of God-Why, King, Why? y I Should've Been In That Magazine... (dejar en blanco una
-carta del Ring), That's Broken! y Viva La Raza! Low Rider (cartas debajo de otra), J.R. Style Push (seguir el turno
-tras una reversión), This Is Gonna Be a Rocket Buster (volver Multi una maniobra), Houston, Texas (elegir cartas al
+carta del Ring), That's Broken! y Viva La Raza! Low Rider (cartas debajo de otra), This Is Gonna Be a Rocket Buster (volver Multi una maniobra), Houston, Texas (elegir cartas al
 azar hasta una Reversal), First Blood Match (ganar por los Foreign Objects), Hardcore Style (texto cortado en los
 datos), All That ... and Nothing? (lo que intentó el rival el turno anterior) y Bald is Beautiful! (cambiar la
 habilidad). Paul Heyman y FBI no tienen habilidad (Enforcers, Stipulations reveladas, volver Multi una maniobra), y
 Paul Heyman juega con Hand Size 0. Se juegan sin una parte de su texto: Grab the Ref (su parte de Reversal), Leave Me Alone (buscar una maniobra sin texto
 y la regla del turno siguiente), Headstrong (Permanent), When Hell Freezes Over! (retirarse del juego a sí misma al
-revertir desde el Ringside pile), Chained Heat (jugarla sin descartar contra cartas Chain), Scream If You Want It (la
-opción del rival de retirar su Ringside pile y seguir su turno), Last Chance (retirar la maniobra que falla, volverse
+revertir desde el Ringside pile), Chained Heat (jugarla sin descartar contra cartas Chain), Last Chance (retirar la maniobra que falla, volverse
 Permanent), Judo Thrust, Judo Takedown y Judo Choke (no entran solas al Ring), Steel Chain Shot (+5D a maniobras sin
 texto, el rasgo Heel), las partes de Enforcer (Suplex, Suplex into the Ring, Struck by an Unknown Foreign Object, Down
 and Out, Didn't I Already Fire You?), Listen Up, Junior: Don't Be an Ass-clown! (la opción del rival de quitarla), You
@@ -211,31 +207,28 @@ Know You, Homes! (cambiar la habilidad), Jerichoholics (volver a la mano en vez 
 Rider (cartas debajo de esta) y TLC Match (jugar las cartas del Backlash deck como Mid-match). Están simplificadas:
 When Hell Freezes Over! (como Action sólo se juega desde la mano), Superplex, Gut Punch, Battling the Voices, No
 Chance in Hell!, You Will Respect Me (se puede retirar cualquier carta del tipo elegido del Ringside pile), You're
-Gonna Pay!, Ayatollah of Rock 'n' Roll-a, Rabid Attack in the Corner, Eddie's Roll Up, Version 1.0, You're Going to
-Space Mountain, Managed by Kyo Dai, The West Coast Pop, The Manbeast, Word Life, Backed by Mr. McMahon, Steel Chain
+Gonna Pay!, Ayatollah of Rock 'n' Roll-a, Rabid Attack in the Corner, Version 1.0, You're Going to
+Space Mountain, Managed by Kyo Dai, The Manbeast, Word Life, Backed by Mr. McMahon, Steel Chain
 Shot (vuelve a la mano en el Main Segment justo después de una carta Unique), I'm the Biggest Dog on this Block! y The
 Game Is Back, and The Game is Here to Stay! (la nueva habilidad se añade sin quitar la tuya; el rival devuelve 3
 cartas), Remove the People's Elbow Pad, y la habilidad de Kurt Angle (roba las cartas extra al final del Pre-match).
 
-Armageddon: no se pueden jugar todavía Raw and Ready, I Won't Stop y Unbreakable Chain (seguir el turno tras una
-Reversal), Egomaniacal (retirar del juego las cartas que voltea el rival), JBL's Limo y The Urn
+Armageddon: no se pueden jugar todavía Raw and Ready (revertir una maniobra que ya tuvo éxito), Egomaniacal (retirar del juego las cartas que voltea el rival), JBL's Limo y The Urn
 (cartas debajo o encima de otra), I Got That, Too (buscar un título del Ring rival), J.R. Style Action (convertir una
 maniobra en Multi), Calculated Revenge (saber qué jugó el rival el turno anterior), Cerebral Spray (jugar como si fuera
 después de Irish Whip), All Alone in the Night (Enforcers) y Evening Gown Match. Se juegan sin una parte de su texto:
 revertir por completo una carta Multi (Takin' Care of Business), el coste de la Reversal de
 Volley This!, el bonus por las Strikes retiradas de Flurry of Strikes, que New Orleans, Louisiana se retire al ir al
 Ringside pile, dejar en blanco el texto de una carta (Solarplex Knife Chop, Rest Hold, There Is No Forgiveness This
-Time, Anybody Can Be King of This Town!), Captain Charisma Strikes (Heat), seguir el turno (Here Comes The Coach, You'll Really Be
-Stunned), el texto añadido a las demás cartas de
+Time, Anybody Can Be King of This Town!), Captain Charisma Strikes (Heat), revertir una Action que ya tuvo éxito (Here Comes The Coach), el texto añadido a las demás cartas de
 Pre-match y Mid-match de Dudleyville, USA y The Phenom, las copias y logos que pueden empaquetar The Phenom, Eugene y
 Rene Dupree, el Superstar Value variable de Eugene, el cambio de tipo de Atomic Driver, Randy Orton e I'm Making This
 Up As I Go Along, el Unique extra de I'm Special, que Shelton Benjamin pueda llevar It's All About the Benjamins, la Reversal
 desde la mano de Ensugiri y las reglas de Volley, Heat y Throwback. Están simplificadas: Mean Streets of Greenwich, CT (el límite de Pre-match de todos sube siempre 1), If You
 Want To Play You Gotta Pay (una sola ronda), Shelton Benjamin (retira la carta superior del Arsenal rival en vez de
 elegir entre 5), Like a Bat Out of Hell (la carta retirada del juego va a la mano y no tiene que ser la siguiente
-que se juega), The Best Thing Going Today (las Mid-match vienen todas del Ring o todas del Ringside pile), From the
-Top Rope y From the Middle
-Turnbuckle (cualquier Reversal del turno anterior vale), Buried Alive Match (solo se comprueba al empezar los turnos
+que se juega), The Best Thing Going Today (las Mid-match vienen todas del Ring o todas del Ringside pile), You'll Really Be Stunned (vale
+cualquier carta con Stun Value revertida), Buried Alive Match (solo se comprueba al empezar los turnos
 de su dueño), Give Me a Little...
 (solo este turno), Taunt the Crowd (todas las Actions del turno), San Diego, California, I Want to Play the Game,
 Brainbuster y Managed by Fifi (cualquier carta del Backlash o elegida por el rival), Managed by William Regal (el rival
@@ -251,7 +244,7 @@ Over Sell: Hot Rod Style (dejar en blanco una maniobra), Not In Front of the Kid
 las maniobras de todos) y The Hurri-Friends' Armory (cartas debajo de otra). Las Backstage Cards (Feathered Boa, Super
 Masks and Super Capes, World Tour '05) y el Enforcer Your Freaking Hero or John Cena? no se importan. Se juegan sin
 una parte de su texto: Batista (los Reversals rivales siguen haciendo daño), Rowdy Roddy Piper (sin habilidad: no se
-mira el texto de las cartas), The Immortal One (no descarta al jugar sus Reversals, no puede llevar No Sell
+mira el texto de las cartas), The Immortal One (no puede llevar No Sell
 Maneuver), SmackDown! GM Theodore Long y Uncle Eric's Karate Kick (Enforcers, Arsenal de 50), Missile Dropkick (formato Tag Team), Gene Snitsky (la regla
 de las cartas Heat no existe), MNM (los 10 Pre-match extra), Sit Out
 Powerbomb (-7F enterrando la mano), Precision Leg Lock (no da la vuelta a tantas cartas como descarta), German Suplex,
@@ -274,7 +267,7 @@ Full Nelson Slam (siempre quita todas las que puede), Baseball Slide (los Manage
 las Irreversible), Temecula, California (no mira el Venue rival), MNM (se puede usar con el Backlash vacío),
 Bear Hug, Trash Talkin' Interview, I'm Just Hitting My
 Stride, Redheaded Sparkplug, A-List Attack, Unleash Hell, You Have Tasty Toes, Hot Rod, In My Day, a Maneuver Was a
-Maneuver, Managed by Melina, The Super Storm Front, Finally... The Rock Has Come Back To..., Addicted to the Heat y
+Maneuver, Managed by Melina, Finally... The Rock Has Come Back To..., Addicted to the Heat y
 Gentlemen's Establishment.
 
 Royal Rumble: no se pueden jugar todavía Unrelenting Assault y Volley Barrier (Volley), Heat Barrier (Heat), Chain Barrier (coste de revertir Chain), Product Endorsements (Superstar Value calculado
@@ -296,7 +289,7 @@ elige de 0 a 10) y Take Your Own Medicine (sin Objects).
 
 No Way Out: no se pueden jugar todavía Denville, New Jersey (contar cartas del Arsenal rival y perder la partida),
 Between the Ropes (jugar otra carta desde el Ringside), That's Value! (cartas debajo de otra), The Million Dollar
-Title Belt (Title Belts), Old School Luche Libre Extravaganza (seguir el turno tras un Reversal), In The Interest Of
+Title Belt (Title Belts), In The Interest Of
 Fairness (contar los Reversals de la mano rival), It's Great To Be Back Here In..., Ashley: Pretty Punk, There Is No
 Escape y A Great Deal Of Confusion; Tormented Tomfoolery, Volley Finisher y Carlito's Apple no se importan (tipo
 desconocido). Se juegan sin una parte de su texto: The Bookerman (Volley), The Largest Athlete in Sports
