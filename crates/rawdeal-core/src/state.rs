@@ -231,6 +231,9 @@ pub struct GameState {
     /// The card each player reversed to end their opponent's last turn.
     #[serde(default)]
     pub reversed_last: [Option<Played>; 2],
+    /// Where each player's last Reversal came from.
+    #[serde(default)]
+    pub reversed_from: [Option<Zone>; 2],
     /// Players who cannot play matching cards, for this many more of their turns.
     #[serde(default)]
     pub restrictions: Vec<(PlayerId, CardFilter, u8)>,

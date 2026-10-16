@@ -239,6 +239,8 @@ pub enum Ability {
     /// Extra effects for you when your opponent successfully plays a card
     /// matching `filter`.
     OnOpponentPlayMatching { filter: CardFilter, effects: Vec<Effect> },
+    /// Effects for you when your opponent reverses a card you played.
+    OnOpponentReverses(Vec<Effect>),
 }
 
 /// Interpretable description of a card's text.
@@ -365,6 +367,9 @@ pub struct CardScript {
     /// card you played (from hand, Ringside or overturned).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_opponent_reverses: Vec<Effect>,
+    /// Same, while this card is in your Ringside pile.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ringside_on_opponent_reverses: Vec<Effect>,
     /// The card cannot be reversed by cards from the Backlash deck.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub no_backlash_reversal: bool,
@@ -563,6 +568,12 @@ pub enum Condition {
     FirstCardThisTurn,
     /// You ended your opponent's last turn by reversing a card matching this.
     ReversedLastTurn(CardFilter),
+    /// The card of yours your opponent just reversed matches the filter.
+    OpponentReversed(CardFilter),
+    /// Your opponent's last Reversal came from one of these zones: `Hand`,
+    /// `Backlash`, `Ringside`, `Ring` (put from the Ring into the Ringside
+    /// pile) or `Arsenal` (overturned while taking damage).
+    OpponentReversedFrom(Vec<crate::state::Zone>),
     /// Your opponent's Superstar has this name.
     OpponentSuperstar(String),
     SuperstarValueAtMost(u8),
@@ -887,6 +898,12 @@ pub enum Count {
     Half(Box<Count>),
     /// The count, but at most `max`.
     AtMost(Box<Count>, u8),
+    /// `a` plus `b`.
+    Plus(Box<Count>, Box<Count>),
+    /// A fixed number.
+    Const(u8),
+    /// Printed F of the card of yours your opponent just reversed.
+    OpponentReversedFortitude,
 }
 
 /// What happens after burying a hand.

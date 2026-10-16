@@ -279,6 +279,7 @@ impl Engine {
             in_play_bottom: None,
             played_this_turn: vec![],
             reversed_last: [None; 2],
+            reversed_from: [None; 2],
             restrictions: vec![],
             ring_used: vec![],
             lapsed: vec![],
@@ -1318,6 +1319,7 @@ impl Engine {
             events.push(Event::Reversed { player, reversal: card, reversed: played.card, from_hand: false });
             state.pending.clear();
             state.reversed_last[player.index()] = Some(played);
+            state.reversed_from[player.index()] = Some(Zone::Arsenal);
             let max = (self.def(state, played.card).stun_value as i16 + played.bonus.stun_value).max(0) as u8;
             state.pending.push(Step::EndTurn);
             if let Some(watch) = state.in_play_watch.take() {
@@ -1359,6 +1361,7 @@ impl Engine {
         let real = from_ring || self.can_reverse(state, defender, reversal, played, true);
         state.in_play = None;
         state.reversed_last[defender.index()] = Some(played);
+        state.reversed_from[defender.index()] = Some(state.card(reversal).zone);
         let mut on_reversed = self.def(state, played.card).script.on_reversed_from_hand.clone();
         if let Some(watch) = state.in_play_watch.take() {
             on_reversed.extend(watch.on_reversed);
@@ -2100,6 +2103,11 @@ impl Engine {
             Count::Minus(a, b) => self.count(state, p, *a).saturating_sub(self.count(state, p, *b)) as usize,
             Count::Half(c) => self.count(state, p, *c) as usize / 2,
             Count::AtMost(c, max) => self.count(state, p, *c).min(max) as usize,
+            Count::Plus(a, b) => self.count(state, p, *a) as usize + self.count(state, p, *b) as usize,
+            Count::Const(n) => n as usize,
+            Count::OpponentReversedFortitude => {
+                state.reversed_last[p.opponent().index()].map_or(0, |r| self.def(state, r.card).fortitude as usize)
+            }
             Count::HandPlus(k) => state.player(p).hand.len() + k as usize,
             Count::OpponentValueTimes(k) => value(p.opponent()) as usize * k as usize,
             Count::HalfOpponentFortitude => (self.fortitude(state, p.opponent()) as usize).div_ceil(2),
@@ -2274,6 +2282,20 @@ impl Engine {
             let effects = self.def(state, c).script.on_opponent_reverses.clone();
             schedule_effects(state, &effects, attacker, Source::Card(c));
         }
+        for c in state.player(attacker).ringside.clone().into_iter().rev() {
+            let effects = self.def(state, c).script.ringside_on_opponent_reverses.clone();
+            schedule_effects(state, &effects, attacker, Source::Card(c));
+        }
+        let own: Vec<Effect> = self
+            .abilities(state, attacker)
+            .iter()
+            .filter_map(|a| match a {
+                Ability::OnOpponentReverses(effects) => Some(effects.clone()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        schedule_effects(state, &own, attacker, Source::Superstar(attacker));
     }
 
     fn ring_cards(&self, state: &GameState, p: PlayerId) -> Vec<CardId> {
@@ -2462,6 +2484,12 @@ impl Engine {
             }
             Condition::OpponentHandAtLeast(n) => state.player(player.opponent()).hand.len() >= *n as usize,
             Condition::FirstCardThisTurn => !state.played_this_turn.iter().any(|p| p.player == player),
+            Condition::OpponentReversed(f) => {
+                state.reversed_last[player.opponent().index()].is_some_and(|r| self.matches(state, f, r))
+            }
+            Condition::OpponentReversedFrom(zones) => {
+                state.reversed_from[player.opponent().index()].is_some_and(|z| zones.contains(&z))
+            }
             Condition::ReversedLastTurn(f) => {
                 state.reversed_last[player.index()].is_some_and(|r| self.matches(state, f, r))
             }

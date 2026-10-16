@@ -26,6 +26,8 @@ const SET: &str = r#"(
         (id: "m/giant", name: "Giant", hand_size: 6, superstar_value: 3, abilities: [
             PlayCost(filter: All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 1)]), discard: 2),
             OpponentDamageCap(filter: ManeuverType(Grapple), max: 1)]),
+        (id: "m/sore", name: "Sore", hand_size: 6, superstar_value: 5,
+            abilities: [OnOpponentReverses([If(condition: OpponentReversedFrom([Hand]), effects: [Draw(who: You, n: 2)])])]),
         (id: "m/watcher", name: "Watcher", hand_size: 6, superstar_value: 1,
             abilities: [OnOpponentPlayMatching(filter: Maneuver, effects: [Draw(who: You, n: 1)])]),
     ],
@@ -784,4 +786,15 @@ fn counts_can_be_subtracted() {
     no_reversal(&e, &mut s);
     // 6 cards were left against the opponent's 6: no difference, no draw.
     assert_eq!(s.player(P1).hand.len(), before - 1);
+}
+
+#[test]
+fn a_superstar_can_react_to_a_reversal_from_hand() {
+    let e = engine();
+    let mut s = start(&e, "sore", &["hit"], "second", &["counter"]);
+    let before = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "hit");
+    let counter = in_hand(&e, &s, P2, "counter");
+    apply(&e, &mut s, P2, Action::Reverse { card: counter });
+    assert_eq!(s.player(P1).hand.len(), before + 1);
 }
