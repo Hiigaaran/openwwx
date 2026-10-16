@@ -117,9 +117,11 @@
 
         // Pre-match
         "Elimination Chamber": (pre_match_limit: -2, mid_match_limit: -3, opponent_mid_match_limit: -3),
-        // Approximation: the opponent shuffles 1 card of the starting hand back into the Arsenal.
-        // Putting cards reversed from the opponent's hand on the bottom of your Arsenal is not supported yet.
-        "Banned from Ringside": (end_of_prematch: [HandToArsenal(who: Opponent, n: 1)]),
+        // Approximation: reversals from the Backlash deck and overturned ones count too.
+        "Banned from Ringside": (
+            opponent_hand_size_bonus: -1,
+            on_opponent_reverses: [Optional([ReversedCardTo(to: Arsenal, bottom: true)])],
+        ),
         // Approximation: it can only be used during your own turn.
         "Vince McMahon Interferes!": (
             extra_traits: [UniversallyUnique],

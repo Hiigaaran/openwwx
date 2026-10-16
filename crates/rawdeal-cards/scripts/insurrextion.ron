@@ -762,8 +762,13 @@
         "Show Me Something!": (
             in_ring_start_of_turn: [If(condition: Not(OpponentHandAtLeast(4)), effects: [Mill(who: Opponent, n: 1)])],
         ),
-        // Taking the reversed card into your hand is not supported yet.
-        "Chief Morley Says...": (requires: Some(Never)),
+        // Approximation: a reversal from the Arsenal (overturned) counts too, and the Ringside ability is used in
+        // your Main Segment, not before your Draw Segment.
+        "Chief Morley Says...": (
+            requires: Some(CountBelow(a: YourRingMatching(Reversal), b: OpponentRingMatching(Reversal))),
+            on_opponent_reverses: [Optional([SacrificeThis, ReversedCardTo(to: Hand)])],
+            ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),
+        ),
         // Approximation: the up to 5 maneuvers all come from the Arsenal or all from the Ringside pile, and the
         // Ring ability is used in your Main Segment, not before your Draw Segment.
         "Real Predictable...": (

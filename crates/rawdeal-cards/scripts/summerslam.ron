@@ -369,23 +369,17 @@
             irreversible_when: Some(AnyOf([Superstar("Mankind"), Superstar("Cactus Jack"), Superstar("Dude Love")])),
             on_play: [LookAtHand(who: Opponent), DiscardMatching(who: Opponent, n: 1, filter: Maneuver, pick: Controller)],
         ),
-        // Overturning a card whenever the opponent reverses from hand is not supported yet.
-        "Play the Game!": (requires: Some(Never)),
+        // Approximation: reversals from the Backlash deck and overturned ones count too.
+        "Play the Game!": (
+            bonuses: [(when: Superstar("Triple H"), fortitude: -3)],
+            on_opponent_reverses: [Mill(who: Opponent, n: 1)],
+        ),
         // Approximation: every Maneuver card in your hand counts (at most 4), without being shown.
         "Give It All I Got": (
             on_play: [
-                If(
-                    condition: CountAtLeast(count: YourHandMatching(Maneuver), n: 4),
-                    effects: [Boost((applies_to: Maneuver, duration: NextMatching, damage: 4))],
-                ),
-                If(
-                    condition: CountAtMost(count: YourHandMatching(Maneuver), n: 3),
-                    effects: [
-                        Counted(
-                            count: YourHandMatching(Maneuver),
-                            effect: Boost((applies_to: Maneuver, duration: NextMatching, damage: 1)),
-                        ),
-                    ],
+                Counted(
+                    count: AtMost(YourHandMatching(Maneuver), 4),
+                    effect: Boost((applies_to: Maneuver, duration: NextMatching, damage: 1)),
                 ),
             ],
         ),
@@ -623,8 +617,10 @@
         "Managed by Terri Runnels": (extra_traits: [UniversallyUnique], end_of_prematch: [HandToArsenal(who: Opponent, n: 1)]),
 
         // Mid-match
-        // Approximation: your Fortitude only needs to be lower than your opponent's.
-        "I'm Not Outta It Yet!": (requires: Some(FortitudeBelowOpponent), on_play: [RingsideToArsenal(who: You, n: 5)]),
+        "I'm Not Outta It Yet!": (
+            requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10)),
+            on_play: [RingsideToArsenal(who: You, n: 5)],
+        ),
         "Shove": (
             on_play: [
                 Choice([
@@ -663,83 +659,13 @@
                 ],
             )),
         ),
-        // Approximation: counted in tiers; an opponent with more than 22 cards in hand discards only 11.
+        // Half rounded up = hand minus half rounded down.
         "My God! He's Broken in Half!": (
             play_after: Some(All([Maneuver, DamageAtLeast(10)])),
             on_play: [
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 1),
-                        CountAtMost(count: OpponentHandSize, n: 2),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 3),
-                        CountAtMost(count: OpponentHandSize, n: 4),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 5),
-                        CountAtMost(count: OpponentHandSize, n: 6),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 7),
-                        CountAtMost(count: OpponentHandSize, n: 8),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 4, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 9),
-                        CountAtMost(count: OpponentHandSize, n: 10),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 5, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 11),
-                        CountAtMost(count: OpponentHandSize, n: 12),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 6, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 13),
-                        CountAtMost(count: OpponentHandSize, n: 14),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 7, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 15),
-                        CountAtMost(count: OpponentHandSize, n: 16),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 8, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 17),
-                        CountAtMost(count: OpponentHandSize, n: 18),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 9, pick: Chosen)],
-                ),
-                If(
-                    condition: All([
-                        CountAtLeast(count: OpponentHandSize, n: 19),
-                        CountAtMost(count: OpponentHandSize, n: 20),
-                    ]),
-                    effects: [Discard(who: Opponent, n: 10, pick: Chosen)],
-                ),
-                If(
-                    condition: CountAtLeast(count: OpponentHandSize, n: 21),
-                    effects: [Discard(who: Opponent, n: 11, pick: Chosen)],
+                Counted(
+                    count: Minus(OpponentHandSize, HalfOpponentHand),
+                    effect: Discard(who: Opponent, n: 0, pick: Chosen),
                 ),
             ],
         ),
@@ -1064,64 +990,12 @@
                 )),
             ],
         ),
-        // Approximation: the opponent's discard is counted in tiers; with more than 21 cards he discards only 14.
+        // Minus(HandPlus(7), HandSize) is the number 7.
         "The Mood Is About to Change": (
             on_play: [
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 8), CountAtMost(count: OpponentHandSize, n: 8)]),
-                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 9), CountAtMost(count: OpponentHandSize, n: 9)]),
-                    effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 10), CountAtMost(count: OpponentHandSize, n: 10)]),
-                    effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 11), CountAtMost(count: OpponentHandSize, n: 11)]),
-                    effects: [Discard(who: Opponent, n: 4, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 12), CountAtMost(count: OpponentHandSize, n: 12)]),
-                    effects: [Discard(who: Opponent, n: 5, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 13), CountAtMost(count: OpponentHandSize, n: 13)]),
-                    effects: [Discard(who: Opponent, n: 6, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 14), CountAtMost(count: OpponentHandSize, n: 14)]),
-                    effects: [Discard(who: Opponent, n: 7, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 15), CountAtMost(count: OpponentHandSize, n: 15)]),
-                    effects: [Discard(who: Opponent, n: 8, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 16), CountAtMost(count: OpponentHandSize, n: 16)]),
-                    effects: [Discard(who: Opponent, n: 9, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 17), CountAtMost(count: OpponentHandSize, n: 17)]),
-                    effects: [Discard(who: Opponent, n: 10, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 18), CountAtMost(count: OpponentHandSize, n: 18)]),
-                    effects: [Discard(who: Opponent, n: 11, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 19), CountAtMost(count: OpponentHandSize, n: 19)]),
-                    effects: [Discard(who: Opponent, n: 12, pick: Chosen)],
-                ),
-                If(
-                    condition: All([CountAtLeast(count: OpponentHandSize, n: 20), CountAtMost(count: OpponentHandSize, n: 20)]),
-                    effects: [Discard(who: Opponent, n: 13, pick: Chosen)],
-                ),
-                If(
-                    condition: CountAtLeast(count: OpponentHandSize, n: 21),
-                    effects: [Discard(who: Opponent, n: 14, pick: Chosen)],
+                Counted(
+                    count: Minus(OpponentHandSize, Minus(HandPlus(7), HandSize)),
+                    effect: Discard(who: Opponent, n: 0, pick: Chosen),
                 ),
                 Counted(count: HandSize, effect: HandToArsenal(who: You, n: 0)),
                 Draw(who: You, n: 13),

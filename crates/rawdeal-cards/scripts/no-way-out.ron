@@ -886,16 +886,7 @@
         "By Any Means Necessary": (
             on_play: [
                 Discard(who: Opponent, n: 2, pick: Random),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 2), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 4), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 6), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 8), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 10), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 12), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 14), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 16), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 18), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
-                If(condition: CountAtLeast(count: YourRingMatching(Trait(Cheater)), n: 20), effects: [Discard(who: Opponent, n: 1, pick: Random)]),
+                Counted(count: Half(YourRingMatching(Trait(Cheater))), effect: Discard(who: Opponent, n: 0, pick: Random)),
             ],
         ),
         // Naming the cards that can reverse it is not supported yet.
@@ -1114,7 +1105,6 @@
         "Precision Personified": (on_play: [Search(filter: TitleContains("precision"))]),
         // Reversing cards that move Ringside cards or non-unique hybrids, and the +3D, are not supported yet.
         "Shoot Counter": (reverses: Some((targets: Draws, requires: Some(InYourRing(TitleContains("shoot")))))),
-        // The removed cards put on top of the Arsenal are shuffled in by the next part anyway.
         "Blindsided Rage": (
             on_play: [
                 Counted(
@@ -1123,7 +1113,7 @@
                 ),
                 Counted(
                     count: YourRingMatching(All([Maneuver, TitleContains("blindside")])),
-                    effect: MoveCards(who: You, from: Removed, to: Arsenal, n: 0),
+                    effect: MoveCards(who: You, from: Removed, to: Arsenal, n: 0, top: true),
                 ),
                 Counted(
                     count: YourRingMatching(All([Maneuver, TitleContains("blindside")])),
@@ -1240,24 +1230,24 @@
             ],
         ),
         // Approximation: you choose the DDT cards from your Ring and from your Ringside pile separately (up to 5
-        // each). The DDT cards put on top of the Arsenal are shuffled in by the next part anyway.
+        // each).
         "The Snake Will Always Bite Back": (
             on_play: [
                 Choice([
                     [],
-                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 1), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 1, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 2), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 2, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: Opponent, from: Arsenal, n: 2, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 3), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 3, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: Opponent, from: Arsenal, n: 3, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 4), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 4, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: Opponent, from: Arsenal, n: 4, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 5), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 5, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: Opponent, from: Arsenal, n: 5, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 1), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 1, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 2), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 2, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: Opponent, from: Arsenal, n: 2, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 3), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 3, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: Opponent, from: Arsenal, n: 3, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 4), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 4, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: Opponent, from: Arsenal, n: 4, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("DDT")), n: 5), effects: [MoveCards(who: You, from: Ring, to: Arsenal, n: 5, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: Opponent, from: Arsenal, n: 5, filter: Some(Any), pick: Controller)])],
                 ]),
                 Choice([
                     [],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 1), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 2), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: Opponent, from: Arsenal, n: 2, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 3), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: Opponent, from: Arsenal, n: 3, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 4), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: Opponent, from: Arsenal, n: 4, filter: Some(Any), pick: Controller)])],
-                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 5), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, filter: Some(TitleContains("DDT"))), RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: Opponent, from: Arsenal, n: 5, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 1), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 2), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: Opponent, from: Arsenal, n: 2, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 3), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: Opponent, from: Arsenal, n: 3, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 4), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: Opponent, from: Arsenal, n: 4, filter: Some(Any), pick: Controller)])],
+                    [If(condition: CountAtLeast(count: YourRingsideMatching(TitleContains("DDT")), n: 5), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, filter: Some(TitleContains("DDT")), top: true), RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: Opponent, from: Arsenal, n: 5, filter: Some(Any), pick: Controller)])],
                 ]),
             ],
         ),
@@ -1340,10 +1330,9 @@
             on_play: [Search(filter: Any), Boost((applies_to: Any, duration: NextCard, ignore_play_after: true))],
             reverses: Some((targets: Action, effects: [Discard(who: Opponent, n: 3, pick: Chosen)])),
         ),
-        // Overturning the Fortitude difference is not supported yet.
         "The Big and The Small of It": (
             requires: Some(All([FortitudeAboveOpponent, OpponentHandLarger])),
-            on_play: [DrawToMatchOpponent],
+            on_play: [Counted(count: Minus(YourFortitude, OpponentFortitude), effect: Mill(who: Opponent, n: 0)), DrawToMatchOpponent],
         ),
 
         // Lita
@@ -1540,13 +1529,12 @@
             on_play: [RingsideToArsenal(who: You, n: 12, up_to: true)],
             reverses: Some((targets: Action, effects: [Search(filter: Any)])),
         ),
-        // As a reversal the Ringside card put on top of the Arsenal is shuffled in by the search anyway.
         "I'm Driven by Anger": (
             as_action: Some((fortitude: Some(0), on_play: [DiscardThis, MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, filter: Some(Maneuver), bottom: true)],
             )),
             reverses: Some((
                 targets: Not(ManeuverType(TrademarkFinisher)),
-                effects: [RingsideToArsenal(who: You, n: 1), Search(filter: Any)],
+                effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, top: true), Search(filter: Any)],
             )),
         ),
         "Liaison with Lita": (mid_match_limit: 1, on_play: [Search(filter: Title("Roll Out of the Ring"), ringside: true)]),
@@ -1554,11 +1542,10 @@
             on_play: [Counted(count: YourRingMatching(SuperstarSpecific), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Submission)]))),
         ),
-        // Approximation: the opponent chooses the card he puts on top of his Arsenal.
         "Nobody Gets Higher": (
             on_play: [
                 LookAtHand(who: Opponent),
-                HandToArsenalTop(who: Opponent, n: 1),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, top: true),
                 OpponentChooses(n: 1, options: [[RemoveFromGame(who: Opponent, from: Arsenal, n: 4)], [Mill(who: Opponent, n: 20)]]),
             ],
         ),
@@ -1686,14 +1673,13 @@
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true)],
             as_action: Some((fortitude: Some(0), on_play: [DiscardThis, Search(filter: TitleContains("sleeper"))])),
         ),
-        // Approximation: the opponent's top 8 cards are only put back on top in any order (the 9 Ringside cards are
-        // shuffled in by the next part anyway).
+        // Approximation: the opponent's top 8 cards are only put back on top in any order.
         "Listen Up, Playa!": (
             on_play: [
                 Draw(who: You, n: 4),
                 Discard(who: Opponent, n: 4, pick: Chosen),
                 Search(filter: Any),
-                RingsideToArsenal(who: You, n: 9),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 9, top: true),
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 6),
                 Arrange(who: Opponent, n: 8),
             ],

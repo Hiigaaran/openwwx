@@ -53,13 +53,12 @@
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(3)]), Title("Throw Into the Corner Turnbuckle")])),
             bonuses: [(when: After(Title("Throw Into the Corner Turnbuckle")), damage: 5, reversal_fortitude: 8)],
         ),
-        // Approximation: as an action it is shuffled into the Arsenal instead of put on top (the search shuffles it anyway).
         "Technical Topé": (
             play_after: Some(All([Maneuver, DamageAtLeast(4)])),
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(0),
-                on_play: [ShuffleThisIntoArsenal, Optional([Search(filter: TitleContains("technical"))])],
+                on_play: [ThisToArsenal(bottom: false), Optional([Search(filter: TitleContains("technical"))])],
             )),
         ),
 
@@ -145,7 +144,7 @@
                 fortitude: Some(0),
                 on_play: [
                     Optional([
-                        ShuffleThisIntoArsenal,
+                        ThisToArsenal(bottom: false),
                         RingsideToArsenal(who: You, n: 3, up_to: true, filter: Some(TitleContains("technical"))),
                     ]),
                 ],
@@ -490,10 +489,9 @@
                 Boost((applies_to: Any, duration: NextCards(2), irreversible: true)),
             ],
         ),
-        // Approximation: the cards go into the Arsenal, which the search shuffles anyway.
         "I Live for My Hulkamaniacs...": (
             on_play: [
-                Counted(count: SuperstarValue, effect: RingsideToArsenal(who: You, n: 0)),
+                Counted(count: SuperstarValue, effect: MoveCards(who: You, from: Ringside, to: Arsenal, n: 0, top: true)),
                 Search(filter: SuperstarSpecific),
             ],
         ),

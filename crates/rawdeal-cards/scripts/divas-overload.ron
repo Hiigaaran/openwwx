@@ -572,8 +572,28 @@
         ),
         // Title Belts are not supported yet.
         "I've Had More Championships than You've Had Women": (not_packed_by: ["GM"], requires: Some(Never)),
-        // Comparing Pre-match cards and removing it from the game in place of other cards are not supported yet.
-        "I'm Gonna Break You": (requires: Some(Never)),
+        // Removing it from the game in place of other cards is not supported yet.
+        // Approximation: # is his Ring Pre-match cards minus (yours minus his Ringside ones), which is exact unless
+        // he has more Pre-match cards in his Ringside pile than you have in your Ring and Ringside pile.
+        "I'm Gonna Break You": (
+            end_of_prematch: [
+                If(
+                    condition: CountBelow(a: YourRingSize, b: OpponentRingMatching(Any)),
+                    effects: [
+                        LookAtHand(who: Opponent),
+                        Choice([
+                            [Counted(count: Minus(OpponentRingMatching(Not(AnyOf([Maneuver, Action, Reversal]))), Minus(YourRingAndRingsideMatching(Not(AnyOf([Maneuver, Action, Reversal]))), OpponentRingsideMatching(Not(AnyOf([Maneuver, Action, Reversal]))))), effect: Discard(who: Opponent, n: 0, pick: Controller))],
+                            [
+                                Counted(
+                                    count: Minus(OpponentRingMatching(Not(AnyOf([Maneuver, Action, Reversal]))), Minus(YourRingAndRingsideMatching(Not(AnyOf([Maneuver, Action, Reversal]))), OpponentRingsideMatching(Not(AnyOf([Maneuver, Action, Reversal]))))),
+                                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 0, pick: Controller),
+                                ),
+                            ],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
         // Reversing by discarding cards while it stays in the Ring is not supported yet.
         "Rules Were Meant to be Broken": (requires: Some(Never)),
         "Managed by Miss Jackie": (

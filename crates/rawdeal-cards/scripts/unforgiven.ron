@@ -159,9 +159,15 @@
             on_play: [Search(filter: AnyOf([Title("2004 Diva Search Winner"), Title("Back Breaker Torture Rack"), Title("Bra and Panties Match"), Title("Busted Wide Open"), Title("Caution: Dangerous Curves Ahead"), Title("Divas! Divas! Divas!"), Title("Filthy, Disgusting, Brutal, Bottom-Feeding, Trash-bag Ho!"), Title("Gentlemen's Establishment"), Title("Girly Grab"), Title("Girly Slap"), Title("Hello, Ladies!"), Title("I Can't Be Reading This Right..."), Title("Lariat Takedown"), Title("Lock, Stock, and Barrel"), Title("Man of 1000 Holds"), Title("No One Wants to Watch Women Wrestle"), Title("Ovicular Fortitude"), Title("Puppies! Puppies!"), Title("Real Predictable..."), Title("Rolling Headlock Vise"), Title("Stratusfaction Bulldog"), Title("The King Interferes!"), Title("The Squared Circle is No Place for a Woman!"), Title("There Can Only Be One Dominant Female in WWE"), Title("Viva Las Divas"), Title("WWE Divas Rule!"), Title("WWE Divas: The Next Generation"), Title("Workin' on the Knee")]))],
         ),
         "Shoulder Block": (on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
-        // Approximation: you choose the card instead of your opponent.
         "Running Elbow Smash": (
-            on_play: [AsOpponent([Optional([LookAtHand(who: Opponent), HandToArsenalTop(who: Opponent, n: 1)])])],
+            on_play: [
+                AsOpponent([
+                    Optional([
+                        LookAtHand(who: Opponent),
+                        MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, top: true),
+                    ]),
+                ]),
+            ],
         ),
         // Approximation: other copies of it cannot be removed.
         "Kidney Punch": (
@@ -1290,8 +1296,9 @@
                 (whose: Some(Opponent), filter: Maneuver, effects: [HandToArsenalBottom(who: Opponent, n: 1)]),
             ],
         ),
-        // Taking back the card the opponent reversed is not supported yet.
+        // Approximation: it also works when the card is reversed by an overturned Reversal from the Arsenal.
         "Orlando Jordan: Chief of Staff": (
+            on_opponent_reverses: [Optional([ReturnThis(to: Ringside), ReversedCardTo(to: Hand)])],
             ringside_ability: Some((
                 cost: [Draw(who: Opponent, n: 3)],
                 effects: [

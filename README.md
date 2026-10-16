@@ -127,6 +127,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   cartas del Arsenal, Reversals que solo se usan desde el Ringside, Reversals que retiran del juego la carta
   revertida o a sí mismos, comparar dos conteos y nuevos conteos (cartas retiradas por tipo, Fortitude rival, media
   mano). Unas 60 cartas más quedan completas o jugables.
+- Cuarto lote: cartas del Ring que reaccionan cuando el rival revierte (por ejemplo, recuperar la carta revertida),
+  mover cartas encima del Arsenal y aritmética de conteos (restar, mitad, tope). Unas 25 cartas más quedan
+  completas o jugables.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

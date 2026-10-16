@@ -429,8 +429,15 @@
             )),
         ),
         "Omaha, Nebraska": (value_bonus: -2, opponent_value_bonus: -3),
-        // Effects when the opponent reverses a card are not supported yet.
-        "Calgary, Alberta, Canada": (requires: Some(Never)),
+        // Approximation: a Chain card reversed by overturning it from his Arsenal also counts.
+        "Calgary, Alberta, Canada": (
+            on_opponent_reverses: [
+                If(
+                    condition: LastPlayedThisTurn(filter: Trait(Chain), n: 1),
+                    effects: [Optional([RingsideToArsenal(who: You, n: 2)])],
+                ),
+            ],
+        ),
         // Changing Raw Roulette Wheel's text, removing cards from the game and picking who starts are not supported
         // yet.
         // Approximation: the top 3 cards are overturned into your Ringside pile, then you put 1 card from your Ringside
@@ -505,8 +512,12 @@
         "Number One Contender": (requires: Some(Never)),
         // Effects when you play a Reversal are not supported yet.
         "The Beautiful People": (requires: Some(Never)),
-        // Reversing effects that change your Reversals is not supported yet.
-        "Grab the Ref": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // The reversal part (reversing effects that change your Reversals) is not supported yet.
+        // Approximation: a card of yours reversed by overturning from his Arsenal also counts as him playing a reversal.
+        "Grab the Ref": (
+            reverses: Some((targets: Not(Any))),
+            on_opponent_reverses: [Optional([Draw(who: You, n: 1), Discard(who: You, n: 1, pick: Chosen)])],
+        ),
         // Tag Team matches are not supported yet.
         "Desperate Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Approximation: a Pre-match Manager is a card with "Managed by" in the title, and you overturn a multiple of

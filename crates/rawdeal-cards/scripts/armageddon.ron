@@ -225,7 +225,6 @@
         "Anything and Hate It": (
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
-        // Removing the reversed card from the game works only when it reverses from hand, not when overturned.
         "I Gotta Say, Out of Play": (
             reverses: Some((targets: AnyOf([Keyword("Throwback"), Keyword("Volley")]), reversed_removed: true)),
         ),
@@ -396,9 +395,14 @@
                 removed_after: true,
             )),
         ),
-        // Its Ring ability (half the Throwback cards, rounded down) is not supported yet.
         "Take It Back": (
             on_play: [RingsideToArsenalCount(who: You, count: YourRingMatching(Keyword("Throwback")))],
+            ring_ability: Some((
+                cost: [DiscardMatching(who: You, n: 1, filter: Keyword("Throwback"), pick: Chosen)],
+                effects: [
+                    RingsideToArsenalCount(who: You, count: AtMost(Half(YourRingMatching(Keyword("Throwback"))), 5)),
+                ],
+            )),
         ),
         "The Switch": (
             on_play: [
@@ -553,8 +557,31 @@
                 (filter: All([Maneuver, Keyword("Heat")]), effects: [Optional([RingsideToArsenal(who: You, n: 1)])]),
             ],
         ),
-        // Comparing hands, Fortitude and cards removed from the game for any player is not supported yet.
-        "Buried Alive Match": (requires: Some(Never)),
+        // Approximation: the losing conditions are checked at the start of each of your turns only.
+        "Buried Alive Match": (
+            in_ring_start_of_turn: [
+                // Your opponent loses: you win.
+                If(
+                    condition: All([
+                        CountAtLeast(count: Minus(HandSize, OpponentHandSize), n: 5),
+                        CountAtLeast(count: Minus(YourFortitude, OpponentFortitude), n: 10),
+                        CountAtLeast(count: Minus(OpponentRemoved, YourRemoved), n: 20),
+                    ]),
+                    effects: [WinByPin],
+                ),
+                // You lose: your opponent wins.
+                AsOpponent([
+                    If(
+                        condition: All([
+                            CountAtLeast(count: Minus(HandSize, OpponentHandSize), n: 5),
+                            CountAtLeast(count: Minus(YourFortitude, OpponentFortitude), n: 10),
+                            CountAtLeast(count: Minus(OpponentRemoved, YourRemoved), n: 20),
+                        ]),
+                        effects: [WinByPin],
+                    ),
+                ]),
+            ],
+        ),
         "Washington, DC": (
             end_of_prematch: [
                 Search(filter: All([Keyword("Throwback"), Not(Trait(Unique))])),
@@ -629,9 +656,8 @@
             on_play: [Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 8))],
             reverses: Some((targets: Not(Any))),
         ),
-        // Approximation: any Fortitude lower than the opponent's allows it.
         "Out of Control": (
-            requires: Some(FortitudeBelowOpponent),
+            requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 15)),
             on_play: [RingsideToArsenal(who: You, n: 10, up_to: true)],
         ),
         // Continuing the turn after a reversal is not supported yet.
@@ -708,8 +734,20 @@
                 BoostOpponent((applies_to: Maneuver, duration: NextTurn, no_arsenal_reversal: true)),
             ],
         ),
-        // The -#F (his Superstar Value) is not supported yet.
         "The Legend Killer": (
+            // -1F for each point of the opponent's Superstar Value.
+            bonuses: [
+                (when: OpponentSuperstarValueAtLeast(1), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(2), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(3), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(4), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(5), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(6), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(7), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(8), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(9), fortitude: -1),
+                (when: OpponentSuperstarValueAtLeast(10), fortitude: -1),
+            ],
             on_play: [
                 Choice([
                     [RingsideToArsenal(who: You, n: 5, up_to: true)],
@@ -853,7 +891,6 @@
             play_after: Some(Maneuver),
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]))),
         ),
-        // Approximation: half his Fortitude is rounded up and not capped at 7.
         "The Youngest Champion in WWE History": (
             on_play: [
                 If(
@@ -862,7 +899,7 @@
                 ),
                 If(
                     condition: Not(InYourRing(Title("Evolution is a Mystery"))),
-                    effects: [Counted(count: HalfOpponentFortitude, effect: Discard(who: Opponent, n: 1, pick: Chosen))],
+                    effects: [Counted(count: AtMost(Half(OpponentFortitude), 7), effect: Discard(who: Opponent, n: 1, pick: Chosen))],
                 ),
             ],
         ),
@@ -948,9 +985,8 @@
         "The Jacket's Coming Off...": (on_play: [Search(filter: All([Maneuver, Not(Action), Not(Reversal)]))]),
         // Drawing as many cards as the reversed card's Fortitude is not supported yet.
         "The Pride of the Family": (reverses: Some((targets: All([Action, Not(Trait(SetUp))])))),
-        // Approximation: the number is not capped at 12.
         "The Dream Lives On": (
-            on_play: [RingsideToArsenalCount(who: You, count: OpponentFortitude)],
+            on_play: [RingsideToArsenalCount(who: You, count: AtMost(OpponentFortitude, 12))],
             reverses: Some((targets: Not(Trait(Unique)), overturned_only: true)),
         ),
 
@@ -996,7 +1032,7 @@
             bonuses: [(when: Superstar("Kurt Angle"), fortitude: -4)],
             as_action: Some((
                 fortitude: Some(0),
-                on_play: [ShuffleThisIntoArsenal, Search(filter: Title("Ankle Lock"), n: 2, up_to: true)],
+                on_play: [ThisToArsenal(bottom: false), Search(filter: Title("Ankle Lock"), n: 2, up_to: true)],
             )),
         ),
         // Heat rules are not supported yet, so its text does nothing.

@@ -207,8 +207,9 @@
             on_play: [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, AnyOf([Action, Reversal])]))), EndTurn],
             reverses: Some((targets: Trait(Raw))),
         ),
-        // Approximation: the cards are shuffled into the Arsenal instead of put on top.
-        "Wanna Know What I'm Gonna Do?": (on_play: [RingsideToArsenal(who: You, n: 2, up_to: true)]),
+        "Wanna Know What I'm Gonna Do?": (
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, top: true)],
+        ),
         // Tag Team partners are not supported yet.
         "Hot Tag!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // The Stun Value Fortitude discount while in the Ring is not supported yet.

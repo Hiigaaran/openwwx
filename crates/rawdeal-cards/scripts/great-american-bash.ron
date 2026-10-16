@@ -441,9 +441,8 @@
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 10, up_to: true),
             ],
         ),
-        // Approximation: there is no 10-card limit.
         "Shane O'Mac Delivers the BASH": (
-            on_play: [Counted(count: YourRingMatching(TitleContains("BASH")), effect: Mill(who: Opponent, n: 0))],
+            on_play: [Counted(count: AtMost(YourRingMatching(TitleContains("BASH")), 10), effect: Mill(who: Opponent, n: 0))],
         ),
         // Its Ring effect is not supported yet.
         "Give and Take": (
@@ -458,10 +457,9 @@
         "Kristal: Broadcast Beauty": (on_play: [MoveCards(who: You, from: Removed, to: Arsenal, n: 7)]),
 
         // Pre-match
-        // The maneuver put on top of the Arsenal is shuffled in by the search anyway.
         "Don't BASH the Star": (
             end_of_prematch: [
-                Optional([MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(All([Maneuver, TitleContains("BASH")])))]),
+                Optional([MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(All([Maneuver, TitleContains("BASH")])), top: true)]),
                 Search(filter: All([Reversal, Not(Trait(Unique))])),
             ],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("BASH")]), damage: 1)],
@@ -557,8 +555,13 @@
             on_play: [Boost((applies_to: All([Maneuver, FortitudeAtMost(0)]), duration: NextCard, irreversible: true))],
             on_forced_discard: [Draw(who: You, n: 2)],
         ),
-        // Triggers on the opponent's reversals are not supported yet.
-        "Managed by Shane O'Mac": (requires: Some(Never), extra_traits: [UniversallyUnique]),
+        // Approximation: it also triggers when he reverses with a card overturned from his Arsenal.
+        "Managed by Shane O'Mac": (
+            extra_traits: [UniversallyUnique],
+            on_opponent_reverses: [
+                If(condition: All([OpponentHandLarger, FortitudeBelowOpponent]), effects: [Search(filter: Trait(Unique))]),
+            ],
+        ),
 
         // Mid-match
         // Coming into the Ring when the opponent reverses is not supported yet.
@@ -966,7 +969,6 @@
         // Making the cards listed in your Superstar ability Multi is not supported yet.
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
         "Regal Readying": (pre_match_limit: 1, end_of_prematch: [Draw(who: You, n: 1)]),
-        // The Unique cards put on top of the Arsenal are shuffled in by the search anyway.
         "Hulkamania: Always in Style": (
             on_play: [
                 Choice([
@@ -975,7 +977,7 @@
                         If(
                             condition: CountAtLeast(count: YourHandMatching(Trait(Unique)), n: 1),
                             effects: [
-                                MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Trait(Unique))),
+                                MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Trait(Unique)), top: true),
                                 If(condition: AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")]), effects: [Search(filter: Trait(Unique), n: 2, up_to: true)]),
                                 If(condition: Not(AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")])), effects: [Search(filter: Trait(Unique), n: 1, up_to: true)]),
                             ],
@@ -985,7 +987,7 @@
                         If(
                             condition: CountAtLeast(count: YourHandMatching(Trait(Unique)), n: 2),
                             effects: [
-                                MoveCards(who: You, from: Hand, to: Arsenal, n: 2, filter: Some(Trait(Unique))),
+                                MoveCards(who: You, from: Hand, to: Arsenal, n: 2, filter: Some(Trait(Unique)), top: true),
                                 If(condition: AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")]), effects: [Search(filter: Trait(Unique), n: 4, up_to: true)]),
                                 If(condition: Not(AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")])), effects: [Search(filter: Trait(Unique), n: 2, up_to: true)]),
                             ],
@@ -995,7 +997,7 @@
                         If(
                             condition: CountAtLeast(count: YourHandMatching(Trait(Unique)), n: 3),
                             effects: [
-                                MoveCards(who: You, from: Hand, to: Arsenal, n: 3, filter: Some(Trait(Unique))),
+                                MoveCards(who: You, from: Hand, to: Arsenal, n: 3, filter: Some(Trait(Unique)), top: true),
                                 If(condition: AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")]), effects: [Search(filter: Trait(Unique), n: 6, up_to: true)]),
                                 If(condition: Not(AnyOf([Superstar("Hulk Hogan"), Superstar("Hollywood Hulk Hogan")])), effects: [Search(filter: Trait(Unique), n: 3, up_to: true)]),
                             ],
@@ -1141,16 +1143,16 @@
             from_ringside: Some(CountAtLeast(count: YourRingsideMatching(All([Keyword("Heat"), Not(Title("Ground and Pound"))])), n: 5)),
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), ringside_only: true)),
         ),
-        // Approximation: at most 5 cards (the Ringside cards put on top of the Arsenal are shuffled in first).
+        // Approximation: at most 5 cards.
         "I Wish Monsoon Was Here": (
             on_play: [
                 Choice([
                     [],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [RingsideToArsenal(who: You, n: 1), RemoveFromGame(who: You, from: Arsenal, n: 1, filter: Some(Any))])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [RingsideToArsenal(who: You, n: 2), RemoveFromGame(who: You, from: Arsenal, n: 2, filter: Some(Any))])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [RingsideToArsenal(who: You, n: 3), RemoveFromGame(who: You, from: Arsenal, n: 3, filter: Some(Any))])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [RingsideToArsenal(who: You, n: 4), RemoveFromGame(who: You, from: Arsenal, n: 4, filter: Some(Any))])],
-                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [RingsideToArsenal(who: You, n: 5), RemoveFromGame(who: You, from: Arsenal, n: 5, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 1), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, top: true), RemoveFromGame(who: You, from: Arsenal, n: 1, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 2), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, top: true), RemoveFromGame(who: You, from: Arsenal, n: 2, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 3), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, top: true), RemoveFromGame(who: You, from: Arsenal, n: 3, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 4), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, top: true), RemoveFromGame(who: You, from: Arsenal, n: 4, filter: Some(Any))])],
+                    [If(condition: CountAtLeast(count: YourRingsideSize, n: 5), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, top: true), RemoveFromGame(who: You, from: Arsenal, n: 5, filter: Some(Any))])],
                 ]),
                 Search(filter: Any),
             ],
@@ -1173,8 +1175,16 @@
         "United We Stand": (on_play: [Optional([RingsideToBacklash(who: You, n: 1)])]),
         // Halving the opponent's Fortitude is not supported yet.
         "Divided You Fall": (on_play: [Draw(who: You, n: 1)]),
-        // His discard and the Arsenal part are not supported yet.
-        "Who's Under the Paint?": (on_play: [Counted(count: OpponentHandExcess, effect: Draw(who: You, n: 0))]),
+        // Approximation: each part is optional (you may skip it).
+        "Who's Under the Paint?": (
+            on_play: [
+                Counted(count: OpponentHandExcess, effect: Optional([Discard(who: Opponent, n: 0, pick: Chosen), Draw(who: You, n: 0)])),
+                Counted(
+                    count: Minus(OpponentArsenalSize, YourArsenalSize),
+                    effect: Optional([Mill(who: Opponent, n: 0), RingsideToArsenal(who: You, n: 0)]),
+                ),
+            ],
+        ),
         "Carlito's Cool Carribean Neck Breaker": (
             ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
