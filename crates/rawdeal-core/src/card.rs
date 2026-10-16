@@ -527,6 +527,18 @@ pub enum Condition {
     OpponentIs(String),
     /// Your Superstar Value is lower than your opponent's.
     SuperstarValueBelowOpponent,
+    /// The card being played came from its owner's Ringside pile.
+    PlayedFromRingside,
+    /// The count is at least `n`.
+    CountAtLeast {
+        count: Count,
+        n: u8,
+    },
+    /// The count is at most `n`.
+    CountAtMost {
+        count: Count,
+        n: u8,
+    },
     /// Your opponent has at least `n` cards matching `filter` in their Ring.
     OpponentRingHas {
         filter: CardFilter,
@@ -815,6 +827,16 @@ pub enum Count {
     OpponentHandSize,
     /// Cards in your Ringside pile.
     YourRingsideSize,
+    YourRingsideMatching(CardFilter),
+    OpponentRingsideMatching(CardFilter),
+    YourHandMatching(CardFilter),
+    /// Cards in your Arsenal.
+    YourArsenalSize,
+    OpponentArsenalSize,
+    /// Cards in your Backlash deck.
+    YourBacklashSize,
+    /// Cards in your Ring.
+    YourRingSize,
     /// Cards in your opponent's Ringside pile.
     OpponentRingsideSize,
     /// Cards you have removed from the game.
@@ -987,6 +1009,29 @@ pub enum Effect {
     DiscardThis,
     /// The card being played is removed from the game instead of going to the Ring.
     RemoveThis,
+    /// Move `n` of the player's cards between any two of their zones (for
+    /// example from the removed pile back to the hand, or from the Ringside
+    /// pile into the Ring). From the Arsenal the top cards go; otherwise
+    /// `pick` says who chooses. Cards moved into the Arsenal are shuffled in;
+    /// cards put into the Ring this way are not played.
+    MoveCards {
+        who: Who,
+        from: crate::state::Zone,
+        to: crate::state::Zone,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
+        #[serde(default = "chosen", skip_serializing_if = "is_chosen")]
+        pick: Pick,
+    },
+    /// The card whose effect this is goes on the top (or bottom) of its
+    /// owner's Arsenal, from wherever it is.
+    ThisToArsenal {
+        #[serde(default)]
+        bottom: bool,
+    },
     /// The card whose effect this is moves to its owner's hand, Backlash deck,
     /// Arsenal (shuffled) or out of the game, from wherever it is.
     ReturnThis {

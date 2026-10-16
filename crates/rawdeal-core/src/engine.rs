@@ -516,9 +516,10 @@ impl Engine {
                 if state.next_must.as_ref().is_some_and(|(q, _)| *q == p) {
                     state.next_must = None;
                 }
+                let from_ringside = state.card(card).zone == Zone::Ringside;
                 self.move_card(state, card, Zone::InPlay, events);
                 let after = state.last_played.map(|l| l.card);
-                let played = Played { after, bonus, ..Played::new(card, p, kind) };
+                let played = Played { after, bonus, from_ringside, ..Played::new(card, p, kind) };
                 state.in_play = Some(played);
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
@@ -741,6 +742,25 @@ impl Engine {
                     self.move_card(state, c, Zone::Hand, events);
                 }
             }
+            ChoicePurpose::MoveTo(to) => {
+                let mut owners = vec![];
+                for c in chosen {
+                    let owner = state.card(c).owner;
+                    let from_ring = state.card(c).zone == Zone::Ring;
+                    self.move_card(state, c, to, events);
+                    if from_ring {
+                        self.removed_from_ring(state, c, p);
+                    }
+                    if !owners.contains(&owner) {
+                        owners.push(owner);
+                    }
+                }
+                if to == Zone::Arsenal {
+                    for owner in owners {
+                        self.shuffle_arsenal(state, owner, events);
+                    }
+                }
+            }
             ChoicePurpose::RemoveFromGame => {
                 for c in chosen {
                     let from_ring = state.card(c).zone == Zone::Ring;
@@ -845,10 +865,14 @@ impl Engine {
                 let me = state.player(defender);
                 let chain = self.def(state, played.card).has_trait(Trait::Chain);
                 let ring = self.ring_cards(state, defender);
+                let from_ringside = |c: &CardId| {
+                    self.def(state, *c).script.from_ringside.as_ref().is_some_and(|w| self.holds(state, w, defender))
+                };
                 let options: Vec<CardId> = me
                     .hand
                     .iter()
                     .chain(me.backlash.iter().filter(|&&c| self.def(state, c).has_trait(Trait::MidMatch)))
+                    .chain(me.ringside.iter().filter(|c| from_ringside(c)))
                     .copied()
                     .filter(|&r| {
                         self.can_reverse(state, defender, r, played, true)
@@ -1518,6 +1542,17 @@ impl Engine {
             Effect::AtEndOfTurn(effects) => state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e))),
             Effect::DiscardThis => state.in_play_to = Some(Zone::Ringside),
             Effect::RemoveThis => state.in_play_to = Some(Zone::Removed),
+            Effect::ThisToArsenal { bottom } => {
+                if let Source::Card(c) = source
+                    && !matches!(state.card(c).zone, Zone::InPlay | Zone::Removed)
+                {
+                    if bottom {
+                        self.move_card_to_bottom(state, c, events);
+                    } else {
+                        self.move_card(state, c, Zone::Arsenal, events);
+                    }
+                }
+            }
             Effect::ReturnThis { to } => {
                 if let Source::Card(c) = source
                     && !matches!(state.card(c).zone, Zone::InPlay | Zone::Removed)
@@ -1526,6 +1561,37 @@ impl Engine {
                     self.move_card(state, c, to, events);
                     if to == Zone::Arsenal {
                         self.shuffle_arsenal(state, owner, events);
+                    }
+                }
+            }
+            Effect::MoveCards { who, from, to, n, up_to, filter, pick } => {
+                if matches!(to, Zone::InPlay) || matches!(from, Zone::InPlay) {
+                    return;
+                }
+                let p = target(who);
+                if from == Zone::Arsenal {
+                    for _ in 0..n {
+                        let Some(&c) = state.player(p).arsenal.last() else { break };
+                        self.move_card(state, c, to, events);
+                    }
+                    return;
+                }
+                let mut options = state.player(p).zone(from).to_vec();
+                if let Some(f) = &filter {
+                    options.retain(|&c| self.matches_def(state, f, c, controller));
+                }
+                match pick {
+                    Pick::Random => {
+                        let mut chosen = vec![];
+                        for _ in 0..(n as usize).min(options.len()) {
+                            let i = state.rng.random_range(0..options.len());
+                            chosen.push(options.swap_remove(i));
+                        }
+                        self.answer_choice(state, p, ChoicePurpose::MoveTo(to), chosen, events);
+                    }
+                    Pick::Chosen | Pick::Controller => {
+                        let decider = if pick == Pick::Chosen { p } else { controller };
+                        ask(state, decider, options, n, up_to, ChoicePurpose::MoveTo(to));
                     }
                 }
             }
@@ -1933,6 +1999,13 @@ impl Engine {
             Count::HalfYourFortitude => (self.fortitude(state, p) as usize).div_ceil(2),
             Count::OpponentHandSize => state.player(p.opponent()).hand.len(),
             Count::YourRingsideSize => state.player(p).ringside.len(),
+            Count::YourRingsideMatching(f) => self.count_matching(state, p, p, Zone::Ringside, &f),
+            Count::OpponentRingsideMatching(f) => self.count_matching(state, p.opponent(), p, Zone::Ringside, &f),
+            Count::YourHandMatching(f) => self.count_matching(state, p, p, Zone::Hand, &f),
+            Count::YourArsenalSize => state.player(p).arsenal.len(),
+            Count::OpponentArsenalSize => state.player(p.opponent()).arsenal.len(),
+            Count::YourBacklashSize => state.player(p).backlash.len(),
+            Count::YourRingSize => state.player(p).ring.len(),
             Count::OpponentRingsideSize => state.player(p.opponent()).ringside.len(),
             Count::YourRemoved => state.player(p).removed.len(),
             Count::OpponentRemoved => state.player(p.opponent()).removed.len(),
@@ -1956,6 +2029,10 @@ impl Engine {
         let matching = effects.iter().all(|e| match e {
             Effect::DiscardMatching { who: Who::You, n, filter, .. } => {
                 state.player(p).hand.iter().filter(|&&c| self.matches_def(state, filter, c, p)).count() >= *n as usize
+            }
+            Effect::RemoveFromGame { who: Who::You, from, n, up_to: false, filter, .. } => {
+                let f = filter.clone().unwrap_or(CardFilter::Any);
+                self.count_matching(state, p, p, *from, &f) >= *n as usize
             }
             _ => true,
         });
@@ -2266,6 +2343,9 @@ impl Engine {
                 self.fortitude(state, player) >= self.fortitude(state, player.opponent())
             }
             Condition::Superstar(name) => self.is_superstar(state, player, name),
+            Condition::PlayedFromRingside => state.in_play.is_some_and(|pl| pl.from_ringside),
+            Condition::CountAtLeast { count, n } => self.count(state, player, count.clone()) >= *n,
+            Condition::CountAtMost { count, n } => self.count(state, player, count.clone()) <= *n,
             Condition::SuperstarValueBelowOpponent => {
                 self.superstar_value(state, player) < self.superstar_value(state, player.opponent())
             }
@@ -2353,6 +2433,17 @@ impl Engine {
         let mine: i16 = self.ring_cards(state, p).iter().map(|&c| pick(self.def(state, c), true)).sum();
         let theirs: i16 = self.ring_cards(state, p.opponent()).iter().map(|&c| pick(self.def(state, c), false)).sum();
         (RING_LIMIT as i16 + mine + theirs).max(0) as usize
+    }
+
+    fn count_matching(
+        &self,
+        state: &GameState,
+        owner: PlayerId,
+        viewer: PlayerId,
+        zone: Zone,
+        f: &CardFilter,
+    ) -> usize {
+        state.player(owner).zone(zone).iter().filter(|&&c| self.matches_def(state, f, c, viewer)).count()
     }
 
     fn count_in_ring_matching(&self, state: &GameState, p: PlayerId, f: &CardFilter) -> usize {
@@ -2451,7 +2542,11 @@ impl Engine {
             }
         }
         let recoverable = me.ringside.iter().filter(|&&c| !self.def(state, c).is_backlash()).count();
-        state.active == p && !me.ability_used && me.hand.len() >= from_hand && recoverable >= from_ringside
+        state.active == p
+            && !me.ability_used
+            && me.hand.len() >= from_hand
+            && recoverable >= from_ringside
+            && self.payable(state, p, cost)
     }
 
     /// Can `player` use `reversal` to stop `played` (from hand or overturned)?
@@ -2883,7 +2978,9 @@ fn set_amount(effect: &mut Effect, n: u8) {
         | Effect::Damage { n: x, .. }
         | Effect::Mill { n: x, .. }
         | Effect::DiscardMatching { n: x, .. }
-        | Effect::RemoveFromRing { n: x, .. } => *x = n,
+        | Effect::RemoveFromRing { n: x, .. }
+        | Effect::RemoveFromGame { n: x, .. }
+        | Effect::MoveCards { n: x, .. } => *x = n,
         Effect::Boost(b) | Effect::BoostOpponent(b) => {
             let k = n as i16;
             b.damage *= k;

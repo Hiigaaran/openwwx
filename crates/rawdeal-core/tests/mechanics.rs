@@ -95,6 +95,11 @@ const SET: &str = r#"(
             script: (on_play: [DiscardAll(who: You, filter: Title("Comeback"))])),
         (id: "m/precise", title: "Precise", kinds: [Maneuver(Strike)], fortitude: 4, damage: 3,
             script: (fortitude_discount: Some((per: 2, max: 2)))),
+        (id: "m/revival", title: "Revival", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [If(condition: CountAtLeast(count: YourRemoved, n: 1),
+                effects: [MoveCards(who: You, from: Removed, to: Hand, n: 1)])])),
+        (id: "m/blind-counter", title: "Blind Counter", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses: Some((targets: Maneuver)), from_ringside: Some(Always))),
         (id: "m/talk", title: "Talk", kinds: [Action], fortitude: 0, damage: 0,
             script: (restricts_self: Some((filter: Action)))),
         (id: "m/duo", title: "Duo", kinds: [Action], fortitude: 0, damage: 0, superstar: Some("m/first"),
@@ -657,4 +662,19 @@ fn discards_can_pay_for_fortitude() {
     }
     no_reversal(&e, &mut s);
     assert_eq!(s.player(P1).ringside.len(), 2);
+}
+
+#[test]
+fn removed_cards_can_come_back() {
+    let e = engine();
+    let mut s = start(&e, "first", &["exile", "revival"], "second", &[]);
+    play(&e, &mut s, P1, "exile");
+    no_reversal(&e, &mut s);
+    let exile = s.player(P1).removed[0];
+    play(&e, &mut s, P1, "revival");
+    if let Some(Decision { kind: DecisionKind::ChooseCards { options, .. }, player }) = s.decision.clone() {
+        apply(&e, &mut s, player, Action::ChooseCards(vec![options[0]]));
+    }
+    no_reversal(&e, &mut s);
+    assert!(s.player(P1).hand.contains(&exile));
 }

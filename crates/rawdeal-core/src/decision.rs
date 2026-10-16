@@ -47,6 +47,8 @@ pub enum ChoicePurpose {
     RingsideToArsenal,
     /// The picked cards are removed from the game.
     RemoveFromGame,
+    /// The picked cards move to this zone of their owner's.
+    MoveTo(crate::state::Zone),
     HandToArsenalBottom,
     RingsideToArsenalBottom,
     /// Search your Arsenal: the card is revealed and goes to your hand.

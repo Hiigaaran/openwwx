@@ -132,11 +132,14 @@ pub struct Played {
     pub after: Option<CardId>,
     /// Boosts and bonuses applied to it when it was played.
     pub bonus: PlayBonus,
+    /// It was played from its owner's Ringside pile.
+    #[serde(default)]
+    pub from_ringside: bool,
 }
 
 impl Played {
     pub fn new(card: CardId, player: PlayerId, kind: CardKind) -> Self {
-        Played { card, player, kind, reversals: 0, after: None, bonus: PlayBonus::default() }
+        Played { card, player, kind, reversals: 0, after: None, bonus: PlayBonus::default(), from_ringside: false }
     }
 }
 

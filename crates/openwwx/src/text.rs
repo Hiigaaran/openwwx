@@ -178,6 +178,16 @@ pub fn effect(e: &Effect) -> String {
         Effect::AtEndOfTurn(es) => format!("al final del turno: {}", effects(es)),
         Effect::DiscardThis => "descarta esta carta".into(),
         Effect::RemoveThis => "retira esta carta del juego".into(),
+        Effect::MoveCards { who: w, from, to, n, .. } => {
+            format!("pasa {} de {} a {} ({})", cards(*n), zone(*from), zone(*to), who(*w))
+        }
+        Effect::ThisToArsenal { bottom } => {
+            if *bottom {
+                "pon esta carta debajo de tu Arsenal".into()
+            } else {
+                "pon esta carta encima de tu Arsenal".into()
+            }
+        }
         Effect::ReturnThis { to } => format!("pon esta carta en tu {}", zone(*to)),
         Effect::RemoveFromGame { who: w, from, n, .. } => {
             let zone = match from {
@@ -271,6 +281,12 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::ArsenalToRingside => "del Arsenal para mandar al Ringside",
         ChoicePurpose::RingToRingside => "del Ring para mandar al Ringside",
         ChoicePurpose::RemoveFromGame => "para retirar del juego",
+        ChoicePurpose::MoveTo(Zone::Hand) => "para poner en la mano",
+        ChoicePurpose::MoveTo(Zone::Ring) => "para poner en el Ring",
+        ChoicePurpose::MoveTo(Zone::Arsenal) => "para barajar en el Arsenal",
+        ChoicePurpose::MoveTo(Zone::Backlash) => "para poner en el Backlash",
+        ChoicePurpose::MoveTo(Zone::Removed) => "para retirar del juego",
+        ChoicePurpose::MoveTo(_) => "para mandar al Ringside",
         ChoicePurpose::Arrange => "para poner arriba del Arsenal (la siguiente de arriba hacia abajo)",
         ChoicePurpose::DiscardMirror => "para descartar (el rival descartará las mismas)",
         ChoicePurpose::HandToArsenalTop => "para poner arriba del Arsenal",
