@@ -142,7 +142,7 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Heat, Volley, Permanent y Title Belts (reglas del rulebook y del OmniFAQ 3.7.1): con 6 o más cartas Heat en tu
   Ringside juegas una desde allí por turno, y si un efecto tuyo saca cartas de tu Ringside primero se retiran tus Heat;
   las cartas Volley se pueden revertir retirando # cartas al azar del Ringside; las cartas Permanent y las
-  Stipulations solo salen del Ring por su propio texto; los Title Belts son Universally Unique. Unas 30 cartas nuevas
+  Stipulations solo salen del Ring por su propio texto; los Title Belts son Universally Unique. Unas 25 cartas nuevas
   se juegan o quedan completas (por ejemplo Messing With the Champ, Here I Stand: The Champion y Double Axe Handle).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
