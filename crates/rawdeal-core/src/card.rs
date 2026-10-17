@@ -341,7 +341,8 @@ pub struct CardScript {
     /// Must hold for you to play the card in your Main Segment.
     #[serde(default)]
     pub requires: Option<Condition>,
-    /// Replaces the rest of the script when a hybrid card is played as an Action.
+    /// Replaces the rest of the script when a hybrid card is played as an Action
+    /// (or as an Antic).
     #[serde(default)]
     pub as_action: Option<ActionScript>,
     /// Changes to this card when played as a maneuver.

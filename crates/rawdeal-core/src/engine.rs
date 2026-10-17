@@ -1037,7 +1037,7 @@ impl Engine {
                 events.push(Event::EffectsResolved { card: played.card });
                 let def = self.def(state, played.card);
                 let mut effects = match (&def.script.as_action, played.kind) {
-                    (Some(action), CardKind::Action) => action.on_play.clone(),
+                    (Some(action), CardKind::Action | CardKind::Antic) => action.on_play.clone(),
                     _ => def.script.on_play.clone(),
                 };
                 if matches!(played.kind, CardKind::Maneuver(_)) && self.maneuvers_blanked(state, played.player) {
@@ -2471,7 +2471,7 @@ impl Engine {
                 Zone::Under => self.playable_from_under(state, player, card),
                 _ => false,
             };
-        let as_action = def.script.as_action.as_ref().filter(|_| kind == CardKind::Action);
+        let as_action = def.script.as_action.as_ref().filter(|_| matches!(kind, CardKind::Action | CardKind::Antic));
         let (bonus, _, _) = self.play_bonus(state, player, card, kind);
         let follows_up = match (&def.script.play_after, as_action) {
             (Some(filter), None) => {
@@ -2521,7 +2521,7 @@ impl Engine {
     /// Fortitude discount to play `card` as `kind`, or `None` if they cannot.
     fn fortitude_payment(&self, state: &GameState, player: PlayerId, card: CardId, kind: CardKind) -> Option<u8> {
         let def = self.def(state, card);
-        let as_action = def.script.as_action.as_ref().filter(|_| kind == CardKind::Action);
+        let as_action = def.script.as_action.as_ref().filter(|_| matches!(kind, CardKind::Action | CardKind::Antic));
         let (bonus, _, _) = self.play_bonus(state, player, card, kind);
         let mut printed = as_action.and_then(|a| a.fortitude).unwrap_or(def.fortitude) as i32;
         if bonus.double_fortitude {
@@ -3594,7 +3594,7 @@ fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
 /// The on-play effects of `def` when played as `kind`.
 fn played_effects(def: &CardDef, kind: CardKind) -> &[Effect] {
     match (&def.script.as_action, kind) {
-        (Some(action), CardKind::Action) => &action.on_play,
+        (Some(action), CardKind::Action | CardKind::Antic) => &action.on_play,
         _ => &def.script.on_play,
     }
 }

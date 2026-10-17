@@ -342,3 +342,52 @@ descalificación), Precision Reverse Neck Breaker manda al Ringside las cartas q
 16-Time Heavyweight Champion descartan cualquier carta para bajar su F, Not On My Broadcast puede retirar la carta
 recién jugada, Diva Lock solo cuenta las cartas Heel, Cobra Clutch pide descartar 2 cartas (Chain) en vez de 3, A No Show se
 resuelve al final de todo el Pre-match y You Think I'm a Psycho? solo guarda cartas al empezar tu turno.
+
+Revolution: no se puede jugar todavía Ten Time World Champion (su nueva habilidad revierte una maniobra que ya te
+hizo 10 de daño). Se juegan sin una parte de su texto: I Won't Be Beat Tonight e I Can Do Anything I Want (quitar de
+tu Ring cartas hasta sumar D:4 / D:8) y Your Chance in the Limelight (el rival empieza el combate). Están
+simplificadas: Shoulder Block (las 6 cartas vuelven arriba en cualquier orden, ninguna abajo), Arm Bar Takedown (se
+barajan en vez de ir abajo), Pacing My Match (mira si tu última carta jugada no fue una maniobra), Previously
+Unannounced Match (el límite de Mid-match del rival baja siempre en 1), Hardcore Hell, The Extreme Icon y Test (la
+Fortaleza o el Valor se miran al empezar tu turno), Gone-Not Forgotten (también cartas no jugadas desde la mano),
+Underestimate the Competition (tampoco hacen daño las Reversals Unique), Before This Gets Out of Hand (la carta
+vuelve a la mano venga de donde venga), Wreckless Intent (se puede recuperar cualquier maniobra del Ringside) y From
+Cruiserweight to Heavyweight Champ (los Core de F distinta de 0 cuestan 10F menos en vez de leerse como F:0).
+
+Revolution 2: Extreme: no se pueden jugar todavía Concentrated Attack (cambiar todos los Targets por uno elegido) ni
+Double Your Value - Double Your Fun (Fortitude igual al doble del daño del Ring). Se juegan sin una parte de su texto:
+Flying Kick, Arm Grapevine y Sidewalk Slam (nombrar un Target), Caught in the Ropes y Drive Opponent Through
+Announcer's Table (su efecto "si es revertida" no salta cuando la Reversal sale del Arsenal), Struck by a Singapore Cane
+(revertida desde el Arsenal), Overexposure (los Extremist no ignoran el Requirement: Overturned), Kelly Kelly's Exposé
+(la carta buscada puede estar ya en tu mano), Critical Injury y Tiger Bomb (dejar en blanco la habilidad del rival
+en su siguiente turno), Hellfire Clothesline (volver a la mano desde el Ringside) y Drop Toe Hold (revelar una carta
+al azar de tu mano). Están simplificadas: Workin' on the Knee, Half Crab e Inverted Jackhammer tienen Momentum
+mientras se cumple la condición y descartan las 2 cartas al resolverse; Forearm Shot deja las otras 3 cartas arriba
+del Arsenal; Clutch Onto Opponent no puede mandar cartas abajo; Samoan Drop y Leave It All Behind barajan las cartas
+en vez de ponerlas abajo; Roll Through, Instinctive Reflexes y Clean Break retiran 1 carta de D:3 o más ante una
+Colossal; Save Me From Myself manda las cartas al Ringside y no al Arsenal; It Has Everything to Do with Me retira
+maniobras y Reversals; Back to Square One descarta como mucho 3 cartas; Never Give In, Never Give Up da Momentum a
+todos los Antics del turno; Ring Psychology: Back, Head y Neck solo saltan si la carta del rival tiene éxito; WWE's
+High-Flying Daredevil rebaja la siguiente Assault/Extreme Follow-up aunque no sea la buscada; The Big Red Monster
+revierte descartando 1 carta cualquiera; Chokeslam Straight to Hell llega a 4 cartas y A Legendary Hit List no exige
+Targets distintos entre las 3 cartas.
+
+Revolution 3: Judgment Day: no se puede jugar todavía Revolution A Major Impact (cambiar el tipo de una maniobra, de
+Core o Colossal a Mean). Se juegan sin una parte de su texto: las catorce cartas "... is In My Corner!" (meter en el
+mazo las cartas de otro Superstar; solo se aplica "no puedes jugar Corners"), las Facciones ECW Originals, The New
+Breed, The Degenerates, Attitude Adjusters y Tomorrow's WWE Legends (meterlas en el mazo sea cual sea tu Superstar,
+empezar el combate y ser considerado Extremist), Revolution Undertaker (tener la Fortitude del rival en su turno),
+Head-to-Toe Defense, Centered Defense, Lateral Flank Defense y Undying Attitude (acabar el turno rival tras recibir el
+daño), Struck by an Unknown Foreign Object, Steel Chain Shot y The Unforgiving Ladder (efectos al ser revertidas desde
+el Backlash o el Arsenal), The Second Solution (restricción de mazo), My Way (la carta revertida va al Ring rival),
+Red Devil's Snake Eyes (volver a la mano al ser volteada), I've Trained for This Day All My Life (salvar un pinfall),
+Taunt You All I Want!, Hail to the Chairman (voltear menos cartas al final del turno), Death-Defying Maniac, Even Good
+Guys Do Bad Things, A Bloody Nightmare, Prepare for the POUNCE, Set the Table y Whoop-Ass Attitude (cambiar el tipo de
+las maniobras), Iconic Kip-up, y las Storylines The Founder of the Four Horsemen, For Many Are Called But Few Are
+Chosen y Tiger Tamer (parte o toda su nueva Superstar Ability). Están simplificadas: Back Rake, Lariat, Neck Wrencher,
+Flung Over the Ropes y Modified Monkey Flip (no miran la Fortitude de la carta buscada), Revolution Stone Cold Steve
+Austin (baraja las cartas en vez de ponerlas debajo), Run the Ropes, WWE Tribute to the Troops, No, You're
+FIIIIIRRRRRED!, Burn Out Attitude y Mr. McMahon is In My Corner! (las cartas se reconocen por su título), Maryse's
+French Finish (daño en vez de voltear), Enter the Sandman (doble daño en vez de triple), Heartbreaker, The Toughest
+S.O.B., The Conscience of the WWE y el recuento "3 or more Superstar-specifics from <Faction> Members" de las cartas de
+Facción.

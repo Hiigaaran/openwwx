@@ -1,3 +1,1499 @@
 // Hand-written scripts for revolution-3-judgment-day cards, merged by the OCTGN importer.
-// Keys are card titles.
-(abilities: {}, scripts: {})
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// Every title starts with "Revolution ": text naming a card means the Revolution card.
+// Maneuver / Antic hybrids: the Antic part is in `as_action`, which the engine will use when the card is
+// played as an Antic (engine change pending; until then an Antic play of a hybrid uses `on_play`, which is empty).
+// "Search for a card with Fortitude equal to or less than your Fortitude" ignores the Fortitude limit (approximation).
+// "3 or more Superstar-specifics from <Faction> Members and/or cards with <Faction> in the text in your Ring" is
+// approximated as 3 or more Superstar-specific cards or cards of that Faction (by title) in your Ring.
+(
+    abilities: {
+        "Revolution Ric Flair": [
+            Activated(
+                cost: [],
+                effects: [
+                    RingsideToHand(
+                        who: You,
+                        n: 1,
+                        up_to: true,
+                        filter: Some(All([Maneuver, AnyOf([TitleContains("chop"), TitleContains("punch"), Target("leg")])])),
+                    ),
+                ],
+            ),
+        ],
+        "Revolution Shawn Michaels": [
+            Activated(cost: [DiscardMatching(who: You, n: 1, filter: Antic, pick: Chosen)], effects: [Dig(n: 7, take: 1)]),
+        ],
+        // Approximation: the cards are shuffled into the Arsenal instead of going on the bottom.
+        "Revolution Stone Cold Steve Austin": [
+            Activated(
+                cost: [],
+                effects: [
+                    Mulligan(n: 6),
+                    Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -3, damage: 1)),
+                ],
+            ),
+        ],
+        "Revolution The Great Khali": [
+            Activated(
+                cost: [],
+                effects: [
+                    Search(filter: All([Not(Trait(Unique)), Not(Hybrid), Maneuver]), up_to: true),
+                    DrawUpTo(who: Opponent, n: 1),
+                ],
+            ),
+        ],
+        "Revolution Umaga": [
+            OnPlayMatching(
+                filter: Maneuver,
+                effects: [
+                    Optional([
+                        Mill(who: You, n: 1),
+                        RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Maneuver, Not(Trait(Core))]))),
+                    ]),
+                ],
+            ),
+            OnPlayMatching(filter: TitleContains("Samoa"), effects: [RingsideToArsenalBottom(who: You, n: 3)]),
+        ],
+        // Having his opponent's Fortitude during the opponent's turn is not supported yet.
+        "Revolution Undertaker": [
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversedFrom([Hand]),
+                    effects: [
+                        RingsideToHand(
+                            who: You,
+                            n: 1,
+                            up_to: true,
+                            filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Not(ManeuverType(Extreme)), Maneuver])),
+                        ),
+                    ],
+                ),
+            ]),
+        ],
+    },
+    scripts: {
+        // Assaults
+        "Revolution Poke": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("head")]))),
+                ],
+            )),
+        ),
+        "Revolution Chop Block": (
+            ringside_ability: Some((cost: [DiscardMatching(who: You, n: 2, filter: Reversal, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Revolution Wallop": (as_action: Some((on_play: [DiscardThis, DrawUpTo(who: You, n: 1)]))),
+        "Revolution Pump Kick": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("chest")]))),
+                ],
+            )),
+        ),
+        "Revolution Elbow Smash": (
+            ringside_ability: Some((requires: Some(OpponentHandLarger), cost: [Mill(who: You, n: 2)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Revolution Uppercut": (as_action: Some((on_play: [DiscardThis, Discard(who: Opponent, n: 1, pick: Chosen)]))),
+        "Revolution Back Rake": (on_play: [Search(filter: All([Not(Trait(Unique)), ManeuverType(Hold)]), up_to: true)]),
+        "Revolution Open-handed Chop": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("chest")]))],
+        ),
+        "Revolution Back Fist": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("head")]), up_to: true)]),
+        "Revolution Short-Arm Clothesline": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("neck")]), up_to: true)]),
+        "Revolution Standing Drop Kick": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("head")]))],
+        ),
+        "Revolution Lariat": (on_play: [Search(filter: All([Not(Trait(Unique)), ManeuverType(Throw)]), up_to: true)]),
+        "Revolution Bionic Elbow": (
+            on_play: [Boost((applies_to: All([Maneuver, Target("leg")]), duration: NextCard, momentum: true))],
+        ),
+        "Revolution Bulldog Lariat": (
+            on_play: [
+                Choice([
+                    [],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Trait(Core)), n: 1), effects: [DiscardMatching(who: You, n: 1, filter: Trait(Core), pick: Chosen), Discard(who: Opponent, n: 1, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Trait(Core)), n: 2), effects: [DiscardMatching(who: You, n: 2, filter: Trait(Core), pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Trait(Core)), n: 3), effects: [DiscardMatching(who: You, n: 3, filter: Trait(Core), pick: Chosen), Discard(who: Opponent, n: 3, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Trait(Core)), n: 4), effects: [DiscardMatching(who: You, n: 4, filter: Trait(Core), pick: Chosen), Discard(who: Opponent, n: 4, pick: Chosen)])],
+                ]),
+            ],
+        ),
+        "Revolution Short-Arm Rib Breaker": (
+            on_play: [
+                If(
+                    condition: HandHas(ManeuverType(Hold)),
+                    effects: [Optional([DiscardMatching(who: You, n: 1, filter: ManeuverType(Hold), pick: Chosen), DrawUpTo(who: You, n: 4)])],
+                ),
+            ],
+        ),
+        "Revolution Rapid-Fire Punches": (
+            on_play: [RingToHand(who: You, n: 2, filter: All([Not(Trait(Unique)), Target("head")]), up_to: true)],
+        ),
+        "Revolution 360-Degree Clothesline": (
+            on_play: [
+                Counted(
+                    count: YourRingMatching(Target("neck")),
+                    effect: MoveCards(
+                        who: Opponent,
+                        from: Arsenal,
+                        to: Ringside,
+                        n: 0,
+                        up_to: true,
+                        filter: Some(All([Not(Trait(Unique)), Hybrid])),
+                        pick: Controller,
+                    ),
+                ),
+            ],
+        ),
+
+        // Holds
+        "Revolution Waist Lock": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    MoveCards(who: You, from: Ringside, to: Backlash, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Trait(MidMatch), Maneuver]))),
+                ],
+            )),
+        ),
+        "Revolution Lock-up": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("arm")]))),
+                ],
+            )),
+        ),
+        "Revolution Strangle Hold": (
+            ringside_ability: Some((cost: [DiscardMatching(who: You, n: 2, filter: Antic, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Revolution Arm Wringer": (as_action: Some((on_play: [DiscardThis, BacklashToRingside(who: Opponent, n: 1, random: true)]))),
+        "Revolution Chancery": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("leg")]))),
+                ],
+            )),
+        ),
+        "Revolution Scissors Hold": (
+            ringside_ability: Some((
+                requires: Some(FortitudeBelowOpponent),
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [ReturnThis(to: Hand)],
+            )),
+        ),
+        "Revolution Split Finger Lock": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("arm")]), up_to: true)]),
+        "Revolution Neck Wrencher": (on_play: [Search(filter: All([Not(Trait(Unique)), ManeuverType(Throw)]), up_to: true)]),
+        "Revolution Unorthodox Wrist Lock": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("arm")]))],
+        ),
+        "Revolution Cobra Clutch": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("neck")]))],
+        ),
+        "Revolution Knee Lock": (on_play: [Optional([Search(filter: All([Maneuver, TitleContains("knee")]))])]),
+        "Revolution Body Vise": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("chest")]), up_to: true)]),
+        "Revolution Arm Breaker": (
+            on_play: [Boost((applies_to: All([Maneuver, Target("back")]), duration: NextCard, momentum: true))],
+        ),
+        "Revolution Ankle Torque": (
+            on_play: [
+                Choice([
+                    [],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Reversal), n: 1), effects: [DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen), Discard(who: Opponent, n: 1, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Reversal), n: 2), effects: [DiscardMatching(who: You, n: 2, filter: Reversal, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Reversal), n: 3), effects: [DiscardMatching(who: You, n: 3, filter: Reversal, pick: Chosen), Discard(who: Opponent, n: 3, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Reversal), n: 4), effects: [DiscardMatching(who: You, n: 4, filter: Reversal, pick: Chosen), Discard(who: Opponent, n: 4, pick: Chosen)])],
+                ]),
+            ],
+        ),
+        "Revolution Standing Dragon Sleeper": (
+            on_play: [
+                If(
+                    condition: HandHas(ManeuverType(Throw)),
+                    effects: [Optional([DiscardMatching(who: You, n: 1, filter: ManeuverType(Throw), pick: Chosen), DrawUpTo(who: You, n: 4)])],
+                ),
+            ],
+        ),
+        "Revolution Leg Lock": (
+            on_play: [
+                Counted(
+                    count: YourRingMatching(Target("leg")),
+                    effect: RingsideToHand(who: You, n: 0, up_to: true, filter: Some(All([Not(Trait(Unique)), Antic]))),
+                ),
+            ],
+        ),
+        "Revolution Super Hold": (bonuses: [(per: Some(Target("arm")), damage: 3)]),
+
+        // Throws
+        "Revolution Pretzel Jerk": (
+            ringside_ability: Some((cost: [DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Revolution Takedown": (
+            as_action: Some((
+                on_play: [DiscardThis, Boost((applies_to: Not(Trait(Unique)), duration: NextMatching, fortitude: -3))],
+            )),
+        ),
+        "Revolution Slam": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("back")]))),
+                ],
+            )),
+        ),
+        "Revolution Snap Bulldog": (
+            ringside_ability: Some((
+                requires: Some(CountBelow(a: OpponentRingsideSize, b: YourRingsideSize)),
+                effects: [ReturnThis(to: Hand), DrawUpTo(who: Opponent, n: 1)],
+            )),
+        ),
+        "Revolution Suplex": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, filter: Some(Not(Trait(Unique))), bottom: true),
+                ],
+            )),
+        ),
+        "Revolution Neck Breaker": (
+            as_action: Some((
+                on_play: [
+                    DiscardThis,
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Not(Trait(Unique)), Not(Hybrid), Target("neck")]))),
+                ],
+            )),
+        ),
+        "Revolution Single Leg Takedown": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("leg")]))],
+        ),
+        "Revolution Snap Slam": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("back")]), up_to: true)]),
+        "Revolution Flung Over the Ropes": (on_play: [Search(filter: All([Not(Trait(Unique)), ManeuverType(Assault)]), up_to: true)]),
+        "Revolution Modified Monkey Flip": (on_play: [Search(filter: All([Not(Trait(Unique)), ManeuverType(Hold)]), up_to: true)]),
+        "Revolution Knee Breaker": (on_play: [Search(filter: All([Not(Trait(Unique)), Target("leg")]), up_to: true)]),
+        "Revolution Snap Suplex": (
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver, Target("back")]))],
+        ),
+        "Revolution Rib Breaker": (
+            on_play: [Boost((applies_to: All([Maneuver, Target("neck")]), duration: NextCard, momentum: true))],
+        ),
+        "Revolution Airplane Spin": (
+            on_play: [
+                Choice([
+                    [],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Antic), n: 1), effects: [DiscardMatching(who: You, n: 1, filter: Antic, pick: Chosen), Discard(who: Opponent, n: 1, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Antic), n: 2), effects: [DiscardMatching(who: You, n: 2, filter: Antic, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Antic), n: 3), effects: [DiscardMatching(who: You, n: 3, filter: Antic, pick: Chosen), Discard(who: Opponent, n: 3, pick: Chosen)])],
+                    [If(condition: CountAtLeast(count: YourHandMatching(Antic), n: 4), effects: [DiscardMatching(who: You, n: 4, filter: Antic, pick: Chosen), Discard(who: Opponent, n: 4, pick: Chosen)])],
+                ]),
+            ],
+        ),
+        "Revolution Brainbuster": (
+            on_play: [
+                If(
+                    condition: HandHas(ManeuverType(Assault)),
+                    effects: [Optional([DiscardMatching(who: You, n: 1, filter: ManeuverType(Assault), pick: Chosen), DrawUpTo(who: You, n: 4)])],
+                ),
+            ],
+        ),
+        "Revolution Sit Out Powerbomb": (
+            bonuses: [(when: After(AnyOf([ManeuverType(Assault), ManeuverType(Hold)])), fortitude: -6)],
+        ),
+        "Revolution Face Driver": (
+            on_play: [
+                Counted(
+                    count: YourRingMatching(Target("neck")),
+                    effect: RingsideToHand(who: You, n: 0, up_to: true, filter: Some(All([Not(Trait(Unique)), Trait(Colossal)]))),
+                ),
+            ],
+        ),
+
+        // Extremes
+        "Revolution Hand Smash": (bonuses: [(when: YouAre("Extremist"), damage: 2)]),
+        "Revolution Toe Smash": (on_play: [NextCardMustBe(Not(All([Maneuver, Trait(FollowUp)])))]),
+        "Revolution Homicidal Lunge": (requires: Some(All([YouAre("Extremist"), FirstCardThisTurn]))),
+        "Revolution Flying Clothesline": (on_play: [If(condition: YouAre("Extremist"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])]),
+        "Revolution Leaping Neck Snap": (on_play: [If(condition: YouAre("Extremist"), effects: [DrawUpTo(who: You, n: 2)])]),
+        "Revolution Inverted Body Block": (
+            on_play: [If(condition: YouAre("Extremist"), effects: [RingsideToArsenal(who: You, n: 3, up_to: true)])],
+        ),
+        "Revolution Missile Drop Kick": (bonuses: [(when: YouAre("Extremist"), fortitude: -2)]),
+        "Revolution Suicide Dive": (bonuses: [(when: YouAre("Extremist"), fortitude: -3)]),
+        "Revolution Hurricanrana": (bonuses: [(when: YouAre("Extremist"), fortitude: -4)]),
+        // Drawing when it is reversed from the Backlash deck or the Arsenal is not supported yet.
+        "Revolution Struck by an Unknown Foreign Object": (bonuses: [(when: YouAre("Extremist"), fortitude: -2)]),
+        // The Backlash-deck part of "if reversed" is not supported yet.
+        "Revolution Steel Chain Shot": (
+            bonuses: [(when: YouAre("Extremist"), fortitude: -3)],
+            on_reversed_from_hand: [Discard(who: Opponent, n: 2, pick: Chosen)],
+        ),
+        // The Arsenal part of "if reversed" is not supported yet.
+        "Revolution The Unforgiving Ladder": (
+            on_reversed_from_hand: [Optional([Mill(who: You, n: 8), Search(filter: Trait(Unique), up_to: true)])],
+        ),
+
+        // Antics
+        "Revolution I Want It All": (on_play: [DrawUpTo(who: You, n: 3), HandToArsenalBottom(who: You, n: 2)]),
+        // Approximation: the next Extreme: Follow-up: Maneuver may ignore its Follow-up text.
+        "Revolution Run the Ropes": (
+            on_play: [
+                RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([ManeuverType(Extreme), Trait(FollowUp)]))),
+                Boost((applies_to: All([ManeuverType(Extreme), Trait(FollowUp)]), duration: NextCard, ignore_play_after: true)),
+            ],
+        ),
+        "Revolution Trap Opponent in The Corner": (on_play: [CannotPlay(who: Opponent, filter: Any, turns: 1), EndTurn]),
+        "Revolution Maintain the Hold": (on_play: [CannotPlay(who: Opponent, filter: Any, turns: 1), EndTurn]),
+        "Revolution Leverage Opponent": (on_play: [CannotPlay(who: Opponent, filter: Any, turns: 1), EndTurn]),
+        "Revolution Measure Him": (
+            on_play: [
+                DrawUpTo(who: Opponent, n: 1),
+                Boost((
+                    applies_to: AnyOf([ManeuverType(Assault), ManeuverType(Hold), ManeuverType(Throw)]),
+                    duration: NextCard,
+                    momentum: true,
+                )),
+            ],
+        ),
+        "Revolution Cade and Murdoch: Staunchest Rednecks": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("chest")), n: 3),
+                    CountAtLeast(count: YourRingMatching(Target("neck")), n: 3),
+                ]),
+            ),
+            on_play: [Discard(who: Opponent, n: 3, pick: Chosen), DrawUpTo(who: You, n: 4)],
+        ),
+        "Revolution Montel Vontavious Porter: Privileged Warhead": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("head")), n: 5),
+                    CountAtLeast(count: YourRingMatching(Target("leg")), n: 1),
+                ]),
+            ),
+            on_play: [
+                LookAtHand(who: Opponent),
+                Discard(who: Opponent, n: 1, pick: Controller),
+                Search(filter: Target("head"), n: 2, up_to: true),
+            ],
+        ),
+        "Revolution 'Hacksaw' Jim Duggan: Harmful Flashback": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("arm")), n: 2),
+                    CountAtLeast(count: YourRingMatching(Target("back")), n: 4),
+                ]),
+            ),
+            on_play: [
+                RemoveFromRing(who: Opponent, n: 2, filter: Any),
+                RingsideToHand(who: You, n: 3, up_to: true, filter: Some(Target("back"))),
+            ],
+        ),
+        "Revolution You're Fired, Playa!": (
+            on_play: [ThisToArsenal(bottom: true), RingsideToArsenalBottom(who: You, n: 1), DrawUpTo(who: You, n: 1)],
+        ),
+        "Revolution Melina's Shoot Stretch": (
+            requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 3)),
+        ),
+        "Revolution Ashley's an Awesome Asset": (
+            on_play: [Mill(who: Opponent, n: 3)],
+            in_ring_on_play: [(whose: Some(You), filter: Antic, effects: [Mill(who: Opponent, n: 1)])],
+        ),
+        "Revolution Go Candice, Come to Daddy": (
+            on_play: [
+                HandToArsenalTop(who: You, n: 2),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 8, up_to: true, top: true),
+                Search(filter: Any, n: 2, up_to: true),
+            ],
+        ),
+
+        // Antic / Reversal and Antic / other hybrids (the Antic part is in `on_play`).
+        // Approximation: the Antic part keeps the printed F:8.
+        "Revolution Standing Switch": (
+            on_play: [
+                DiscardThis,
+                RingsideToHand(
+                    who: You,
+                    n: 1,
+                    up_to: true,
+                    filter: Some(All([Trait(Core), AnyOf([ManeuverType(Assault), ManeuverType(Hold), ManeuverType(Throw)])])),
+                ),
+            ],
+            reverses: Some((
+                targets: All([Trait(FollowUp), Antic]),
+                effects: [Boost((applies_to: All([Antic, Trait(FollowUp)]), duration: NextTurnFirstCard, ignore_play_after: true))],
+            )),
+        ),
+        // Ending the opponent's turn after a Trademark dealt its damage is not supported yet. The Antic part's
+        // -7F is in `as_action` (engine change pending); until then the Antic play needs the printed F:7.
+        "Revolution Head-to-Toe Defense": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("head"), Target("leg")]))),
+            ],
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("head"), Target("leg")])))],
+            )),
+            reverses: Some((targets: All([Maneuver, AnyOf([Target("head"), Target("leg")])]))),
+        ),
+        // Ending the opponent's turn after a non-Unique Colossal dealt its damage is not supported yet. The Antic
+        // part's -7F is in `as_action` (engine change pending).
+        "Revolution Centered Defense": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("chest"), Target("neck")]))),
+            ],
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("chest"), Target("neck")])))],
+            )),
+            reverses: Some((targets: All([Maneuver, AnyOf([Target("chest"), Target("neck")])]))),
+        ),
+        // Ending the opponent's turn after a non-Unique Mean dealt its damage is not supported yet. The Antic
+        // part's -7F is in `as_action` (engine change pending).
+        "Revolution Lateral Flank Defense": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("arm"), Target("back")]))),
+            ],
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("arm"), Target("back")])))],
+            )),
+            reverses: Some((targets: All([Maneuver, AnyOf([Target("arm"), Target("back")])]))),
+        ),
+        // Approximation: "cards with a Faction Requirement" are this set's cards that require a Faction, by title.
+        "Revolution No, You're FIIIIIRRRRRED!": (
+            on_play: [
+                RingsideToHand(
+                    who: You,
+                    n: 2,
+                    up_to: true,
+                    filter: Some(
+                        AnyOf([
+                            Title("Revolution Death-Defying Maniac"),
+                            Title("Revolution Enter the Sandman"),
+                            Title("Revolution Innovative Violence"),
+                            Title("Revolution Worth the Price of Admission"),
+                            Title("Revolution A Bloody Nightmare"),
+                            Title("Revolution Here's a Lesson Plan"),
+                            Title("Revolution Prepare for the POUNCE"),
+                            Title("Revolution The Elijah Experience"),
+                            Title("Revolution Eat Spit"),
+                            Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                            Title("Revolution Heartbreaker"),
+                            Title("Revolution H-Line"),
+                            Title("Revolution Burn Out Attitude"),
+                            Title("Revolution Candy-A%$ Attitude"),
+                            Title("Revolution Undying Attitude"),
+                            Title("Revolution Whoop-Ass Attitude"),
+                            Title("Revolution Even Good Guys Do Bad Things"),
+                            Title("Revolution Live Fast-Fight Hard"),
+                            Title("Revolution Caution: You're Entering the O-Zone"),
+                            Title("Revolution Edge FX"),
+                        ]),
+                    ),
+                ),
+            ],
+            reverses: Some((
+                targets: AnyOf([
+                    Title("Revolution Death-Defying Maniac"),
+                    Title("Revolution Enter the Sandman"),
+                    Title("Revolution Innovative Violence"),
+                    Title("Revolution Worth the Price of Admission"),
+                    Title("Revolution A Bloody Nightmare"),
+                    Title("Revolution Here's a Lesson Plan"),
+                    Title("Revolution Prepare for the POUNCE"),
+                    Title("Revolution The Elijah Experience"),
+                    Title("Revolution Eat Spit"),
+                    Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                    Title("Revolution Heartbreaker"),
+                    Title("Revolution H-Line"),
+                    Title("Revolution Burn Out Attitude"),
+                    Title("Revolution Candy-A%$ Attitude"),
+                    Title("Revolution Undying Attitude"),
+                    Title("Revolution Whoop-Ass Attitude"),
+                    Title("Revolution Even Good Guys Do Bad Things"),
+                    Title("Revolution Live Fast-Fight Hard"),
+                    Title("Revolution Caution: You're Entering the O-Zone"),
+                    Title("Revolution Edge FX"),
+                ]),
+            )),
+        ),
+        // Overturning 2 fewer cards at the end of a turn without a Maneuver is not supported yet. Approximation:
+        // "a Pre-match: Storyline in your Ring" means one of the Revolution Storylines, by title.
+        "Revolution Hail to the Chairman": (
+            on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent)],
+            reverses: Some((
+                targets: All([Not(Trait(Unique)), Antic]),
+                requires: Some(
+                    InYourRing(
+                        AnyOf([
+                            Title("Revolution The Founder of the Four Horsemen"),
+                            Title("Revolution For Many Are Called But Few Are Chosen"),
+                            Title("Revolution The Texas Rattlesnake"),
+                            Title("Revolution Tiger Tamer"),
+                            Title("Revolution Vince McMahon's Billion Dollar Representative"),
+                            Title("Revolution The Conscience of the WWE"),
+                            Title("Revolution I Walk Alone"),
+                            Title("Revolution Doctor of Thuganomics"),
+                            Title("Revolution From Cruiserweight to Heavyweight Champ"),
+                            Title("Revolution Ten Time World Champion"),
+                            Title("Revolution I'm Not Your Damn Role Model"),
+                            Title("Revolution A WWE X-Treme Original"),
+                            Title("Revolution The Big Red Monster"),
+                            Title("Revolution I Am the Legend Killer"),
+                        ]),
+                    ),
+                ),
+            )),
+        ),
+
+        // Reversals
+        "Revolution Never Think Twice": (
+            reverses: Some((
+                targets: All([Maneuver, EarlierThisTurn(filter: Any, n: 1)]),
+                requires: Some(FortitudeBelowOpponent),
+                overturned_only: true,
+            )),
+        ),
+        "Revolution Outmaneuver": (
+            reverses: Some((
+                targets: All([Not(Trait(Colossal)), ManeuverType(Extreme)]),
+                effects: [
+                    If(
+                        condition: OpponentIs("Extremist"),
+                        effects: [
+                            RingsideToHand(
+                                who: You,
+                                n: 1,
+                                up_to: true,
+                                filter: Some(All([Not(Trait(Unique)), Not(ManeuverType(Extreme)), Maneuver])),
+                            ),
+                        ],
+                    ),
+                ],
+            )),
+        ),
+        // The packing restriction (no F:0 Maneuver / Reversal hybrids) is not supported yet.
+        "Revolution The Second Solution": (
+            reverses: Some((
+                targets: All([DamageAtLeast(1), DamageAtMost(7), AnyOf([ManeuverType(Assault), ManeuverType(Hold), ManeuverType(Throw)])]),
+                effects: [DrawUpTo(who: You, n: 2)],
+            )),
+        ),
+        "Revolution Off Your Mark": (
+            reverses: Some((
+                targets: Trait(Unique),
+                effects: [
+                    If(condition: FortitudeBelowOpponent, effects: [RemoveFromRing(who: Opponent, n: 1, filter: Maneuver)]),
+                    If(condition: OpponentHandLarger, effects: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Antic))]),
+                ],
+            )),
+        ),
+        // Putting the reversed card into the opponent's Ring (blanked) and returning this card to hand when
+        // overturned are not supported yet.
+        "Revolution My Way": (),
+
+        // Pre-match
+        // Approximation: the Target is chosen for the search only; the card does not get that Target.
+        "Revolution WWE Tribute to the Troops": (
+            on_play: [
+                Choice([
+                    [Search(filter: All([Not(Trait(Unique)), Target("head")]), up_to: true)],
+                    [Search(filter: All([Not(Trait(Unique)), Target("neck")]), up_to: true)],
+                    [Search(filter: All([Not(Trait(Unique)), Target("chest")]), up_to: true)],
+                    [Search(filter: All([Not(Trait(Unique)), Target("back")]), up_to: true)],
+                    [Search(filter: All([Not(Trait(Unique)), Target("arm")]), up_to: true)],
+                    [Search(filter: All([Not(Trait(Unique)), Target("leg")]), up_to: true)],
+                ]),
+                DrawUpTo(who: Opponent, n: 1),
+            ],
+        ),
+        "Revolution Man of 1000 Moves": (
+            requires: Some(CountAtLeast(count: YourRingMatching(TitleContains("Ring Psychology")), n: 2)),
+            on_play: [Search(filter: All([ManeuverType(Hold), FortitudeAtMost(0)]), up_to: true)],
+            pre_match_limit: 2,
+        ),
+        // Changing a maneuver's type (Core or Colossal to Mean) is not supported yet.
+        "Revolution A Major Impact": (requires: Some(Never)),
+        "Revolution Torrie! Torrie! Torrie!": (
+            on_play: [RingsideToArsenal(who: You, n: 1, up_to: true)],
+            while_in_ring: [
+                (applies_to: All([Not(Trait(Unique)), Not(ManeuverType(Extreme)), Trait(Mean), FortitudeAtLeast(10)]), fortitude: -2),
+                (applies_to: All([Not(Trait(Unique)), Trait(Colossal), FortitudeAtLeast(17)]), fortitude: -2),
+            ],
+        ),
+        "Revolution Have a Look at Brooke": (
+            on_play: [
+                RevealHand(who: You),
+                If(
+                    condition: CountAtMost(count: YourHandMatching(Reversal), n: 2),
+                    effects: [Search(filter: All([Not(Trait(Unique)), Trait(Core), Reversal]), up_to: true)],
+                ),
+            ],
+        ),
+        // Saving a pinfall by a non-Trademark card is not supported yet.
+        "Revolution I've Trained for This Day All My Life": (mid_match_limit: 1),
+        "Revolution See Kristal Clear": (
+            requires: Some(HandHas(Reversal)),
+            on_play: [
+                DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen),
+                LookAtHand(who: Opponent),
+                Optional([BuryHand(who: Opponent, then: Draw)]),
+            ],
+        ),
+        // Skipping the end-of-turn overturn when no Maneuver was played is not supported yet.
+        "Revolution Taunt You All I Want!": (on_play: [Search(filter: Title("Revolution Pacing My Match"), up_to: true)]),
+        // Packing another Superstar's Antics and Maneuvers (and their Requirement) and "Your Storyline is Permanent"
+        // are not supported yet; only "You cannot play Corners" is scripted.
+        "Revolution Batista is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution John Cena is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Rey Mysterio is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Triple H is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Edge is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Jeff Hardy is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Kane is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Randy Orton is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Ric Flair is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Shawn Michaels is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Stone Cold Steve Austin is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution The Great Khali is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Umaga is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Undertaker is In My Corner!": (restricts_self: Some((filter: TitleContains("In My Corner")))),
+        "Revolution Theodore Long is In My Corner!": (
+            on_play: [Search(filter: Title("Revolution You're Fired, Playa!"), up_to: true)],
+            reverses_from_ring: Some((targets: Trait(Momentum), damage: None)),
+        ),
+        // Approximation: "a card with Requirement: Less Fortitude" means this set's cards with that Requirement, by title.
+        "Revolution Mr. McMahon is In My Corner!": (
+            on_play: [Search(filter: Title("Revolution No, You're FIIIIIRRRRRED!"), up_to: true)],
+            reverses_from_ring: Some((
+                targets: AnyOf([
+                    Title("Revolution Arm Drag"),
+                    Title("Revolution Body Lock"),
+                    Title("Revolution Spinning Kick"),
+                    Title("Revolution Boot Lace"),
+                    Title("Revolution Triumph"),
+                    Title("Revolution Candy-A%$ Attitude"),
+                ]),
+                damage: None,
+            )),
+        ),
+        // Factions: only Superstars with a logo on them can pack them (the engine's logo rule), so the
+        // "If your logo is on this card" parts always apply. "You may pack this card regardless of Superstar" is
+        // not supported yet.
+        // Starting the match is not supported yet.
+        "Revolution ECW Originals": (
+            in_ring_on_play: [(filter: SameTitleInRing, effects: [DrawUpTo(who: Opponent, n: 1)])],
+        ),
+        // Being considered an Extremist is not supported yet.
+        "Revolution The New Breed": (
+            on_play: [If(condition: Not(YouAre("Extremist")), effects: [Discard(who: You, n: 1, pick: Chosen)])],
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversed(Trait(Mean)), OpponentReversedFrom([Hand, Backlash])]),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+            ],
+        ),
+        "Revolution The Degenerates": (value_bonus: 2, on_play: [DrawUpTo(who: You, n: 2), Discard(who: You, n: 1, pick: Chosen)]),
+        "Revolution Attitude Adjusters": (
+            on_play: [Search(filter: TitleContains("Attitude"), up_to: true), Discard(who: Opponent, n: 1, pick: Random)],
+        ),
+        "Revolution Tomorrow's WWE Legends": (
+            value_bonus: 1,
+            pre_match_limit: 1,
+            in_ring_on_play: [(whose: Some(Opponent), filter: TitleBelt, effects: [DrawUpTo(who: Opponent, n: 1)])],
+        ),
+        // Drawing when the opponent discards and blanking the opponent's Antic are not supported yet.
+        "Revolution Even Good Guys Do Bad Things": (requires: Some(InYourRing(Title("Revolution Tomorrow's WWE Legends")))),
+
+        // Mid-match
+        "Revolution Arm Drag": (requires: Some(FortitudeBelowOpponent), on_play: [Mill(who: You, n: 3)]),
+        "Revolution Body Lock": (requires: Some(FortitudeBelowOpponent), on_play: [Mill(who: You, n: 3)]),
+        "Revolution Spinning Kick": (requires: Some(FortitudeBelowOpponent), on_play: [Mill(who: You, n: 3)]),
+        "Revolution Boot Lace": (requires: Some(FortitudeBelowOpponent), on_play: [RingsideToArsenalBottom(who: Opponent, n: 1)]),
+        "Revolution I'm Not Afraid Anymore": (
+            requires: Some(AnyOf([OpponentHandLarger, FortitudeBelowOpponent])),
+            on_play: [
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 1, filter: All([Reversal, SuperstarSpecific]), pick: Controller),
+            ],
+        ),
+        // Turning the next Throw: Core or Throw: Mean into a Throw: Colossal is not supported yet.
+        "Revolution Set the Table": (
+            on_play: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Throw)))],
+        ),
+        "Revolution Modified Bow and Arrow": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("arm")), n: 3),
+                    CountAtLeast(count: YourRingMatching(Target("back")), n: 3),
+                ]),
+            ),
+            on_play: [
+                Counted(count: YourRingMatching(Target("arm")), effect: Discard(who: Opponent, n: 0, pick: Chosen)),
+                Counted(count: YourRingMatching(Target("back")), effect: DrawUpTo(who: You, n: 0)),
+            ],
+        ),
+        "Revolution Fisherman's Suplex": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("head")), n: 5),
+                    CountAtLeast(count: YourRingMatching(Target("leg")), n: 1),
+                ]),
+            ),
+            on_play: [
+                Counted(
+                    count: YourRingMatching(Target("head")),
+                    effect: MoveCards(who: You, from: Arsenal, to: Hand, n: 0, up_to: true, filter: Some(Not(Trait(Unique)))),
+                ),
+                Counted(
+                    count: YourRingMatching(Target("leg")),
+                    effect: MoveCards(who: Opponent, from: Arsenal, to: Ringside, n: 0, up_to: true, filter: Some(Not(Reversal)), pick: Controller),
+                ),
+            ],
+        ),
+        "Revolution Hurricane Clothesline": (
+            requires: Some(
+                All([
+                    CountAtLeast(count: YourRingMatching(Target("chest")), n: 2),
+                    CountAtLeast(count: YourRingMatching(Target("neck")), n: 4),
+                ]),
+            ),
+            on_play: [
+                Counted(count: YourRingMatching(Target("chest")), effect: RingsideToHand(who: You, n: 0, up_to: true)),
+                Counted(count: YourRingMatching(Target("neck")), effect: RemoveFromRing(who: Opponent, n: 0, filter: Any)),
+            ],
+        ),
+        // Approximation: the discards add 3 damage each to the card instead of making the opponent overturn
+        // (so it can pin and be answered by overturned Reversals).
+        "Revolution Maryse's French Finish": (on_play: [DiscardForDamage(per: 3)]),
+
+        // ECW Originals
+        // Reversing from the Arsenal into the Ring and its Faction effect are not supported yet.
+        "Revolution Death-Defying Maniac": (
+            reverses: Some((targets: Any, requires: Some(InYourRing(Title("Revolution ECW Originals"))))),
+        ),
+        // Approximation: "triple its Damage" is double damage.
+        "Revolution Enter the Sandman": (
+            requires: Some(InYourRing(Title("Revolution ECW Originals"))),
+            on_play: [
+                RemoveFromRing(who: You, n: 1, filter: Maneuver),
+                Boost((applies_to: Trait(Core), duration: NextCard, momentum: true, double_damage: true)),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Death-Defying Maniac"),
+                                Title("Revolution Enter the Sandman"),
+                                Title("Revolution Innovative Violence"),
+                                Title("Revolution Worth the Price of Admission"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RemoveFromRing(who: Opponent, n: 1, filter: All([Not(Trait(Unique)), Maneuver]))],
+                ),
+            ],
+        ),
+        "Revolution Innovative Violence": (
+            requires: Some(InYourRing(Title("Revolution ECW Originals"))),
+            on_play: [
+                RemoveFromRing(who: You, n: 1, filter: Antic),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Death-Defying Maniac"),
+                                Title("Revolution Enter the Sandman"),
+                                Title("Revolution Innovative Violence"),
+                                Title("Revolution Worth the Price of Admission"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [Search(filter: ManeuverType(Extreme), up_to: true)],
+                ),
+            ],
+        ),
+        "Revolution Worth the Price of Admission": (
+            requires: Some(InYourRing(Title("Revolution ECW Originals"))),
+            on_play: [
+                RemoveFromRing(who: You, n: 3, filter: Not(Trait(Unique))),
+                Boost((applies_to: Any, duration: NextCard, momentum: true)),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Death-Defying Maniac"),
+                                Title("Revolution Enter the Sandman"),
+                                Title("Revolution Innovative Violence"),
+                                Title("Revolution Worth the Price of Admission"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Trait(Unique)))],
+                ),
+            ],
+        ),
+
+        // The New Breed
+        // Turning Extreme Cores into Means is not supported yet.
+        "Revolution A Bloody Nightmare": (
+            requires: Some(InYourRing(Title("Revolution The New Breed"))),
+            on_play: [
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution A Bloody Nightmare"),
+                                Title("Revolution Here's a Lesson Plan"),
+                                Title("Revolution Prepare for the POUNCE"),
+                                Title("Revolution The Elijah Experience"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [MillChosen(who: Opponent, n: 2)],
+                ),
+            ],
+        ),
+        "Revolution Here's a Lesson Plan": (
+            reverses: Some((
+                targets: ManeuverType(Extreme),
+                requires: Some(InYourRing(Title("Revolution The New Breed"))),
+                effects: [
+                    If(
+                        condition: CountAtLeast(
+                            count: YourRingMatching(
+                                AnyOf([
+                                    SuperstarSpecific,
+                                    Title("Revolution A Bloody Nightmare"),
+                                    Title("Revolution Here's a Lesson Plan"),
+                                    Title("Revolution Prepare for the POUNCE"),
+                                    Title("Revolution The Elijah Experience"),
+                                ]),
+                            ),
+                            n: 3,
+                        ),
+                        effects: [RingsideToArsenal(who: You, n: 6, up_to: true)],
+                    ),
+                ],
+            )),
+        ),
+        // Making the opponent's non-Unique Maneuvers Extremes is not supported yet.
+        "Revolution Prepare for the POUNCE": (
+            requires: Some(InYourRing(Title("Revolution The New Breed"))),
+            on_play: [
+                RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Extreme))),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution A Bloody Nightmare"),
+                                Title("Revolution Here's a Lesson Plan"),
+                                Title("Revolution Prepare for the POUNCE"),
+                                Title("Revolution The Elijah Experience"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [HandToArsenalBottom(who: Opponent, n: 3)],
+                ),
+            ],
+        ),
+        "Revolution The Elijah Experience": (
+            requires: Some(InYourRing(Title("Revolution The New Breed"))),
+            on_play: [
+                RingsideToHand(who: You, n: 2, up_to: true, filter: Some(AnyOf([ManeuverType(Assault), ManeuverType(Extreme)]))),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution A Bloody Nightmare"),
+                                Title("Revolution Here's a Lesson Plan"),
+                                Title("Revolution Prepare for the POUNCE"),
+                                Title("Revolution The Elijah Experience"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RemoveFromRing(who: Opponent, n: 1, filter: Not(Trait(Unique)))],
+                ),
+            ],
+        ),
+
+        // The Degenerates
+        "Revolution Eat Spit": (
+            requires: Some(InYourRing(Title("Revolution The Degenerates"))),
+            on_play: [
+                DrawUpTo(who: You, n: 3),
+                Discard(who: Opponent, n: 1, pick: Random),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Eat Spit"),
+                                Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                                Title("Revolution Heartbreaker"),
+                                Title("Revolution H-Line"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [BacklashToRingside(who: Opponent, n: 4, random: true)],
+                ),
+            ],
+        ),
+        "Revolution Assisted by the Dirtiest Player in the Game": (
+            reverses: Some((
+                targets: Trait(Core),
+                requires: Some(InYourRing(Title("Revolution The Degenerates"))),
+                effects: [
+                    If(
+                        condition: CountAtLeast(
+                            count: YourRingMatching(
+                                AnyOf([
+                                    SuperstarSpecific,
+                                    Title("Revolution Eat Spit"),
+                                    Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                                    Title("Revolution Heartbreaker"),
+                                    Title("Revolution H-Line"),
+                                ]),
+                            ),
+                            n: 3,
+                        ),
+                        effects: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Trait(Core)))],
+                    ),
+                ],
+            )),
+        ),
+        // Approximation: the 10 cards are put back on top only (not on the bottom).
+        "Revolution Heartbreaker": (
+            reverses: Some((
+                targets: AnyOf([Trait(Mean), Trait(Colossal)]),
+                requires: Some(InYourRing(Title("Revolution The Degenerates"))),
+                effects: [
+                    If(
+                        condition: CountAtLeast(
+                            count: YourRingMatching(
+                                AnyOf([
+                                    SuperstarSpecific,
+                                    Title("Revolution Eat Spit"),
+                                    Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                                    Title("Revolution Heartbreaker"),
+                                    Title("Revolution H-Line"),
+                                ]),
+                            ),
+                            n: 3,
+                        ),
+                        effects: [Arrange(who: You, n: 10)],
+                    ),
+                ],
+            )),
+        ),
+        "Revolution H-Line": (
+            requires: Some(InYourRing(Title("Revolution The Degenerates"))),
+            on_play: [
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Eat Spit"),
+                                Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                                Title("Revolution Heartbreaker"),
+                                Title("Revolution H-Line"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [LookAtHand(who: Opponent), DiscardMatching(who: Opponent, n: 1, filter: Trait(Unique), pick: Controller)],
+                ),
+            ],
+        ),
+
+        // Attitude Adjusters
+        // Approximation: "a card with 'Faction' in the text" means this set's cards that require a Faction, by title.
+        "Revolution Burn Out Attitude": (
+            reverses: Some((
+                targets: AnyOf([
+                    Title("Revolution Death-Defying Maniac"),
+                    Title("Revolution Enter the Sandman"),
+                    Title("Revolution Innovative Violence"),
+                    Title("Revolution Worth the Price of Admission"),
+                    Title("Revolution A Bloody Nightmare"),
+                    Title("Revolution Here's a Lesson Plan"),
+                    Title("Revolution Prepare for the POUNCE"),
+                    Title("Revolution The Elijah Experience"),
+                    Title("Revolution Eat Spit"),
+                    Title("Revolution Assisted by the Dirtiest Player in the Game"),
+                    Title("Revolution Heartbreaker"),
+                    Title("Revolution H-Line"),
+                    Title("Revolution Burn Out Attitude"),
+                    Title("Revolution Candy-A%$ Attitude"),
+                    Title("Revolution Undying Attitude"),
+                    Title("Revolution Whoop-Ass Attitude"),
+                    Title("Revolution Even Good Guys Do Bad Things"),
+                    Title("Revolution Live Fast-Fight Hard"),
+                    Title("Revolution Caution: You're Entering the O-Zone"),
+                    Title("Revolution Edge FX"),
+                ]),
+                requires: Some(InYourRing(Title("Revolution Attitude Adjusters"))),
+                effects: [
+                    Search(filter: TitleContains("Attitude"), up_to: true),
+                    If(
+                        condition: CountAtLeast(
+                            count: YourRingMatching(
+                                AnyOf([
+                                    SuperstarSpecific,
+                                    Title("Revolution Burn Out Attitude"),
+                                    Title("Revolution Candy-A%$ Attitude"),
+                                    Title("Revolution Undying Attitude"),
+                                    Title("Revolution Whoop-Ass Attitude"),
+                                ]),
+                            ),
+                            n: 3,
+                        ),
+                        effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, momentum: true))],
+                    ),
+                ],
+            )),
+        ),
+        "Revolution Candy-A%$ Attitude": (
+            requires: Some(All([InYourRing(Title("Revolution Attitude Adjusters")), FortitudeBelowOpponent])),
+            on_play: [
+                LookAtHand(who: Opponent),
+                Discard(who: Opponent, n: 1, pick: Controller),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Burn Out Attitude"),
+                                Title("Revolution Candy-A%$ Attitude"),
+                                Title("Revolution Undying Attitude"),
+                                Title("Revolution Whoop-Ass Attitude"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RingsideToHand(who: You, n: 1, up_to: true)],
+                ),
+            ],
+        ),
+        // Ending the opponent's turn after a Maneuver dealt its damage is not supported yet.
+        "Revolution Undying Attitude": (
+            requires: Some(InYourRing(Title("Revolution Attitude Adjusters"))),
+            on_play: [
+                DrawUpTo(who: You, n: 1),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Burn Out Attitude"),
+                                Title("Revolution Candy-A%$ Attitude"),
+                                Title("Revolution Undying Attitude"),
+                                Title("Revolution Whoop-Ass Attitude"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RingsideToHand(who: You, n: 3, up_to: true, filter: Some(Reversal))],
+                ),
+            ],
+        ),
+        // Making the next Maneuver a Trademark is not supported yet.
+        "Revolution Whoop-Ass Attitude": (
+            requires: Some(All([InYourRing(Title("Revolution Attitude Adjusters")), FortitudeAboveOpponent])),
+            on_play: [
+                Boost((applies_to: Maneuver, duration: NextCard, no_backlash_reversal: true)),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Burn Out Attitude"),
+                                Title("Revolution Candy-A%$ Attitude"),
+                                Title("Revolution Undying Attitude"),
+                                Title("Revolution Whoop-Ass Attitude"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [Boost((applies_to: Maneuver, duration: NextCard, damage: 10))],
+                ),
+            ],
+        ),
+
+        // Tomorrow's WWE Legends
+        "Revolution Live Fast-Fight Hard": (
+            requires: Some(InYourRing(Title("Revolution Tomorrow's WWE Legends"))),
+            bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), fortitude: -5)],
+            on_play: [
+                Boost((applies_to: Any, duration: NextCard, fortitude: -15)),
+                If(
+                    condition: CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Even Good Guys Do Bad Things"),
+                                Title("Revolution Live Fast-Fight Hard"),
+                                Title("Revolution Caution: You're Entering the O-Zone"),
+                                Title("Revolution Edge FX"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                    effects: [RingsideToHand(who: You, n: 3, up_to: true, filter: Some(Maneuver))],
+                ),
+            ],
+        ),
+        "Revolution Caution: You're Entering the O-Zone": (
+            reverses: Some((
+                targets: Trait(Colossal),
+                requires: Some(InYourRing(Title("Revolution Tomorrow's WWE Legends"))),
+                effects: [
+                    RemoveFromRing(who: Opponent, n: 1, filter: Any),
+                    If(
+                        condition: CountAtLeast(
+                            count: YourRingMatching(
+                                AnyOf([
+                                    SuperstarSpecific,
+                                    Title("Revolution Even Good Guys Do Bad Things"),
+                                    Title("Revolution Live Fast-Fight Hard"),
+                                    Title("Revolution Caution: You're Entering the O-Zone"),
+                                    Title("Revolution Edge FX"),
+                                ]),
+                            ),
+                            n: 3,
+                        ),
+                        effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+                    ),
+                ],
+            )),
+        ),
+        "Revolution Edge FX": (
+            requires: Some(InYourRing(Title("Revolution Tomorrow's WWE Legends"))),
+            ring_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+            ringside_ability: Some((
+                requires: Some(
+                    CountAtLeast(
+                        count: YourRingMatching(
+                            AnyOf([
+                                SuperstarSpecific,
+                                Title("Revolution Even Good Guys Do Bad Things"),
+                                Title("Revolution Live Fast-Fight Hard"),
+                                Title("Revolution Caution: You're Entering the O-Zone"),
+                                Title("Revolution Edge FX"),
+                            ]),
+                        ),
+                        n: 3,
+                    ),
+                ),
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [ReturnThis(to: Hand)],
+            )),
+        ),
+
+        // Revolution Ric Flair
+        "Revolution Space Mountain Punch": (on_play: [DrawUpTo(who: You, n: 2)]),
+        "Revolution Nature Boy Chop": (on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)]),
+        "Revolution Stylin' Low Blow": (
+            reverses: Some((
+                targets: AnyOf([Antic, Trait(FollowUp)]),
+                effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, fortitude: -4))],
+            )),
+        ),
+        "Revolution Profilin' Shin Breaker": (on_play: [DrawUpTo(who: You, n: 4)]),
+        "Revolution Wheelin' Knee Drop": (momentum_when: Some(FortitudeAboveOpponent)),
+        // The new Superstar Ability (changing his F:0 Reversals' targets) is not supported yet; the no-op
+        // DrawSegment(1) still replaces his printed ability.
+        "Revolution The Founder of the Four Horsemen": (on_play: [Draw(who: You, n: 2)], value_bonus: 4, storyline: [DrawSegment(1)]),
+        "Revolution I'm Going-Whoooo!-Up Top!": (
+            on_play: [
+                OpponentChooses(
+                    n: 1,
+                    options: [
+                        [Discard(who: Opponent, n: 4, pick: Random), Mill(who: Opponent, n: 4), DiscardThis, EndTurn],
+                        [
+                            MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, top: true),
+                            Search(filter: Any, up_to: true),
+                        ],
+                    ],
+                ),
+            ],
+        ),
+        "Revolution Still the Man": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Extreme), Trait(Mean), Trait(Momentum)]),
+                fortitude_when: Some((Not(SuperstarValueAtMostOpponent), 12)),
+            )),
+        ),
+        "Revolution Flair's Figure Four Finale": (
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen), RingsideToArsenal(who: You, n: 2, up_to: true)],
+        ),
+
+        // Revolution Shawn Michaels
+        // Being chosen instead when the opponent picks a card to discard from his hand is not supported yet.
+        "Revolution Iconic Kip-up": (
+            reverses: Some((targets: AnyOf([Trait(Momentum), Maneuver]), overturned_only: true)),
+        ),
+        "Revolution Triumph": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true),
+                Boost((applies_to: Maneuver, duration: NextCard, momentum: true)),
+            ],
+        ),
+        "Revolution H-B-K": (
+            reverses: Some((
+                targets: Antic,
+                effects: [
+                    HandToArsenalBottom(who: You, n: 1),
+                    MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true),
+                    MoveCards(who: You, from: Ring, to: Arsenal, n: 1, up_to: true, bottom: true),
+                ],
+            )),
+        ),
+        "Revolution Headliner Clothesline": (on_play: [RingsideToArsenal(who: You, n: 1, up_to: true)]),
+        "Revolution Sexy Boy Atomic Drop": (
+            bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10), fortitude: -20)],
+            on_play: [RingsideToHand(who: You, n: 3, up_to: true, filter: Some(Antic))],
+        ),
+        // The new Superstar Ability (his first Antic each turn is -1F per Maneuver in his Ringside) is not
+        // supported yet; the no-op DrawSegment(1) still replaces his printed ability.
+        "Revolution For Many Are Called But Few Are Chosen": (
+            on_play: [Draw(who: You, n: 2)],
+            value_bonus: 2,
+            storyline: [DrawSegment(1)],
+        ),
+        "Revolution Main Event Flying Forearm": (on_play: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Maneuver))]),
+        "Revolution Heartbreak Elbow Drop": (on_play: [MillChosen(who: Opponent, n: 1)]),
+        "Revolution Showstopper Sweet Chin Music": (on_play: [RemoveFromRing(who: Opponent, n: 3, filter: Any)]),
+
+        // Revolution Stone Cold Steve Austin
+        "Revolution Arrive - Raise Hell - Leave!": (
+            on_play: [Discard(who: You, n: 3, pick: Chosen), Boost((applies_to: Any, duration: NextCard, fortitude: -16))],
+        ),
+        "Revolution Strike of the Rattlesnake": (on_play: [DrawUpTo(who: You, n: 1)]),
+        "Revolution A Decade of Whoopin’ A%$": (
+            requires: Some(OpponentHandLarger),
+            on_play: [Boost((applies_to: Maneuver, duration: NextMatching, momentum: true, damage: 10))],
+        ),
+        // Approximation: after overturning, he takes any 1 non-Hybrid Maneuver from his Ringside pile.
+        "Revolution The Toughest S.O.B.": (
+            reverses: Some((
+                targets: AnyOf([Trait(Mean), All([Trait(MidMatch), Maneuver])]),
+                effects: [
+                    Optional([
+                        MillUntil(who: You, filter: All([Not(Hybrid), Maneuver])),
+                        RingsideToHand(who: You, n: 1, filter: Some(All([Not(Hybrid), Maneuver]))),
+                    ]),
+                ],
+            )),
+        ),
+        "Revolution Do I Have Your Attention...?": (
+            on_play: [
+                Discard(who: You, n: 1, pick: Random),
+                Discard(who: Opponent, n: 1, pick: Random),
+                RingsideToHand(who: You, n: 3, up_to: true, filter: Some(Not(Trait(Unique)))),
+            ],
+        ),
+        "Revolution The Texas Rattlesnake": (
+            on_play: [Draw(who: You, n: 4)],
+            value_bonus: 1,
+            storyline: [
+                OnPlayMatching(
+                    filter: Maneuver,
+                    effects: [
+                        If(
+                            condition: AnyOf([
+                                CountAtLeast(count: YourRingMatching(Target("head")), n: 6),
+                                CountAtLeast(count: YourRingMatching(Target("neck")), n: 6),
+                                CountAtLeast(count: YourRingMatching(Target("chest")), n: 6),
+                                CountAtLeast(count: YourRingMatching(Target("back")), n: 6),
+                                CountAtLeast(count: YourRingMatching(Target("arm")), n: 6),
+                                CountAtLeast(count: YourRingMatching(Target("leg")), n: 6),
+                            ]),
+                            effects: [
+                                RemoveFromRing(who: Opponent, n: 1, filter: Any),
+                                If(
+                                    condition: CountAtMost(count: OpponentRingMatching(Not(Keyword("Permanent"))), n: 0),
+                                    effects: [WinByPin],
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        "Revolution The Stone Cold Truth": (
+            reverses: Some((
+                targets: Antic,
+                effects: [
+                    If(
+                        condition: InYourRing(Title("Revolution Do I Have Your Attention...?")),
+                        effects: [RemoveFromRing(who: Opponent, n: 3, filter: Any), RingsideToArsenal(who: You, n: 3, up_to: true)],
+                    ),
+                ],
+            )),
+        ),
+        "Revolution Austin 3:16 Says...": (
+            reverses: Some((targets: All([Trait(Colossal), EarlierThisTurn(filter: Any, n: 1)]))),
+        ),
+        "Revolution The Adjudicator Stunner": (bonuses: [(when: After(TitleContains("kick")), fortitude: -16)]),
+
+        // Revolution The Great Khali
+        "Revolution Punjabi Warrior": (
+            reverses: Some((
+                targets: EarlierThisTurn(filter: Any, n: 1),
+                effects: [Boost((applies_to: Maneuver, duration: NextTurnFirstCard, fortitude: -7))],
+            )),
+        ),
+        "Revolution The Earth Trembles at My Gaze": (
+            on_play: [LookAtHand(who: Opponent), RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Not(Trait(Unique))))],
+        ),
+        "Revolution Stare Into the Abyss": (
+            on_play: [
+                If(condition: OpponentHandLarger, effects: [Discard(who: Opponent, n: 5, pick: Chosen)]),
+                If(condition: HandLargerBy(1), effects: [Search(filter: Any, up_to: true)]),
+            ],
+        ),
+        "Revolution Khali's Big Boot": (on_play: [RingsideToArsenal(who: You, n: 4, up_to: true)]),
+        "Revolution Arms Raised in Triumph": (
+            reverses: Some((
+                targets: AnyOf([Antic, ManeuverType(Extreme)]),
+                fortitude_when: Some((FortitudeBelowOpponent, 0)),
+                effects: [Mill(who: Opponent, n: 7)],
+            )),
+        ),
+        // "You cannot play non-Unique F:0 Reversals from your hand" is not supported yet.
+        "Revolution Tiger Tamer": (
+            on_play: [Draw(who: You, n: 2)],
+            storyline: [
+                Activated(
+                    cost: [DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen)],
+                    effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, filter: Some(Not(Trait(Unique))), bottom: true)],
+                ),
+            ],
+        ),
+        "Revolution The Hand of Fate": (
+            on_play: [
+                Counted(
+                    count: Minus(OpponentHandSize, Const(2)),
+                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 0, pick: Random, bottom: true),
+                ),
+            ],
+        ),
+        "Revolution Indian Choke Drop": (
+            on_play: [Counted(count: YourRingTargets, effect: RemoveFromRing(who: Opponent, n: 0, filter: Any))],
+        ),
+        "Revolution Pinned... By One Foot": (momentum_when: Some(FortitudeAboveOpponent), on_play: [WinByPin]),
+
+        // Revolution Umaga
+        "Revolution The Samoan Wrecking Machine": (on_play: [Search(filter: Maneuver, up_to: true)]),
+        "Revolution The Samoan Scream": (
+            reverses: Some((
+                targets: Antic,
+                effects: [If(condition: FortitudeBelowOpponent, effects: [RemoveFromRing(who: Opponent, n: 1, filter: Not(Trait(Unique)))])],
+            )),
+        ),
+        "Revolution The Samoan Bulldozer": (),
+        "Revolution The Samoan Diving Head Butt": (on_play: [Boost((applies_to: Any, duration: NextCard, fortitude: -35))]),
+        "Revolution The Samoan Banzai Drop": (on_play: [Discard(who: Opponent, n: 4, pick: Chosen)]),
+        "Revolution Vince McMahon's Billion Dollar Representative": (
+            value_bonus: 5,
+            storyline: [
+                OnOpponentReverses([
+                    If(
+                        condition: All([OpponentReversed(Trait(Mean)), OpponentReversedFrom([Backlash, Arsenal])]),
+                        effects: [Counted(count: YourRingTargets, effect: DrawUpTo(who: You, n: 0))],
+                    ),
+                ]),
+            ],
+        ),
+        "Revolution Armando Alejandro Estrada: 'For Samoa!'": (
+            on_play: [RingsideToHand(who: You, n: 2, up_to: true), Boost((applies_to: Any, duration: NextCard, momentum: true))],
+        ),
+        "Revolution The Samoan Wrecking Ball": (
+            on_play: [Counted(count: YourRingSize, effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+        ),
+        "Revolution The Samoan Spike": (momentum_when: Some(FortitudeAboveOpponent)),
+
+        // Revolution Undertaker
+        "Revolution The End": (
+            reverses: Some((
+                targets: All([
+                    AnyOf([ManeuverType(Assault), ManeuverType(Hold), ManeuverType(Throw), ManeuverType(Extreme)]),
+                    Not(EarlierThisTurn(filter: Any, n: 1)),
+                ]),
+                requires: Some(OpponentHandLarger),
+                effects: [DrawUpTo(who: You, n: 4)],
+            )),
+        ),
+        "Revolution Deadman's Big Boot": (on_play: [Search(filter: Not(Trait(Unique)), up_to: true)]),
+        "Revolution Old School!": (
+            on_play: [RemoveFromRing(who: Opponent, n: 2, filter: AnyOf([Maneuver, Reversal, Antic, Action]))],
+        ),
+        "Revolution The Phenom's Streak": (
+            on_play: [Counted(count: Minus(Const(15), OpponentValueTimes(1)), effect: Mill(who: Opponent, n: 0))],
+        ),
+        "Revolution Demon of Death Valley's Chokeslam": (on_play: [RingsideToArsenal(who: You, n: 15, up_to: true)]),
+        // Approximation: "the first printed Mean of each turn" is any Mean played before another Mean this turn.
+        "Revolution The Conscience of the WWE": (
+            on_play: [Draw(who: You, n: 3)],
+            storyline: [
+                CannotBeReversedBy(
+                    played: All([Trait(Mean), Not(EarlierThisTurn(filter: Trait(Mean), n: 1))]),
+                    reversal: FortitudeAtMost(0),
+                ),
+                Activated(
+                    once_per_game: true,
+                    cost: [Counted(count: HandSize, effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, bottom: true))],
+                    effects: [
+                        RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Assault))),
+                        RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Hold))),
+                        RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Throw))),
+                        RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Reversal)),
+                    ],
+                ),
+            ],
+        ),
+        "Revolution The Lord of Darkness": (
+            on_play: [
+                Choice([
+                    [],
+                    [Mill(who: You, n: 1), RingsideToHand(who: You, n: 1, up_to: true)],
+                    [Mill(who: You, n: 2), RingsideToHand(who: You, n: 2, up_to: true)],
+                    [Mill(who: You, n: 3), RingsideToHand(who: You, n: 3, up_to: true)],
+                    [Mill(who: You, n: 4), RingsideToHand(who: You, n: 4, up_to: true)],
+                    [Mill(who: You, n: 5), RingsideToHand(who: You, n: 5, up_to: true)],
+                    [Mill(who: You, n: 6), RingsideToHand(who: You, n: 6, up_to: true)],
+                ]),
+            ],
+        ),
+        // Returning to hand when overturned is not supported yet.
+        "Revolution Red Devil's Snake Eyes": (),
+        "Revolution Tombstone Piledriver": (
+            on_play: [
+                Optional([
+                    Counted(count: HandSize, effect: MoveCards(who: You, from: Hand, to: Arsenal, n: 0, bottom: true)),
+                    DiscardAll(who: Opponent, filter: Any),
+                ]),
+            ],
+        ),
+    },
+)

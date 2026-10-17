@@ -151,6 +151,13 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   revelarlas (GMs y Divas como Eric Bischoff, Stephanie McMahon, Stacy Keibler o Paul Heyman) eligen 1 Enforcer antes
   de la partida, que suma a su mano inicial, su Superstar Value y su habilidad, y algunas cartas cambian de Enforcer
   (por ejemplo You're Fired! y Suplex into the Ring).
+- Sets Revolution (24-26): cartas Antic (solo en tu turno, las Reversals de Action no las paran), maniobras Throw,
+  Hold, Assault, Trademark y Extreme con sus tamaños Core, Mean y Colossal, Momentum (solo lo revierten las cartas que
+  revierten Momentum), Follow-up (solo después del tipo de carta indicado, sin límite de copias si no es Unique),
+  Targets, Storylines (reemplazan la Superstar Ability mientras están en el Ring) y Pre-match Corner y Faction. El
+  formato Revolution se elige en el menú (o `--revolution` en el CLI): solo cartas Revolution, Backlash de 6 Pre-match y
+  6 Mid-match, máximo 3 de cada en el Ring, manos antes del Pre-match y regla de agresión (si terminas el turno sin
+  intentar una maniobra, volteas 6 cartas).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -169,13 +176,12 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   el daño (por ejemplo, Manager Interferes roba 1 en los dos casos).
 - Una carta híbrida jugada como Acción no hace daño (Chop, Undertaker's Tombstone Piledriver).
 - Jockeying for Position: el +4D o el +8F se elige al jugar la carta.
-- Disqualification! solo revierte maniobras HEEL; revertir un Reversal todavía no existe en el motor.
+- Disqualification! solo revierte maniobras HEEL.
 
 ## Pendiente
 
-Volley, Enforcers, Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team,
-Trip, Partner Interference y la parte de compañero de Combination Attack), revertir Reversals, y modificadores
-de Superstar Value durante el Pre-match.
+Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team, Trip, Partner
+Interference y la parte de compañero de Combination Attack), los sets Virtual (27-51), Promos y Prize Cards.
 
 Las cartas de cada set que todavía no se pueden jugar o que se juegan simplificadas están en
 [docs/pendiente.md](docs/pendiente.md).

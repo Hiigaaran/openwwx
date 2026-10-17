@@ -36,6 +36,8 @@ const SET: &str = r#"(
             damage: 0, script: (storyline: [ReduceDamage(2)])),
         (id: "r/chain", title: "Revolution Chain", kinds: [Maneuver(Hold)], fortitude: 0, damage: 1,
             traits: [Core, FollowUp], script: (play_after: Some(Maneuver))),
+        (id: "r/eye-poke", title: "Revolution Eye Poke", kinds: [Maneuver(Assault), Antic], fortitude: 0, damage: 2,
+            script: (on_play: [Mill(who: Opponent, n: 1)], as_action: Some((on_play: [Draw(who: You, n: 1)])))),
         (id: "r/old-card", title: "Old Card", kinds: [Action], fortitude: 0, damage: 0),
     ],
 )"#;
@@ -219,4 +221,16 @@ fn revolution_ring_holds_three_pre_match_cards() {
     let played = play_pre_match(&e, &mut s);
     assert_eq!(played, 3);
     assert_eq!(s.player(P1).ring.len(), 3);
+}
+
+#[test]
+fn a_maneuver_antic_hybrid_played_as_antic_uses_its_antic_text() {
+    let e = engine();
+    let mut s = start(&e, &["eye-poke"], &[]);
+    let card = in_hand(&e, &s, P1, "eye-poke");
+    let hand = s.player(P1).hand.len();
+    apply(&e, &mut s, P1, Action::PlayCard { card, kind: CardKind::Antic });
+    no_reversal(&e, &mut s);
+    assert_eq!(s.player(P1).hand.len(), hand, "played 1, drew 1");
+    assert_eq!(s.player(P2).ringside.len(), 0, "no damage and no Assault text");
 }
