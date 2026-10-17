@@ -118,7 +118,16 @@ fn user_sets_every_card_in_random_piles() {
                 backlash.extend((0..10).map(|_| list.choose(rng).unwrap().clone()));
             }
         }
-        let backstage = rawdeal_cards::backstage(db, db.superstar(db.superstar_by_id(star).unwrap()));
+        let mut backstage = rawdeal_cards::backstage(db, db.superstar(db.superstar_by_id(star).unwrap()));
+        let extra = pool(&|c| c.kinds.contains(&rawdeal_core::CardKind::Backstage));
+        if !extra.is_empty() {
+            for _ in 0..3 {
+                let card = extra.choose(rng).unwrap().clone();
+                if !backstage.contains(&card) {
+                    backstage.push(card);
+                }
+            }
+        }
         DeckList { superstar: star.to_string(), arsenal, backlash, backstage }
     };
     let mut played = std::collections::BTreeSet::new();
@@ -131,10 +140,11 @@ fn user_sets_every_card_in_random_piles() {
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let a = stars.choose(&mut rng).unwrap().clone();
         let b = stars.choose(&mut rng).unwrap().clone();
-        let mode = match seed % 3 {
+        let mode = match seed % 4 {
             0 => Mode::QuickStart,
             1 => Mode::Advanced,
-            _ => Mode::Revolution,
+            2 => Mode::Revolution,
+            _ => Mode::Virtual,
         };
         let setup = GameSetup {
             decks: [pile(&a, &mut rng), pile(&b, &mut rng)],

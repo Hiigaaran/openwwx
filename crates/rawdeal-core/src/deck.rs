@@ -78,6 +78,9 @@ const CONFLICTS: [(Trait, Trait); 3] =
     [(Trait::Face, Trait::Heel), (Trait::Raw, Trait::SmackDown), (Trait::FanFavorite, Trait::Cheater)];
 
 /// Returns every rule the deck breaks; empty means legal.
+/// Virtual: Backlash limits per kind.
+pub const VIRTUAL_BACKLASH_MAX_PER_KIND: usize = 12;
+
 /// Revolution format: Backlash limits per kind.
 pub const REVOLUTION_BACKLASH_MAX_PER_KIND: usize = 6;
 
@@ -92,6 +95,14 @@ pub fn is_revolution(title: &str) -> bool {
 /// Pre-match and 6 Mid-match cards.
 pub fn validate_deck_in(db: &CardDb, deck: &DeckList, mode: crate::state::Mode) -> Vec<DeckProblem> {
     let mut problems = validate_deck(db, deck);
+    if mode == crate::state::Mode::Virtual {
+        // Virtual Backlash decks hold up to 12 Pre-match and 12 Mid-match cards.
+        problems.retain(|p| match p {
+            DeckProblem::BacklashTooLarge(n) => *n > 2 * VIRTUAL_BACKLASH_MAX_PER_KIND,
+            DeckProblem::TooManyPreMatch(n) | DeckProblem::TooManyMidMatch(n) => *n > VIRTUAL_BACKLASH_MAX_PER_KIND,
+            _ => true,
+        });
+    }
     if mode != crate::state::Mode::Revolution {
         return problems;
     }
@@ -161,9 +172,21 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
             problems.push(DeckProblem::Backstage { card: id.clone() });
         }
     }
+    // Backstage cards follow their own packing text and Superstar logo.
+    let packable_backstage = |def: &CardDef| {
+        let Some(s) = superstar else { return true };
+        let named = |names: &[String]| names.iter().any(|n| s.is(n));
+        (def.script.only_packed_by.is_empty() || named(&def.script.only_packed_by))
+            && !named(&def.script.not_packed_by)
+            && (def.superstar.is_none() || def.logos().any(|l| may_pack_logo(s, l)))
+    };
     for (i, id) in deck.backstage.iter().enumerate() {
         match db.card_by_id(id).map(|c| db.card(c)) {
-            Some(def) if def.is_backstage() && reveals && !deck.backstage[..i].contains(id) => {}
+            Some(def)
+                if def.is_backstage()
+                    && (reveals || !def.kinds.contains(&CardKind::Enforcer))
+                    && !deck.backstage[..i].contains(id)
+                    && packable_backstage(def) => {}
             Some(_) => problems.push(DeckProblem::Backstage { card: id.clone() }),
             None => problems.push(DeckProblem::UnknownCard(id.clone())),
         }

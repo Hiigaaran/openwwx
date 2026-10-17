@@ -86,9 +86,12 @@ pub struct PlayerState {
     /// Cards put under other cards (see `CardInstance::host`).
     #[serde(default)]
     pub under: Vec<CardId>,
-    /// Enforcer cards packed in the Backstage Area (public).
+    /// Enforcer and Backstage cards packed in the Backstage Area (public).
     #[serde(default)]
     pub backstage: Vec<DefIdx>,
+    /// Backstage cards of `backstage` that are hidden (the others are revealed).
+    #[serde(default)]
+    pub hidden: Vec<DefIdx>,
     /// The chosen Enforcer: an Enforcer card of `backstage` and the index of
     /// the Enforcer on it.
     #[serde(default)]
@@ -217,12 +220,15 @@ pub enum Mode {
     /// in the Ring, hands drawn before the Pre-match phase, and the Aggression
     /// rule (end a turn without trying a maneuver: overturn 6 cards).
     Revolution,
+    /// Advanced rules with the Virtual limits: Backlash of up to 12 Pre-match
+    /// and 12 Mid-match cards, at most 6 of each in the Ring.
+    Virtual,
 }
 
 impl Mode {
     /// Pre-match phase and Backlash decks.
     pub fn is_advanced(self) -> bool {
-        matches!(self, Mode::Advanced | Mode::Revolution)
+        matches!(self, Mode::Advanced | Mode::Revolution | Mode::Virtual)
     }
 }
 
@@ -263,6 +269,9 @@ pub struct GameState {
     /// Cards the active player played this turn, in order.
     #[serde(default)]
     pub played_this_turn: Vec<Played>,
+    /// Backstage cards whose ability was used this turn.
+    #[serde(default)]
+    pub backstage_used: Vec<(PlayerId, crate::db::DefIdx)>,
     /// Revolution: the Aggression rule was already checked this turn.
     #[serde(default)]
     pub aggression_checked: bool,

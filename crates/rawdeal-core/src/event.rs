@@ -15,6 +15,11 @@ pub enum Event {
     },
     PreMatchEnded,
     /// `player`'s Superstar now has the Enforcer `index` of the Enforcer card `card`.
+    /// `player` hid a Backstage card to use it.
+    BackstageHidden {
+        player: PlayerId,
+        card: crate::db::DefIdx,
+    },
     EnforcerChosen {
         player: PlayerId,
         card: DefIdx,

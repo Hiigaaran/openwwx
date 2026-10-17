@@ -13,9 +13,11 @@ pub fn kind(k: CardKind) -> String {
         CardKind::Reversal => "Reversal".into(),
         CardKind::Enforcer => "Enforcer".into(),
         CardKind::Antic => "Antic".into(),
+        CardKind::Backstage => "Backstage".into(),
         CardKind::PreMatch(t) => format!(
             "Pre-match {}",
             match t {
+                PreMatchType::Allegiance => "Allegiance",
                 PreMatchType::Venue => "Venue",
                 PreMatchType::Feud => "Feud",
                 PreMatchType::Stipulation => "Stipulation",
@@ -425,6 +427,9 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
             say(*p, "Rechazas el Count Out y vas por el pin.".into(), "rechaza el Count Out y va por el pin.".into())
         }
         Event::TurnEnded { player: p } => say(*p, "Terminas el turno.".into(), "termina el turno.".into()),
+        Event::BackstageHidden { player: p, .. } => {
+            say(*p, "Ocultas una carta del Backstage.".into(), "oculta una carta del Backstage.".into())
+        }
         Event::EnforcerChosen { player: p, .. } => say(*p, "Eliges tu Enforcer.".into(), "elige su Enforcer.".into()),
         Event::TurnContinues { player: p } => say(*p, "Sigues con tu turno.".into(), "sigue con su turno.".into()),
         Event::Aggression { player: p } => say(

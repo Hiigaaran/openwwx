@@ -9,7 +9,8 @@ use eframe::egui::{
 };
 use rawdeal_ai::{Bot, RandomBot};
 use rawdeal_core::{
-    Action, CardDb, CardDef, CardId, Decision, DecisionKind, Engine, Event, GameState, PlayerId, PlayerView, Zone,
+    Action, CardDb, CardDef, CardId, CardKind, Decision, DecisionKind, Engine, Event, GameState, PlayerId, PlayerView,
+    Zone,
 };
 
 use crate::anim::{Banner, Display, Float, Fly, Layout, Step, ease};
@@ -504,6 +505,22 @@ impl Match {
                     e.hand_size, e.superstar_value, e.text
                 ));
             }
+            let backstage: Vec<_> = info
+                .backstage
+                .iter()
+                .filter(|(c, _)| self.db().card(*c).kinds.contains(&CardKind::Backstage))
+                .collect();
+            if !backstage.is_empty() {
+                let lines: Vec<String> = backstage
+                    .iter()
+                    .map(|(c, hidden)| {
+                        let def = self.db().card(*c);
+                        let state = if *hidden { " (oculta)" } else { "" };
+                        format!("{}{state}: {}", def.title, def.text)
+                    })
+                    .collect();
+                ui.label(format!("Backstage: {}", backstage.len())).on_hover_text(lines.join("\n\n"));
+            }
             ui.separator();
             ui.label(RichText::new(format!("Fortitude {fortitude}")).color(Color32::from_rgb(255, 210, 90)));
             ui.separator();
@@ -649,6 +666,12 @@ impl Match {
                             self.state.card(*card).host.map(|h| self.def_of(h).title.clone()).unwrap_or_default();
                         let label = format!("Jugar {} de debajo de {} ({})", def.title, host, text::kind(*kind));
                         if ui.button(label).on_hover_text(&def.text).clicked() {
+                            chosen = Some(a.clone());
+                        }
+                    }
+                    if let Action::UseBackstageCard { card } = a {
+                        let def = self.db().card(*card);
+                        if ui.button(format!("Usar {} (Backstage)", def.title)).on_hover_text(&def.text).clicked() {
                             chosen = Some(a.clone());
                         }
                     }

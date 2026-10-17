@@ -110,7 +110,11 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let mut type_traits = Vec::new();
         let mut follow_up = None;
         // "Strike + Grapple" can be played as either type.
+        let mut type_words = Vec::new();
         for part in card_type.split(" / ").flat_map(|p| p.split(" + ")).map(str::trim) {
+            // Virtual sets write "Pre-match: Event" and "Mid-match: Antic".
+            let part = part.replacen("Pre-match:", "Pre-match", 1).replacen("Mid-match:", "Mid-match", 1);
+            let part = part.trim();
             let part = match part.strip_prefix("Mid-match ") {
                 Some(rest) => {
                     mid_match = true;
@@ -130,6 +134,7 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                         }
                     }
                     follow_up = follow_up.or(parsed.follow_up);
+                    type_words.extend(parsed.words);
                 }
                 None => unknown = Some(part.to_string()),
             }
@@ -139,7 +144,19 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
             continue;
         }
 
-        let (mut traits, other_traits) = parse_traits(&prop("Traits"));
+        let (mut traits, mut other_traits) = parse_traits(&prop("Traits"));
+        // Traits written on the type line: "Strike: Heel", "Action: Movie".
+        let (known, other) = parse_traits(&type_words.join(","));
+        for t in known {
+            if !traits.contains(&t) {
+                traits.push(t);
+            }
+        }
+        for t in other {
+            if !other_traits.iter().any(|o| o.eq_ignore_ascii_case(&t)) {
+                other_traits.push(t);
+            }
+        }
         if mid_match && !traits.contains(&Trait::MidMatch) {
             traits.push(Trait::MidMatch);
         }
@@ -283,11 +300,39 @@ struct ParsedKind {
     traits: Vec<Trait>,
     /// "Follow-up: X": what must have been played right before.
     follow_up: Option<CardFilter>,
+    /// Printed traits written after the type ("Strike: Heel", "Action: Movie").
+    words: Vec<String>,
 }
 
 fn parse_kind(part: &str) -> Option<ParsedKind> {
-    let simple = |kind| Some(ParsedKind { kind, reversal: None, traits: vec![], follow_up: None });
+    let simple = |kind| Some(ParsedKind { kind, reversal: None, traits: vec![], follow_up: None, words: vec![] });
     let pre = |t| simple(CardKind::PreMatch(t));
+    // Virtual types.
+    match part {
+        "TMF" => return simple(CardKind::Maneuver(ManeuverType::TrademarkFinisher)),
+        "Backstage Card" => return simple(CardKind::Backstage),
+        "Storyline" => return pre(PreMatchType::Storyline),
+        "Pre-match Pay-Per-View Event" => {
+            let mut p = pre(PreMatchType::Event)?;
+            p.words.push("Pay-Per-View".into());
+            return Some(p);
+        }
+        _ => {}
+    }
+    if part.starts_with("Pre-match Allegiance") || part.starts_with("Pre-match Allegience") {
+        return pre(PreMatchType::Allegiance);
+    }
+    // A classic type followed by printed traits: "Strike: Heel", "Action: Movie",
+    // "Backstage Card: PRO", "Pre-match Event: Heat".
+    if let Some((head, rest)) = part.split_once(':')
+        && !head.starts_with("Reversal")
+        && !matches!(head.trim(), "Throw" | "Hold" | "Assault" | "Trademark" | "Extreme" | "Antic" | "Maneuver")
+        && let Some(mut p) = parse_kind(head.trim())
+        && p.reversal.is_none()
+    {
+        p.words.extend(rest.split(':').map(|w| w.trim().to_string()).filter(|w| !w.is_empty()));
+        return Some(p);
+    }
     match part {
         "Strike" => return simple(CardKind::Maneuver(ManeuverType::Strike)),
         "Grapple" => return simple(CardKind::Maneuver(ManeuverType::Grapple)),
@@ -321,7 +366,13 @@ fn parse_kind(part: &str) -> Option<ParsedKind> {
                 _ => parse_card_expr(rest).map_or(ReversalType::Special, ReversalType::Filter),
             }
         };
-        return Some(ParsedKind { kind: CardKind::Reversal, reversal: Some(rev), traits: vec![], follow_up: None });
+        return Some(ParsedKind {
+            kind: CardKind::Reversal,
+            reversal: Some(rev),
+            traits: vec![],
+            follow_up: None,
+            words: vec![],
+        });
     }
 
     // Revolution: "Trademark: Mean: Follow-up: Maneuver", "Antic: Momentum".
@@ -349,7 +400,7 @@ fn parse_kind(part: &str) -> Option<ParsedKind> {
             _ => return None,
         }
     }
-    Some(ParsedKind { kind, reversal: None, traits, follow_up })
+    Some(ParsedKind { kind, reversal: None, traits, follow_up, words: vec![] })
 }
 
 /// Reads a Revolution card description such as "Mean or Colossal",
@@ -434,6 +485,10 @@ fn parse_traits(traits: &str) -> (Vec<Trait>, Vec<String>) {
             "chain" => known.push(Trait::Chain),
             "irreversible" => known.push(Trait::Irreversible),
             "active" => known.push(Trait::Active),
+            "pay-per-view" | "pay-per-view event" => {
+                known.push(Trait::PayPerView);
+                other.push(t.to_string());
+            }
             // Also kept as text, so `Keyword("Fan Favorite")` filters still match.
             "fan favorite" | "cheater" | "universally unique" => {
                 known.push(match t.to_ascii_lowercase().as_str() {
@@ -706,5 +761,19 @@ mod tests {
             Some(F::All(vec![F::ManeuverType(ManeuverType::Hold), F::Trait(Trait::Mean)]))
         );
         assert_eq!(rev("Reversal: Maneuver with Target 'head' or 'leg'"), None);
+    }
+
+    #[test]
+    fn virtual_types() {
+        let p = parse_kind("Strike: Heel").unwrap();
+        assert_eq!((p.kind, p.words), (CardKind::Maneuver(ManeuverType::Strike), vec!["Heel".to_string()]));
+        assert_eq!(parse_kind("TMF").unwrap().kind, CardKind::Maneuver(ManeuverType::TrademarkFinisher));
+        assert_eq!(parse_kind("Backstage Card").unwrap().kind, CardKind::Backstage);
+        let p = parse_kind("Backstage Card: PRO").unwrap();
+        assert_eq!((p.kind, p.words), (CardKind::Backstage, vec!["PRO".to_string()]));
+        assert_eq!(parse_kind("Pre-match Allegiance: nWo").unwrap().kind, CardKind::PreMatch(PreMatchType::Allegiance));
+        let p = parse_kind("Pre-match Pay-Per-View Event").unwrap();
+        assert_eq!(p.kind, CardKind::PreMatch(PreMatchType::Event));
+        assert!(parse_kind("Maneuver: Special").is_none());
     }
 }

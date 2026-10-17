@@ -1,9 +1,10 @@
 //! Text-mode client: play against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced | --revolution] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced | --revolution | --virtual] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
 //!
 //! - `--advanced`: Pre-match phase and Backlash decks.
 //! - `--revolution`: Revolution format (Revolution cards only, Advanced rules).
+//! - `--virtual`: Advanced rules with the Virtual Backlash and Ring limits.
 //! - `--watch`: two bots play each other and the match log is printed.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
@@ -38,6 +39,8 @@ fn main() -> ExitCode {
     let watch = args.iter().any(|a| a == "--watch");
     let mode = if args.iter().any(|a| a == "--revolution") {
         Mode::Revolution
+    } else if args.iter().any(|a| a == "--virtual") {
+        Mode::Virtual
     } else if args.iter().any(|a| a == "--advanced") {
         Mode::Advanced
     } else {
@@ -177,6 +180,7 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
             format!("Use {}'s ability: {}", superstar.name, superstar.text)
         }
         Action::UseRingCard { card } => format!("Use {} in your Ring", name(engine, state, *card)),
+        Action::UseBackstageCard { card } => format!("Use {} in your Backstage Area", engine.db().card(*card).title),
         Action::Reverse { card } => format!("Reverse with {}", name(engine, state, *card)),
         Action::DeclineReversal => "Don't reverse".into(),
         Action::ReverseByVolley => "Reverse the Volley (remove random Ringside cards)".into(),

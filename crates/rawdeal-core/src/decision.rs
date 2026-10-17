@@ -112,6 +112,10 @@ pub enum Action {
     UseRingCard {
         card: CardId,
     },
+    /// Use the ability of a revealed card in your Backstage Area.
+    UseBackstageCard {
+        card: DefIdx,
+    },
     EndTurn,
     Reverse {
         card: CardId,

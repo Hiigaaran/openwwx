@@ -21,6 +21,9 @@ struct Settings {
     /// Revolution format: only Revolution cards (Advanced rules).
     #[serde(default)]
     revolution: bool,
+    /// Virtual limits (Advanced rules).
+    #[serde(default)]
+    virtual_rules: bool,
     #[serde(default)]
     speed: Speed,
 }
@@ -102,10 +105,14 @@ impl App {
     }
 
     fn mode(&self) -> Mode {
-        match (self.settings.revolution, self.settings.advanced) {
-            (true, _) => Mode::Revolution,
-            (false, true) => Mode::Advanced,
-            (false, false) => Mode::QuickStart,
+        if self.settings.revolution {
+            Mode::Revolution
+        } else if self.settings.virtual_rules {
+            Mode::Virtual
+        } else if self.settings.advanced {
+            Mode::Advanced
+        } else {
+            Mode::QuickStart
         }
     }
 
@@ -244,12 +251,26 @@ impl App {
             ui.label("Reglas:");
             ui.vertical(|ui| {
                 ui.add_enabled(
-                    !self.settings.revolution,
+                    !self.settings.revolution && !self.settings.virtual_rules,
                     egui::Checkbox::new(&mut self.settings.advanced, "Avanzadas (Pre-match y Backlash)"),
                 );
-                ui.checkbox(
-                    &mut self.settings.revolution,
-                    "Formato Revolution (solo cartas Revolution, reglas avanzadas)",
+                if ui
+                    .add_enabled(
+                        !self.settings.revolution,
+                        egui::Checkbox::new(&mut self.settings.virtual_rules, "Formato Virtual (reglas avanzadas)"),
+                    )
+                    .on_hover_text("Backlash de hasta 12 Pre-match y 12 Mid-match, máximo 6 de cada en el Ring.")
+                    .changed()
+                    && self.settings.virtual_rules
+                {
+                    self.settings.revolution = false;
+                }
+                ui.add_enabled(
+                    !self.settings.virtual_rules,
+                    egui::Checkbox::new(
+                        &mut self.settings.revolution,
+                        "Formato Revolution (solo cartas Revolution, reglas avanzadas)",
+                    ),
                 )
                 .on_hover_text(
                     "Backlash de hasta 6 Pre-match y 6 Mid-match, máximo 3 de cada en el Ring, \

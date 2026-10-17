@@ -504,20 +504,20 @@ fn pre_match_phase_in_order() {
     assert!(s.player(P1).hand.is_empty(), "hands are drawn after Pre-match");
 
     // Venue: P1 plays one, so P2 cannot (one Venue in all Rings) and is skipped.
-    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 0, .. })));
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 1, .. })));
     pre_match(&e, &mut s, P1, "arena");
     // Feud: both play.
-    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 1, .. })));
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 2, .. })));
     pre_match(&e, &mut s, P1, "bad-blood");
     pre_match(&e, &mut s, P2, "bad-blood");
     // Stipulation: P1 passes; P2 has none.
-    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 2, .. })));
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 3, .. })));
     e.apply(&mut s, P1, Action::Pass).unwrap();
     // Manager: P1 passes, P2 plays one and P1 discards at random (empty hand: nothing).
     e.apply(&mut s, P1, Action::Pass).unwrap();
     pre_match(&e, &mut s, P2, "manager");
     // Open step: Stipulations and Managers are no longer playable.
-    let (_, DecisionKind::PreMatch { step: 4, .. }) = waiting(&s) else { panic!("open step") };
+    let (_, DecisionKind::PreMatch { step: 5, .. }) = waiting(&s) else { panic!("open step") };
     let legal = e.legal_actions(&s, P1);
     let titles: Vec<&str> = legal
         .iter()
@@ -530,7 +530,7 @@ fn pre_match_phase_in_order() {
     pre_match(&e, &mut s, P2, "pyro");
     pre_match(&e, &mut s, P1, "pyro");
     // P2 has nothing left, so the engine passes for them.
-    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 4, passes: 1, .. })));
+    assert!(matches!(waiting(&s), (P1, DecisionKind::PreMatch { step: 5, passes: 1, .. })));
     let events = e.apply(&mut s, P1, Action::Pass).unwrap();
 
     // Two passes in a row end the phase: hands, then end-of-Pre-match effects.

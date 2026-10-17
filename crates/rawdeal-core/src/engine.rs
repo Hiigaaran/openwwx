@@ -194,12 +194,18 @@ pub(crate) enum Step {
     },
 }
 
-/// Pre-match card types for steps 0-3.
-const PRE_MATCH_STEPS: [PreMatchType; 4] =
-    [PreMatchType::Venue, PreMatchType::Feud, PreMatchType::Stipulation, PreMatchType::Manager];
-const OPEN_STEP: u8 = 4;
+/// Pre-match card types for steps 0-4.
+const PRE_MATCH_STEPS: [PreMatchType; 5] = [
+    PreMatchType::Allegiance,
+    PreMatchType::Venue,
+    PreMatchType::Feud,
+    PreMatchType::Stipulation,
+    PreMatchType::Manager,
+];
+const OPEN_STEP: u8 = 5;
 const RING_LIMIT: usize = 5;
 const REVOLUTION_RING_LIMIT: usize = 3;
+const VIRTUAL_RING_LIMIT: usize = 6;
 
 #[derive(Debug, Clone)]
 pub struct Engine {
@@ -250,7 +256,7 @@ impl Engine {
                 .map(|id| self.db.card_by_id(id).ok_or_else(|| SetupError::UnknownCard(id.clone())))
                 .collect::<Result<Vec<_>, _>>()?;
             let backlash = match setup.mode {
-                Mode::Advanced | Mode::Revolution => add(&deck.backlash, Zone::Backlash)?,
+                Mode::Advanced | Mode::Revolution | Mode::Virtual => add(&deck.backlash, Zone::Backlash)?,
                 Mode::QuickStart => vec![],
             };
             if setup.shuffle_arsenals {
@@ -267,6 +273,7 @@ impl Engine {
                 backlash,
                 removed: vec![],
                 under: vec![],
+                hidden: backstage.iter().copied().filter(|&c| self.db.card(c).script.starts_hidden).collect(),
                 backstage,
                 enforcer: None,
                 ability_used: false,
@@ -297,6 +304,7 @@ impl Engine {
             in_play_bottom: None,
             played_this_turn: vec![],
             aggression_checked: false,
+            backstage_used: vec![],
             reversed_last: [None; 2],
             reversed_from: [None; 2],
             heat_used: [false; 2],
@@ -408,6 +416,12 @@ impl Engine {
                         .filter(|&&card| self.can_use_ring_card(state, player, card))
                         .map(|&card| Action::UseRingCard { card }),
                 );
+                actions.extend(
+                    me.backstage
+                        .iter()
+                        .filter(|&&card| self.can_use_backstage_card(state, player, card))
+                        .map(|&card| Action::UseBackstageCard { card }),
+                );
                 actions.push(Action::EndTurn);
                 actions
             }
@@ -469,6 +483,7 @@ impl Engine {
             (DecisionKind::Main, Action::UseRingCard { card }) => {
                 (card.0 as usize) < state.cards.len() && self.can_use_ring_card(state, p, *card)
             }
+            (DecisionKind::Main, Action::UseBackstageCard { card }) => self.can_use_backstage_card(state, p, *card),
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 if (card.0 as usize) >= state.cards.len() {
                     return Err(RuleError::Illegal("no such card"));
@@ -535,6 +550,17 @@ impl Engine {
                 state.pending.push(Step::Main);
                 let all: Vec<Effect> = ability.cost.iter().chain(&ability.effects).cloned().collect();
                 schedule_effects(state, &all, p, Source::Card(card));
+            }
+            (DecisionKind::Main, Action::UseBackstageCard { card }) => {
+                let ability = self.db.card(card).script.backstage_ability.clone().expect("validated");
+                state.backstage_used.push((p, card));
+                if ability.sacrifice {
+                    state.player_mut(p).hidden.push(card);
+                    events.push(Event::BackstageHidden { player: p, card });
+                }
+                state.pending.push(Step::Main);
+                let all: Vec<Effect> = ability.cost.iter().chain(&ability.effects).cloned().collect();
+                schedule_effects(state, &all, p, Source::Superstar(p));
             }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 let pay_k = self.fortitude_payment(state, p, card, kind).unwrap_or(0);
@@ -908,7 +934,7 @@ impl Engine {
                         }
                         state.pending.push(Step::StartTurn);
                     }
-                    Mode::Advanced | Mode::Revolution => {
+                    Mode::Advanced | Mode::Revolution | Mode::Virtual => {
                         if state.mode == Mode::Revolution {
                             for p in [first, first.opponent()] {
                                 let n = self.hand_size(state, p);
@@ -934,6 +960,7 @@ impl Engine {
                 state.player_mut(p).ability_used = false;
                 state.played_this_turn.clear();
                 state.aggression_checked = false;
+                state.backstage_used.clear();
                 state.ring_used.clear();
                 state.heat_used = [false; 2];
                 state.volley_turn = state.volley_lock.take().filter(|&q| q == p);
@@ -2653,6 +2680,24 @@ impl Engine {
             && self.payable(state, player, &ability.cost)
     }
 
+    /// Can `player` use the ability of the revealed Backstage card `card` now?
+    pub fn can_use_backstage_card(&self, state: &GameState, player: PlayerId, card: DefIdx) -> bool {
+        let me = state.player(player);
+        let Some(ability) = self.db.card(card).script.backstage_ability.as_ref() else { return false };
+        state.active == player
+            && me.backstage.contains(&card)
+            && !me.hidden.contains(&card)
+            && !state.backstage_used.contains(&(player, card))
+            && ability.requires.as_ref().is_none_or(|c| self.holds(state, c, player))
+            && self.payable(state, player, &ability.cost)
+    }
+
+    /// `p`'s revealed Backstage cards.
+    fn revealed_backstage<'a>(&'a self, state: &'a GameState, p: PlayerId) -> impl Iterator<Item = DefIdx> + 'a {
+        let me = state.player(p);
+        me.backstage.iter().copied().filter(|c| !me.hidden.contains(c))
+    }
+
     /// Does a card in `viewer`'s Ring make their opponent play with the hand revealed?
     pub fn hand_revealed_to(&self, state: &GameState, viewer: PlayerId) -> bool {
         self.ring_cards(state, viewer).into_iter().any(|c| self.def(state, c).script.reveals_opponent_hand)
@@ -2784,6 +2829,10 @@ impl Engine {
                 let p = if *who == Who::You { player } else { player.opponent() };
                 state.player(p).enforcer.is_some()
             }
+            Condition::BackstageRevealed { who, filter } => {
+                let p = if *who == Who::You { player } else { player.opponent() };
+                self.revealed_backstage(state, p).any(|c| crate::deck::printed_match(self.db.card(c), filter))
+            }
             Condition::After(f) => state.last_played.is_some_and(|last| self.matches(state, f, last)),
             Condition::InYourRing(f) => self.count_in_ring_matching(state, player, f) > 0,
             Condition::FortitudeBelowOpponent => {
@@ -2903,7 +2952,11 @@ impl Engine {
         } as i16;
         let mine: i16 = self.ring_cards(state, p).iter().map(|&c| pick(self.def(state, c), true)).sum();
         let theirs: i16 = self.ring_cards(state, p.opponent()).iter().map(|&c| pick(self.def(state, c), false)).sum();
-        let base = if state.mode == Mode::Revolution { REVOLUTION_RING_LIMIT } else { RING_LIMIT };
+        let base = match state.mode {
+            Mode::Revolution => REVOLUTION_RING_LIMIT,
+            Mode::Virtual => VIRTUAL_RING_LIMIT,
+            _ => RING_LIMIT,
+        };
         (base as i16 + mine + theirs).max(0) as usize
     }
 
@@ -2971,8 +3024,10 @@ impl Engine {
             (def.kinds.contains(&CardKind::PreMatch(PreMatchType::Storyline)) && !def.script.storyline.is_empty())
                 .then_some(&def.script.storyline)
         });
+        let backstage: Vec<&Ability> =
+            self.revealed_backstage(state, p).flat_map(|c| &self.db.card(c).script.backstage_abilities).collect();
         if let Some(abilities) = storyline {
-            return abilities.iter().collect();
+            return abilities.iter().chain(backstage).collect();
         }
         let blanked = self.ring_cards(state, p.opponent()).iter().any(|&c| {
             let script = &self.def(state, c).script;
@@ -2980,10 +3035,10 @@ impl Engine {
                 && script.blanks_when.as_ref().is_none_or(|w| self.holds(state, w, p.opponent()))
         });
         if blanked {
-            return vec![];
+            return backstage;
         }
         let enforcer = self.enforcer(state, p).map(|e| e.abilities.as_slice()).unwrap_or_default();
-        self.db.superstar(state.player(p).superstar).abilities.iter().chain(enforcer).collect()
+        self.db.superstar(state.player(p).superstar).abilities.iter().chain(enforcer).chain(backstage).collect()
     }
 
     /// `p`'s chosen Enforcer.
@@ -3499,7 +3554,7 @@ impl Engine {
     }
 }
 
-/// The Pre-match step after `actor` played (or passed) in `step`. Steps 0-3
+/// The Pre-match step after `actor` played (or passed) in `step`. Steps 0-4
 /// give each player one turn, starter first; the open step alternates until
 /// both players pass in a row.
 fn next_pre_match(step: u8, actor: PlayerId, passes: u8, starter: PlayerId, played: bool) -> Step {

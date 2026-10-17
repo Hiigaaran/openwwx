@@ -30,15 +30,22 @@ pub enum CardKind {
     /// Revolution card played only on your own turn; Action reversals cannot
     /// reverse it.
     Antic,
+    /// Virtual Backstage card: packed in the Backstage Area, revealed at the
+    /// start of the match (unless [`CardScript::starts_hidden`]) and never
+    /// played. While revealed its [`CardScript::backstage_abilities`] add to the
+    /// Superstar's, and [`CardScript::backstage_ability`] can be used.
+    Backstage,
     /// Revealed from the Backstage Area at the start of the game; it is never
     /// played. Its Enforcers are in [`CardDef::enforcers`].
     Enforcer,
 }
 
-/// Pre-match cards. The first four are played in their own step, one each per
-/// player; Events and Objects are played afterwards.
+/// Pre-match cards. Allegiance (Virtual) and the next four are played in their
+/// own step, one each per player; Events and Objects are played afterwards.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PreMatchType {
+    /// Virtual: played in its own step before the Venue step.
+    Allegiance,
     Venue,
     Feud,
     Stipulation,
@@ -55,7 +62,7 @@ pub enum PreMatchType {
 impl CardKind {
     /// Kinds that can be played from hand during your own Main Segment.
     pub fn playable_on_own_turn(self) -> bool {
-        !matches!(self, CardKind::Reversal | CardKind::PreMatch(_) | CardKind::Enforcer)
+        !matches!(self, CardKind::Reversal | CardKind::PreMatch(_) | CardKind::Enforcer | CardKind::Backstage)
     }
 }
 
@@ -157,7 +164,7 @@ pub struct EnforcerDef {
 impl CardDef {
     /// Enforcer cards go in the Backstage Area, not in an Arsenal or Backlash deck.
     pub fn is_backstage(&self) -> bool {
-        self.kinds.contains(&CardKind::Enforcer)
+        self.kinds.contains(&CardKind::Enforcer) || self.kinds.contains(&CardKind::Backstage)
     }
 
     /// Does the card print the keyword trait `word` ("Heat", "Volley", ...)?
@@ -521,6 +528,18 @@ pub struct CardScript {
     /// The card has Momentum while this holds for the player playing it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub momentum_when: Option<Condition>,
+    /// Backstage cards: abilities added to your Superstar's while this card is
+    /// revealed in your Backstage Area.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub backstage_abilities: Vec<Ability>,
+    /// Backstage cards: something you may do once during each of your turns
+    /// while this card is revealed. `sacrifice` hides the card ("you may hide
+    /// this card and ...").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backstage_ability: Option<RingAbility>,
+    /// Backstage cards: hidden at the start of the match.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub starts_hidden: bool,
     /// Storyline cards: while in your Ring, these replace your Superstar Ability.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub storyline: Vec<Ability>,
@@ -621,6 +640,11 @@ pub enum Condition {
     Never,
     /// `who` has an Enforcer chosen.
     HasEnforcer(Who),
+    /// `who` has a revealed Backstage card matching the filter.
+    BackstageRevealed {
+        who: Who,
+        filter: CardFilter,
+    },
     /// The last card you successfully played this turn matches.
     After(CardFilter),
     /// A card in your Ring matches.

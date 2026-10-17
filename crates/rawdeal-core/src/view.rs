@@ -20,6 +20,9 @@ pub struct PublicPlayer {
     /// The chosen Enforcer (public): Enforcer card and index on it.
     #[serde(default)]
     pub enforcer: Option<(DefIdx, u8)>,
+    /// Backstage Area cards (public), with whether each is hidden.
+    #[serde(default)]
+    pub backstage: Vec<(DefIdx, bool)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -56,6 +59,7 @@ impl PlayerView {
                 ringside: ps.ringside.clone(),
                 fortitude: engine.fortitude(state, p),
                 enforcer: ps.enforcer,
+                backstage: ps.backstage.iter().map(|&c| (c, ps.hidden.contains(&c))).collect(),
             }
         });
         let hand = state.player(me).hand.clone();
