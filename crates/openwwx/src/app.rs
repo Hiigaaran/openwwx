@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use eframe::egui::{self, RichText, Ui};
-use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, GameSetup, validate_deck};
+use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, is_revolution, validate_deck_in};
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Leave, Match, Speed};
@@ -18,6 +18,9 @@ struct Settings {
     superstars: [Option<String>; 2],
     decks: [Option<PathBuf>; 2],
     advanced: bool,
+    /// Revolution format: only Revolution cards (Advanced rules).
+    #[serde(default)]
+    revolution: bool,
     #[serde(default)]
     speed: Speed,
 }
@@ -98,13 +101,21 @@ impl App {
         self.settings.cards_dir = None;
     }
 
+    fn mode(&self) -> Mode {
+        match (self.settings.revolution, self.settings.advanced) {
+            (true, _) => Mode::Revolution,
+            (false, true) => Mode::Advanced,
+            (false, false) => Mode::QuickStart,
+        }
+    }
+
     fn deck(&self, i: usize) -> Result<DeckList, String> {
         let star = self.settings.superstars[i].clone().ok_or("Elige una Superstar.")?;
         match &self.settings.decks[i] {
             Some(path) => {
                 let deck = rawdeal_cards::load_deck(path).map_err(|e| e.to_string())?;
-                let mut problems = validate_deck(&self.db, &deck);
-                if !self.settings.advanced {
+                let mut problems = validate_deck_in(&self.db, &deck, self.mode());
+                if !self.mode().is_advanced() {
                     problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
                 }
                 if problems.is_empty() {
@@ -113,7 +124,8 @@ impl App {
                     Err(format!("El mazo {} no es legal: {problems:?}", path.display()))
                 }
             }
-            None => rawdeal_cards::auto_deck(&self.db, &star).ok_or(format!("No se pudo armar un mazo para {star}.")),
+            None => rawdeal_cards::auto_deck_in(&self.db, &star, self.mode())
+                .ok_or(format!("No se pudo armar un mazo para {star}.")),
         }
     }
 
@@ -126,7 +138,7 @@ impl App {
                 return;
             }
         };
-        let setup = if self.settings.advanced { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
+        let setup = GameSetup { mode: self.mode(), ..GameSetup::standard(decks) };
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
@@ -197,6 +209,9 @@ impl App {
                         .unwrap_or_default();
                     egui::ComboBox::from_id_salt(("star", i)).width(240.0).selected_text(current).show_ui(ui, |ui| {
                         for s in self.db.superstars() {
+                            if self.settings.revolution && !is_revolution(&s.name) {
+                                continue;
+                            }
                             let picked = self.settings.superstars[i].as_deref() == Some(s.id.as_str());
                             if ui.selectable_label(picked, &s.name).on_hover_text(&s.text).clicked() {
                                 self.settings.superstars[i] = Some(s.id.clone());
@@ -227,7 +242,21 @@ impl App {
             }
 
             ui.label("Reglas:");
-            ui.checkbox(&mut self.settings.advanced, "Avanzadas (Pre-match y Backlash)");
+            ui.vertical(|ui| {
+                ui.add_enabled(
+                    !self.settings.revolution,
+                    egui::Checkbox::new(&mut self.settings.advanced, "Avanzadas (Pre-match y Backlash)"),
+                );
+                ui.checkbox(
+                    &mut self.settings.revolution,
+                    "Formato Revolution (solo cartas Revolution, reglas avanzadas)",
+                )
+                .on_hover_text(
+                    "Backlash de hasta 6 Pre-match y 6 Mid-match, máximo 3 de cada en el Ring, \
+                         manos antes del Pre-match y regla de agresión: si terminas el turno sin intentar \
+                         una maniobra, volteas 6 cartas.",
+                );
+            });
             ui.end_row();
         });
         ui.add_space(16.0);

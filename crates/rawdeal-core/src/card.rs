@@ -11,6 +11,12 @@ pub enum ManeuverType {
     Submission,
     HighRisk,
     TrademarkFinisher,
+    // Revolution maneuver types.
+    Throw,
+    Hold,
+    Assault,
+    Trademark,
+    Extreme,
 }
 
 /// One function a card can be played as. A hybrid card lists several.
@@ -21,6 +27,9 @@ pub enum CardKind {
     Reversal,
     /// Backlash card played only during the Pre-match phase.
     PreMatch(PreMatchType),
+    /// Revolution card played only on your own turn; Action reversals cannot
+    /// reverse it.
+    Antic,
     /// Revealed from the Backstage Area at the start of the game; it is never
     /// played. Its Enforcers are in [`CardDef::enforcers`].
     Enforcer,
@@ -36,6 +45,11 @@ pub enum PreMatchType {
     Manager,
     Event,
     Object,
+    // Revolution types, played with Events and Objects.
+    Corner,
+    Faction,
+    /// While in your Ring, its abilities replace your Superstar Ability.
+    Storyline,
 }
 
 impl CardKind {
@@ -73,6 +87,16 @@ pub enum Trait {
     Chain,
     /// Pay-Per-View Event: only one in your Ring.
     PayPerView,
+    /// Revolution maneuvers printed 7D or less.
+    Core,
+    /// Revolution maneuvers printed 8-14D.
+    Mean,
+    /// Revolution maneuvers printed 15D or more.
+    Colossal,
+    /// Can only be reversed by cards that specifically reverse Momentum.
+    Momentum,
+    /// Printed "Follow-up: X": non-Unique copies have no Arsenal limit.
+    FollowUp,
 }
 
 /// A printed card that can go in an Arsenal.
@@ -109,6 +133,9 @@ pub struct CardDef {
     /// The Enforcers printed on an Enforcer card.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enforcers: Vec<EnforcerDef>,
+    /// Printed Targets of a Revolution maneuver ("head", "leg"), lowercase.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
 }
 
 /// One Enforcer printed on an Enforcer card: once chosen, it adds to the
@@ -490,6 +517,12 @@ pub struct CardScript {
     /// While in your Ring: effects when a matching card is successfully played.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub in_ring_on_play: Vec<RingTrigger>,
+    /// The card has Momentum while this holds for the player playing it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub momentum_when: Option<Condition>,
+    /// Storyline cards: while in your Ring, these replace your Superstar Ability.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub storyline: Vec<Ability>,
 }
 
 /// Effects of a card in the Ring when someone successfully plays a card.
@@ -751,6 +784,9 @@ pub struct Boost {
     /// The card cannot be reversed from the Backlash deck.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub no_backlash_reversal: bool,
+    /// The card has Momentum.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub momentum: bool,
 }
 
 fn any_card() -> CardFilter {
@@ -913,6 +949,13 @@ pub enum CardFilter {
     SameTitleInRing,
     /// The card has a Superstar logo.
     SuperstarSpecific,
+    Antic,
+    /// A printed Target ("head", "leg"), ignoring case.
+    Target(String),
+    /// Any printed Target.
+    HasTarget,
+    /// A hybrid card: more than one printed card type.
+    Hybrid,
     /// The condition holds for the card's player (for printed cards: the effect's controller).
     Holds(Box<Condition>),
 }
@@ -994,6 +1037,8 @@ pub enum Count {
     OpponentReversedFortitude,
     /// Cards under your cards (all of them).
     YourUnderSize,
+    /// Different Targets among the cards in your Ring.
+    YourRingTargets,
 }
 
 /// What happens after burying a hand.

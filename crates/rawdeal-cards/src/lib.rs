@@ -88,8 +88,14 @@ pub fn load_deck(path: &Path) -> Result<DeckList, LoadError> {
 /// filled up with Set-Up cards. Returns `None` if 60 cards cannot be reached.
 /// Meant for trying out a card set, not for good play.
 pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
+    auto_deck_in(db, superstar, rawdeal_core::Mode::QuickStart)
+}
+
+/// [`auto_deck`] legal in `mode` (the Revolution format only uses Revolution cards).
+pub fn auto_deck_in(db: &CardDb, superstar: &str, mode: rawdeal_core::Mode) -> Option<DeckList> {
     use rawdeal_core::Trait;
     let star = db.superstar(db.superstar_by_id(superstar)?);
+    let revolution = mode == rawdeal_core::Mode::Revolution;
     let named = |names: &[String]| names.iter().any(|n| n.eq_ignore_ascii_case(&star.name));
     let packable = |c: &CardDef| {
         (c.script.only_packed_by.is_empty() || named(&c.script.only_packed_by))
@@ -102,7 +108,8 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
             })
     };
     let usable = |c: &&CardDef| {
-        !c.is_backlash()
+        (!revolution || rawdeal_core::is_revolution(&c.title))
+            && !c.is_backlash()
             && !c.is_backstage()
             && packable(c)
             && c.other_traits.iter().all(|t| !t.eq_ignore_ascii_case("tag"))
@@ -136,7 +143,7 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
         }
         let deck =
             DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![], backstage: backstage(db, star) };
-        if rawdeal_core::validate_deck(db, &deck).is_empty() {
+        if rawdeal_core::validate_deck_in(db, &deck, mode).is_empty() {
             return Some(deck);
         }
     }

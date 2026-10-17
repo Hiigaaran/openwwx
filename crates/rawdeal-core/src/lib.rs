@@ -22,7 +22,9 @@ pub use card::{
 };
 pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
-pub use deck::{DeckList, DeckProblem, may_pack_logo, printed_match, same_superstar, validate_deck};
+pub use deck::{
+    DeckList, DeckProblem, is_revolution, may_pack_logo, printed_match, same_superstar, validate_deck, validate_deck_in,
+};
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
 pub use state::{

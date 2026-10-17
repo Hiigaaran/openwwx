@@ -62,6 +62,11 @@ pub enum DeckProblem {
     Backstage {
         card: String,
     },
+    /// The Revolution format only allows cards and Superstars with the
+    /// Revolution logo.
+    NotRevolution {
+        card: String,
+    },
     /// Two cards that cannot share a deck.
     Exclusive {
         card: String,
@@ -73,6 +78,50 @@ const CONFLICTS: [(Trait, Trait); 3] =
     [(Trait::Face, Trait::Heel), (Trait::Raw, Trait::SmackDown), (Trait::FanFavorite, Trait::Cheater)];
 
 /// Returns every rule the deck breaks; empty means legal.
+/// Revolution format: Backlash limits per kind.
+pub const REVOLUTION_BACKLASH_MAX_PER_KIND: usize = 6;
+
+/// Is this a card (or Superstar) with the Revolution logo? Their titles all
+/// start with "Revolution".
+pub fn is_revolution(title: &str) -> bool {
+    title.starts_with("Revolution ")
+}
+
+/// [`validate_deck`] plus the deck rules of `mode`: the Revolution format only
+/// allows Revolution cards and Superstars, and Backlash decks of up to 6
+/// Pre-match and 6 Mid-match cards.
+pub fn validate_deck_in(db: &CardDb, deck: &DeckList, mode: crate::state::Mode) -> Vec<DeckProblem> {
+    let mut problems = validate_deck(db, deck);
+    if mode != crate::state::Mode::Revolution {
+        return problems;
+    }
+    let star = db.superstar_by_id(&deck.superstar).map(|i| db.superstar(i));
+    if star.is_some_and(|s| !is_revolution(&s.name)) {
+        problems.push(DeckProblem::NotRevolution { card: deck.superstar.clone() });
+    }
+    let (mut pre, mut mid) = (0, 0);
+    for id in deck.arsenal.iter().chain(&deck.backlash).chain(&deck.backstage) {
+        let Some(def) = db.card_by_id(id).map(|i| db.card(i)) else { continue };
+        if !is_revolution(&def.title) {
+            problems.push(DeckProblem::NotRevolution { card: id.clone() });
+        }
+        if deck.backlash.contains(id) {
+            if def.is_pre_match() {
+                pre += 1;
+            } else {
+                mid += 1;
+            }
+        }
+    }
+    if pre > REVOLUTION_BACKLASH_MAX_PER_KIND && pre <= BACKLASH_MAX_PER_KIND {
+        problems.push(DeckProblem::TooManyPreMatch(pre));
+    }
+    if mid > REVOLUTION_BACKLASH_MAX_PER_KIND && mid <= BACKLASH_MAX_PER_KIND {
+        problems.push(DeckProblem::TooManyMidMatch(mid));
+    }
+    problems
+}
+
 pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
     let mut problems = Vec::new();
     let superstar = db.superstar_by_id(&deck.superstar).map(|i| db.superstar(i));
@@ -154,7 +203,8 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
             problems.push(DeckProblem::Forbidden { card: id.to_string() });
         }
         let copies = per_title[&def.title.to_lowercase()];
-        let max = if def.has_trait(Trait::SetUp) {
+        let follow_up = def.has_trait(Trait::FollowUp) && !def.has_trait(Trait::Unique);
+        let max = if def.has_trait(Trait::SetUp) || follow_up {
             usize::MAX
         } else if def.has_trait(Trait::Unique) {
             1
@@ -215,6 +265,10 @@ pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
         CardFilter::Keyword(w) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, w)),
         CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
         CardFilter::SuperstarSpecific => def.superstar.is_some(),
+        CardFilter::Antic => def.kinds.contains(&CardKind::Antic),
+        CardFilter::Target(t) => def.targets.iter().any(|x| x.eq_ignore_ascii_case(t)),
+        CardFilter::HasTarget => !def.targets.is_empty(),
+        CardFilter::Hybrid => def.kinds.len() > 1,
         CardFilter::All(fs) => fs.iter().all(|f| printed_match(def, f)),
         CardFilter::AnyOf(fs) => fs.iter().any(|f| printed_match(def, f)),
         CardFilter::Not(f) => !printed_match(def, f),
@@ -242,7 +296,11 @@ pub fn may_pack_logo(star: &SuperstarDef, logo: &str) -> bool {
 /// printed in one set name Superstars from other sets by the same slug, or by
 /// a shorter name ("billy-gunn" for "b-a-billy-gunn").
 pub fn same_superstar(logo: &str, superstar: &str) -> bool {
-    let slug = |id: &str| id.rsplit('/').next().unwrap_or(id).to_string();
+    // Revolution Superstars share their logo with the earlier versions.
+    let slug = |id: &str| {
+        let s = id.rsplit('/').next().unwrap_or(id);
+        s.strip_prefix("revolution-").unwrap_or(s).to_string()
+    };
     let (logo, star) = (slug(logo), slug(superstar));
     logo == star || star.ends_with(&format!("-{logo}"))
 }

@@ -14,7 +14,7 @@ use crate::card::{
 };
 use crate::db::{CardDb, DefIdx};
 use crate::decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
-use crate::deck::{DeckList, DeckProblem, validate_deck};
+use crate::deck::{DeckList, DeckProblem};
 use crate::event::Event;
 use crate::state::{
     CardId, CardInstance, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, PlayerState, Source, Watch,
@@ -199,6 +199,7 @@ const PRE_MATCH_STEPS: [PreMatchType; 4] =
     [PreMatchType::Venue, PreMatchType::Feud, PreMatchType::Stipulation, PreMatchType::Manager];
 const OPEN_STEP: u8 = 4;
 const RING_LIMIT: usize = 5;
+const REVOLUTION_RING_LIMIT: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct Engine {
@@ -228,7 +229,7 @@ impl Engine {
                 .superstar_by_id(&deck.superstar)
                 .ok_or_else(|| SetupError::UnknownSuperstar(deck.superstar.clone()))?;
             if setup.enforce_deck_rules {
-                let problems = validate_deck(&self.db, deck);
+                let problems = crate::deck::validate_deck_in(&self.db, deck, setup.mode);
                 if !problems.is_empty() {
                     return Err(SetupError::InvalidDeck { player, problems });
                 }
@@ -249,7 +250,7 @@ impl Engine {
                 .map(|id| self.db.card_by_id(id).ok_or_else(|| SetupError::UnknownCard(id.clone())))
                 .collect::<Result<Vec<_>, _>>()?;
             let backlash = match setup.mode {
-                Mode::Advanced => add(&deck.backlash, Zone::Backlash)?,
+                Mode::Advanced | Mode::Revolution => add(&deck.backlash, Zone::Backlash)?,
                 Mode::QuickStart => vec![],
             };
             if setup.shuffle_arsenals {
@@ -295,6 +296,7 @@ impl Engine {
             in_play_to: None,
             in_play_bottom: None,
             played_this_turn: vec![],
+            aggression_checked: false,
             reversed_last: [None; 2],
             reversed_from: [None; 2],
             heat_used: [false; 2],
@@ -906,7 +908,13 @@ impl Engine {
                         }
                         state.pending.push(Step::StartTurn);
                     }
-                    Mode::Advanced => {
+                    Mode::Advanced | Mode::Revolution => {
+                        if state.mode == Mode::Revolution {
+                            for p in [first, first.opponent()] {
+                                let n = self.hand_size(state, p);
+                                self.draw(state, p, n, events);
+                            }
+                        }
                         events.push(Event::PreMatchStarted { first });
                         state.pending.push(Step::PreMatch { step: 0, actor: first, passes: 0, starter: first });
                     }
@@ -925,6 +933,7 @@ impl Engine {
                 events.push(Event::TurnStarted { player: p, turn: state.turn });
                 state.player_mut(p).ability_used = false;
                 state.played_this_turn.clear();
+                state.aggression_checked = false;
                 state.ring_used.clear();
                 state.heat_used = [false; 2];
                 state.volley_turn = state.volley_lock.take().filter(|&q| q == p);
@@ -1165,6 +1174,19 @@ impl Engine {
                     }
                     return;
                 }
+                if state.mode == Mode::Revolution && !std::mem::replace(&mut state.aggression_checked, true) {
+                    let tried = state
+                        .played_this_turn
+                        .iter()
+                        .any(|pl| pl.player == p && matches!(pl.kind, CardKind::Maneuver(_)));
+                    if !tried {
+                        events.push(Event::Aggression { player: p });
+                        state.pending.push(Step::EndTurn);
+                        let effect = Effect::Damage { who: Who::You, n: 6 };
+                        state.pending.push(Step::Effect { effect, controller: p, source: Source::Superstar(p) });
+                        return;
+                    }
+                }
                 if state.volley_turn.take() == Some(p) {
                     // Volley: no maneuver played under the restriction lets the
                     // Volley player take a Volley card back.
@@ -1234,7 +1256,7 @@ impl Engine {
                 let mut empty = [PlayerId::ONE, PlayerId::TWO].map(|p| state.player(p).arsenal.is_empty());
                 // Advanced: only the player who just ended a turn can be counted out.
                 let ended = state.active.opponent();
-                if state.mode == Mode::Advanced && !empty[ended.index()] {
+                if state.mode.is_advanced() && !empty[ended.index()] {
                     empty = [false; 2];
                 }
                 match empty {
@@ -1399,9 +1421,11 @@ impl Engine {
             }
             Step::EndPreMatch { starter } => {
                 events.push(Event::PreMatchEnded);
-                for p in [starter, starter.opponent()] {
-                    let n = self.hand_size(state, p);
-                    self.draw(state, p, n, events);
+                if state.mode != Mode::Revolution {
+                    for p in [starter, starter.opponent()] {
+                        let n = self.hand_size(state, p);
+                        self.draw(state, p, n, events);
+                    }
                 }
                 state.pending.push(Step::DecideFirst { starter });
                 // The starter's end-of-Pre-match effects resolve first.
@@ -2381,6 +2405,17 @@ impl Engine {
             Count::Plus(a, b) => self.count(state, p, *a) as usize + self.count(state, p, *b) as usize,
             Count::Const(n) => n as usize,
             Count::YourUnderSize => state.player(p).under.len(),
+            Count::YourRingTargets => {
+                let mut seen: Vec<&str> = vec![];
+                for &c in &state.player(p).ring {
+                    for t in &self.def(state, c).targets {
+                        if !seen.contains(&t.as_str()) {
+                            seen.push(t);
+                        }
+                    }
+                }
+                seen.len()
+            }
             Count::OpponentReversedFortitude => {
                 state.reversed_last[p.opponent().index()].map_or(0, |r| self.def(state, r.card).fortitude as usize)
             }
@@ -2868,7 +2903,8 @@ impl Engine {
         } as i16;
         let mine: i16 = self.ring_cards(state, p).iter().map(|&c| pick(self.def(state, c), true)).sum();
         let theirs: i16 = self.ring_cards(state, p.opponent()).iter().map(|&c| pick(self.def(state, c), false)).sum();
-        (RING_LIMIT as i16 + mine + theirs).max(0) as usize
+        let base = if state.mode == Mode::Revolution { REVOLUTION_RING_LIMIT } else { RING_LIMIT };
+        (base as i16 + mine + theirs).max(0) as usize
     }
 
     fn count_matching(
@@ -2906,7 +2942,14 @@ impl Engine {
                 let CardKind::PreMatch(t) = kind else { continue };
                 let step_ok = match PRE_MATCH_STEPS.get(step as usize) {
                     Some(&wanted) => t == wanted,
-                    None => matches!(t, PreMatchType::Event | PreMatchType::Object),
+                    None => matches!(
+                        t,
+                        PreMatchType::Event
+                            | PreMatchType::Object
+                            | PreMatchType::Corner
+                            | PreMatchType::Faction
+                            | PreMatchType::Storyline
+                    ),
                 };
                 if step_ok
                     && def.script.requires.as_ref().is_none_or(|c| self.holds(state, c, p))
@@ -2922,6 +2965,15 @@ impl Engine {
     }
 
     fn abilities<'a>(&'a self, state: &GameState, p: PlayerId) -> Vec<&'a Ability> {
+        // A Storyline in your Ring replaces your Superstar Ability, even a blanked one.
+        let storyline = state.player(p).ring.iter().rev().find_map(|&c| {
+            let def = self.db.card(state.card(c).def);
+            (def.kinds.contains(&CardKind::PreMatch(PreMatchType::Storyline)) && !def.script.storyline.is_empty())
+                .then_some(&def.script.storyline)
+        });
+        if let Some(abilities) = storyline {
+            return abilities.iter().collect();
+        }
         let blanked = self.ring_cards(state, p.opponent()).iter().any(|&c| {
             let script = &self.def(state, c).script;
             script.blanks_opponent_ability
@@ -3075,7 +3127,11 @@ impl Engine {
         });
         let hand_left = state.player(player).hand.iter().filter(|&&c| c != reversal).count();
         let irreversible = pdef.has_trait(Trait::Irreversible) || played.bonus.irreversible;
+        let reverses_momentum = |f: &CardFilter| mentions_trait(f, Trait::Momentum);
         played.player != player
+            && !(self.has_momentum(state, played)
+                && !reverses_momentum(&spec.targets)
+                && !hand_targets.is_some_and(reverses_momentum))
             && !(irreversible && !spec.ignores_irreversible)
             && !(from_hand && played.bonus.no_hand_reversal)
             && !((played.bonus.no_backlash_reversal || pdef.script.no_backlash_reversal)
@@ -3096,6 +3152,14 @@ impl Engine {
                 || hand_targets.is_some_and(names_title))
     }
 
+    /// Momentum cards can only be reversed by cards that name Momentum.
+    fn has_momentum(&self, state: &GameState, played: Played) -> bool {
+        let def = self.def(state, played.card);
+        def.has_trait(Trait::Momentum)
+            || played.bonus.momentum
+            || def.script.momentum_when.as_ref().is_some_and(|c| self.holds(state, c, played.player))
+    }
+
     /// Chyna-style reversal: discard a maneuver of the same type from hand.
     fn can_discard_reverse(&self, state: &GameState, player: PlayerId, card: CardId, played: Played) -> bool {
         let same_type = match played.kind {
@@ -3112,6 +3176,7 @@ impl Engine {
         let pdef = self.def(state, played.card);
         state.card(card).zone == Zone::Hand
             && played.player != player
+            && !self.has_momentum(state, played)
             && (same_type || any)
             && !pdef.has_trait(Trait::Irreversible)
             && !pdef.script.only_reversed_by_title
@@ -3160,7 +3225,13 @@ impl Engine {
                     .count();
                 count >= *n as usize
             }
-            CardFilter::Keyword(_) | CardFilter::TitleBelt => self.matches_printed(def, filter, || 0),
+            CardFilter::Antic => played.kind == CardKind::Antic,
+            CardFilter::Trait(Trait::Momentum) => self.has_momentum(state, played),
+            CardFilter::Keyword(_)
+            | CardFilter::TitleBelt
+            | CardFilter::Target(_)
+            | CardFilter::HasTarget
+            | CardFilter::Hybrid => self.matches_printed(def, filter, || 0),
             CardFilter::PlayedBy(name) => {
                 self.db.superstar(state.player(played.player).superstar).name.eq_ignore_ascii_case(name)
             }
@@ -3197,7 +3268,12 @@ impl Engine {
             CardFilter::FortitudeAtMost(n) => def.fortitude <= *n,
             CardFilter::FortitudeAtLeast(n) => def.fortitude >= *n,
             CardFilter::After(_) | CardFilter::PlayerRingHas { .. } | CardFilter::EarlierThisTurn { .. } => false,
-            CardFilter::Keyword(_) | CardFilter::TitleBelt => self.matches_printed(def, filter, || 0),
+            CardFilter::Antic => def.kinds.contains(&CardKind::Antic),
+            CardFilter::Keyword(_)
+            | CardFilter::TitleBelt
+            | CardFilter::Target(_)
+            | CardFilter::HasTarget
+            | CardFilter::Hybrid => self.matches_printed(def, filter, || 0),
             CardFilter::PlayedBy(name) => self.is_superstar(state, controller, name),
             CardFilter::StunValueAtLeast(n) => def.stun_value >= *n,
             CardFilter::Draws => {
@@ -3228,6 +3304,9 @@ impl Engine {
             CardFilter::DamageAtMostYourFortitude => def.damage as u16 <= fortitude(),
             CardFilter::Keyword(word) => def.other_traits.iter().any(|t| crate::card::keyword_matches(t, word)),
             CardFilter::TitleBelt => def.is_title_belt(),
+            CardFilter::Target(t) => def.targets.iter().any(|x| x.eq_ignore_ascii_case(t)),
+            CardFilter::HasTarget => !def.targets.is_empty(),
+            CardFilter::Hybrid => def.kinds.len() > 1,
             _ => unreachable!("only printed filters"),
         }
     }
@@ -3486,6 +3565,15 @@ fn binomial(n: usize, k: usize) -> usize {
     (0..k).fold(1usize, |acc, i| acc.saturating_mul(n - i) / (i + 1))
 }
 
+/// Does `f` name the trait `t` anywhere (not negated)?
+fn mentions_trait(f: &CardFilter, t: Trait) -> bool {
+    match f {
+        CardFilter::Trait(x) => *x == t,
+        CardFilter::All(fs) | CardFilter::AnyOf(fs) => fs.iter().any(|f| mentions_trait(f, t)),
+        _ => false,
+    }
+}
+
 fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
     bonus.damage += boost.damage;
     bonus.fortitude += boost.fortitude;
@@ -3500,6 +3588,7 @@ fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
     bonus.opponent_fortitude |= boost.use_opponent_fortitude;
     bonus.double_fortitude |= boost.double_fortitude;
     bonus.double_damage |= boost.double_damage;
+    bonus.momentum |= boost.momentum;
 }
 
 /// The on-play effects of `def` when played as `kind`.

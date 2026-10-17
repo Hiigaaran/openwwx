@@ -42,6 +42,44 @@ fn user_sets_play_random_matches() {
     eprintln!("{games} matches finished");
 }
 
+/// Revolution format matches between the Revolution Superstars, with legal decks.
+#[test]
+fn user_sets_revolution_format() {
+    use rawdeal_core::Mode;
+    let Some(dir) = std::env::var_os("OPENWWX_CARDS").map(PathBuf::from) else {
+        eprintln!("OPENWWX_CARDS not set; skipping");
+        return;
+    };
+    let db = rawdeal_cards::build_db(rawdeal_cards::load_dir(&dir).unwrap()).unwrap();
+    let stars: Vec<_> = db.superstars().iter().filter(|s| rawdeal_core::is_revolution(&s.name)).collect();
+    let decks: Vec<_> =
+        stars.iter().filter_map(|s| rawdeal_cards::auto_deck_in(&db, &s.id, Mode::Revolution)).collect();
+    assert_eq!(decks.len(), stars.len(), "every Revolution Superstar gets a legal Revolution deck");
+    let engine = Engine::new(Arc::new(db));
+    let mut games = 0;
+    for (i, a) in decks.iter().enumerate() {
+        for b in &decks[i..] {
+            for seed in 0..10u64 {
+                let setup = GameSetup { mode: Mode::Revolution, ..GameSetup::standard([a.clone(), b.clone()]) };
+                let (mut state, _) = engine.new_game(&setup, seed).unwrap();
+                let mut bots = [RandomBot::new(seed), RandomBot::new(seed + 1)];
+                let mut actions = 0;
+                while state.outcome.is_none() {
+                    let p = state.decision.as_ref().unwrap().player;
+                    let legal = engine.legal_actions(&state, p);
+                    let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
+                    engine.apply(&mut state, p, action).unwrap();
+                    state.check_invariants().unwrap();
+                    actions += 1;
+                    assert!(actions < 20_000, "{} vs {} seed {seed} did not finish", a.superstar, b.superstar);
+                }
+                games += 1;
+            }
+        }
+    }
+    eprintln!("{games} Revolution matches finished");
+}
+
 /// Random 60-card piles (deck rules off) so that every scripted card gets
 /// played, in both Quick Start and Advanced matches.
 #[test]
@@ -93,7 +131,11 @@ fn user_sets_every_card_in_random_piles() {
         let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
         let a = stars.choose(&mut rng).unwrap().clone();
         let b = stars.choose(&mut rng).unwrap().clone();
-        let mode = if seed % 2 == 0 { Mode::QuickStart } else { Mode::Advanced };
+        let mode = match seed % 3 {
+            0 => Mode::QuickStart,
+            1 => Mode::Advanced,
+            _ => Mode::Revolution,
+        };
         let setup = GameSetup {
             decks: [pile(&a, &mut rng), pile(&b, &mut rng)],
             enforce_deck_rules: false,

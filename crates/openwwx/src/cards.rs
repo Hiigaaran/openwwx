@@ -49,6 +49,7 @@ fn color(kind: CardKind) -> Color32 {
         CardKind::Reversal => Color32::from_rgb(166, 56, 56),
         CardKind::PreMatch(_) => Color32::from_rgb(120, 72, 150),
         CardKind::Enforcer => Color32::from_rgb(60, 140, 110),
+        CardKind::Antic => Color32::from_rgb(70, 150, 70),
     }
 }
 
@@ -403,12 +404,12 @@ enum Icon {
 impl Icon {
     fn of(kind: CardKind) -> Icon {
         match kind {
-            CardKind::Maneuver(ManeuverType::Strike) => Icon::Strike,
-            CardKind::Maneuver(ManeuverType::Grapple) => Icon::Grapple,
-            CardKind::Maneuver(ManeuverType::Submission) => Icon::Submission,
-            CardKind::Maneuver(ManeuverType::HighRisk) => Icon::HighRisk,
-            CardKind::Maneuver(ManeuverType::TrademarkFinisher) => Icon::Finisher,
-            CardKind::Action => Icon::Action,
+            CardKind::Maneuver(ManeuverType::Strike | ManeuverType::Assault) => Icon::Strike,
+            CardKind::Maneuver(ManeuverType::Grapple | ManeuverType::Throw) => Icon::Grapple,
+            CardKind::Maneuver(ManeuverType::Submission | ManeuverType::Hold) => Icon::Submission,
+            CardKind::Maneuver(ManeuverType::HighRisk | ManeuverType::Extreme) => Icon::HighRisk,
+            CardKind::Maneuver(ManeuverType::TrademarkFinisher | ManeuverType::Trademark) => Icon::Finisher,
+            CardKind::Action | CardKind::Antic => Icon::Action,
             CardKind::Reversal => Icon::Reversal,
             CardKind::PreMatch(_) => Icon::PreMatch,
             CardKind::Enforcer => Icon::Superstar,

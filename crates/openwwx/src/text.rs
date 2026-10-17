@@ -12,6 +12,7 @@ pub fn kind(k: CardKind) -> String {
         CardKind::Action => "Acción".into(),
         CardKind::Reversal => "Reversal".into(),
         CardKind::Enforcer => "Enforcer".into(),
+        CardKind::Antic => "Antic".into(),
         CardKind::PreMatch(t) => format!(
             "Pre-match {}",
             match t {
@@ -21,6 +22,9 @@ pub fn kind(k: CardKind) -> String {
                 PreMatchType::Manager => "Manager",
                 PreMatchType::Event => "Event",
                 PreMatchType::Object => "Object",
+                PreMatchType::Corner => "Corner",
+                PreMatchType::Faction => "Faction",
+                PreMatchType::Storyline => "Storyline",
             }
         ),
     }
@@ -33,6 +37,11 @@ fn maneuver(t: ManeuverType) -> &'static str {
         ManeuverType::Submission => "Submission",
         ManeuverType::HighRisk => "High Risk",
         ManeuverType::TrademarkFinisher => "Trademark Finisher",
+        ManeuverType::Throw => "Throw",
+        ManeuverType::Hold => "Hold",
+        ManeuverType::Assault => "Assault",
+        ManeuverType::Trademark => "Trademark",
+        ManeuverType::Extreme => "Extreme",
     }
 }
 
@@ -82,6 +91,10 @@ pub fn filter(f: &CardFilter) -> String {
         CardFilter::SameTitleInRing => "con el mismo título que una carta de su Ring".into(),
         CardFilter::SuperstarSpecific => "específica de Superstar".into(),
         CardFilter::Holds(_) => "si se cumple la condición".into(),
+        CardFilter::Antic => "Antic".into(),
+        CardFilter::Target(t) => format!("con Target {t}"),
+        CardFilter::HasTarget => "con Target".into(),
+        CardFilter::Hybrid => "híbrida".into(),
     }
 }
 
@@ -107,6 +120,9 @@ fn boost(b: &Boost) -> String {
     }
     if b.no_backlash_reversal {
         parts.push("no se puede revertir desde el Backlash".into());
+    }
+    if b.momentum {
+        parts.push("tiene Momentum".into());
     }
     if b.no_arsenal_reversal {
         parts.push("no se puede revertir desde el Arsenal".into());
@@ -411,6 +427,11 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
         Event::TurnEnded { player: p } => say(*p, "Terminas el turno.".into(), "termina el turno.".into()),
         Event::EnforcerChosen { player: p, .. } => say(*p, "Eliges tu Enforcer.".into(), "elige su Enforcer.".into()),
         Event::TurnContinues { player: p } => say(*p, "Sigues con tu turno.".into(), "sigue con su turno.".into()),
+        Event::Aggression { player: p } => say(
+            *p,
+            "No intentaste ninguna maniobra: volteas 6 cartas (regla de agresión).".into(),
+            "no intentó ninguna maniobra: voltea 6 cartas (regla de agresión).".into(),
+        ),
         Event::GameOver(o) => outcome(o, me),
         _ => return None,
     })

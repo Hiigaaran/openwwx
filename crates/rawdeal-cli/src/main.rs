@@ -1,8 +1,9 @@
 //! Text-mode client: play against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced | --revolution] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
 //!
 //! - `--advanced`: Pre-match phase and Backlash decks.
+//! - `--revolution`: Revolution format (Revolution cards only, Advanced rules).
 //! - `--watch`: two bots play each other and the match log is printed.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
@@ -35,6 +36,13 @@ fn main() -> ExitCode {
         .and_then(|s| s.parse().ok())
         .unwrap_or_else(|| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
     let watch = args.iter().any(|a| a == "--watch");
+    let mode = if args.iter().any(|a| a == "--revolution") {
+        Mode::Revolution
+    } else if args.iter().any(|a| a == "--advanced") {
+        Mode::Advanced
+    } else {
+        Mode::QuickStart
+    };
 
     let (db, decks) = match arg(&args, "--cards") {
         None => (
@@ -55,13 +63,13 @@ fn main() -> ExitCode {
                         Err(e) => return fail(e),
                     }
                 } else if let Some(id) = arg(&args, star) {
-                    match rawdeal_cards::auto_deck(&db, id) {
+                    match rawdeal_cards::auto_deck_in(&db, id, mode) {
                         Some(d) => decks.push(d),
                         None => return fail(format!("cannot build a deck for {id}")),
                     }
                 } else if args.iter().any(|a| a == "--check") {
                     for s in db.superstars() {
-                        let ok = rawdeal_cards::auto_deck(&db, &s.id).is_some();
+                        let ok = rawdeal_cards::auto_deck_in(&db, &s.id, mode).is_some();
                         println!("  {} ({}): {}", s.name, s.id, if ok { "auto deck OK" } else { "no legal auto deck" });
                     }
                     return ExitCode::SUCCESS;
@@ -72,12 +80,11 @@ fn main() -> ExitCode {
             (db, decks.try_into().expect("two decks"))
         }
     };
-    let advanced = args.iter().any(|a| a == "--advanced");
     if args.iter().any(|a| a == "--check") {
         let mut ok = true;
         for (i, deck) in decks.iter().enumerate() {
-            let mut problems = validate_deck(&db, deck);
-            if !advanced {
+            let mut problems = validate_deck_in(&db, deck, mode);
+            if !mode.is_advanced() {
                 problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
             }
             ok &= problems.is_empty();
@@ -91,7 +98,7 @@ fn main() -> ExitCode {
     }
 
     let engine = Engine::new(Arc::new(db));
-    let setup = if advanced { GameSetup::advanced(decks) } else { GameSetup::standard(decks) };
+    let setup = GameSetup { mode, ..GameSetup::standard(decks) };
     let (mut state, events) = match engine.new_game(&setup, seed) {
         Ok(started) => started,
         Err(e) => return fail(e),
@@ -216,6 +223,9 @@ fn print_events(engine: &Engine, state: &GameState, events: &[Event], viewer: Pl
             Event::CountOutRefused { player } => format!("{player} refuses the count out and goes for the pin."),
             Event::TurnEnded { player } => format!("{player} ends the turn."),
             Event::TurnContinues { player } => format!("{player} continues the turn."),
+            Event::Aggression { player } => {
+                format!("{player} tried no maneuver and overturns 6 cards (Aggression rule).")
+            }
             Event::TurnSkipped { player } => format!("{player} skips the turn."),
             Event::HandShown { player, viewer: v, cards } if v == viewer => {
                 format!("{player}'s hand: {}", names(engine, state, &cards))

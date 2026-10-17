@@ -98,6 +98,11 @@ pub enum Event {
         player: PlayerId,
     },
     /// The player's turn goes on although their card was reversed.
+    /// Revolution Aggression rule: `player` ends the turn without having tried
+    /// a maneuver and overturns 6 cards.
+    Aggression {
+        player: PlayerId,
+    },
     TurnContinues {
         player: PlayerId,
     },

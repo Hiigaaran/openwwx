@@ -106,6 +106,9 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let mut unknown = None;
         // Backlash cards: "Pre-match Event", "Mid-match Reversal: Special".
         let mut mid_match = false;
+        // Revolution: "Throw: Mean: Follow-up: Card", "Antic: Momentum".
+        let mut type_traits = Vec::new();
+        let mut follow_up = None;
         // "Strike + Grapple" can be played as either type.
         for part in card_type.split(" / ").flat_map(|p| p.split(" + ")).map(str::trim) {
             let part = match part.strip_prefix("Mid-match ") {
@@ -116,11 +119,17 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                 None => part,
             };
             match parse_kind(part) {
-                Some((kind, rev)) => {
-                    if !kinds.contains(&kind) {
-                        kinds.push(kind);
+                Some(parsed) => {
+                    if !kinds.contains(&parsed.kind) {
+                        kinds.push(parsed.kind);
                     }
-                    reversal_type = reversal_type.or(rev);
+                    reversal_type = reversal_type.or(parsed.reversal);
+                    for t in parsed.traits {
+                        if !type_traits.contains(&t) {
+                            type_traits.push(t);
+                        }
+                    }
+                    follow_up = follow_up.or(parsed.follow_up);
                 }
                 None => unknown = Some(part.to_string()),
             }
@@ -133,6 +142,11 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let (mut traits, other_traits) = parse_traits(&prop("Traits"));
         if mid_match && !traits.contains(&Trait::MidMatch) {
             traits.push(Trait::MidMatch);
+        }
+        for t in type_traits {
+            if !traits.contains(&t) {
+                traits.push(t);
+            }
         }
         let mut logos: Vec<String> = prop("SS Logos")
             .split(',')
@@ -151,6 +165,12 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
                 traits.push(t);
             }
         }
+        if script.play_after.is_none() {
+            script.play_after = follow_up;
+        }
+        if script.requires.is_none() && text.contains("Requirement: Extremist") {
+            script.requires = Some(rawdeal_core::Condition::YouAre("Extremist".into()));
+        }
         if kinds.contains(&CardKind::Reversal) && script.reverses.is_none() {
             script.reverses = infer_reversal(reversal_type, &text);
             match script.reverses {
@@ -164,7 +184,9 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         } else {
             vec![]
         };
+        let targets = prop("CardRef-Target").split_whitespace().map(str::to_lowercase).collect();
         set.cards.push(CardDef {
+            targets,
             enforcers,
             id,
             title,
@@ -243,46 +265,158 @@ fn parse_enforcers(title: &str, text: &str, mut abilities: Vec<Vec<Ability>>) ->
 }
 
 /// What a Reversal's printed type says it reverses.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum ReversalType {
     Maneuver(ManeuverType),
     Action,
+    /// Revolution types: "Reversal: Mean or Colossal", "Reversal: non-Unique Maneuver".
+    Filter(CardFilter),
     /// "Special": the card text says what it reverses.
     Special,
 }
 
-fn parse_kind(part: &str) -> Option<(CardKind, Option<ReversalType>)> {
-    let maneuver = |t| Some((CardKind::Maneuver(t), None));
+/// One function read from a card type, with what the type line adds to it.
+struct ParsedKind {
+    kind: CardKind,
+    reversal: Option<ReversalType>,
+    /// Revolution: Core, Mean, Colossal, Momentum, Follow-up.
+    traits: Vec<Trait>,
+    /// "Follow-up: X": what must have been played right before.
+    follow_up: Option<CardFilter>,
+}
+
+fn parse_kind(part: &str) -> Option<ParsedKind> {
+    let simple = |kind| Some(ParsedKind { kind, reversal: None, traits: vec![], follow_up: None });
+    let pre = |t| simple(CardKind::PreMatch(t));
     match part {
-        "Strike" => maneuver(ManeuverType::Strike),
-        "Grapple" => maneuver(ManeuverType::Grapple),
-        "Submission" => maneuver(ManeuverType::Submission),
-        "High Risk" => maneuver(ManeuverType::HighRisk),
-        "Trademark Finisher" => maneuver(ManeuverType::TrademarkFinisher),
-        "Action" => Some((CardKind::Action, None)),
-        "Enforcer" => Some((CardKind::Enforcer, None)),
-        "Pre-match Venue" => Some((CardKind::PreMatch(PreMatchType::Venue), None)),
-        "Pre-match Feud" => Some((CardKind::PreMatch(PreMatchType::Feud), None)),
-        "Pre-match Stipulation" => Some((CardKind::PreMatch(PreMatchType::Stipulation), None)),
-        "Pre-match Manager" => Some((CardKind::PreMatch(PreMatchType::Manager), None)),
-        "Pre-match Event" => Some((CardKind::PreMatch(PreMatchType::Event), None)),
-        "Pre-match Object" => Some((CardKind::PreMatch(PreMatchType::Object), None)),
-        _ => {
-            let rest = part.strip_prefix("Reversal")?;
-            let rev = if rest.contains("Special") || rest.contains('/') {
-                ReversalType::Special
-            } else {
-                match rest.trim_start_matches(':').trim() {
-                    "Strike" => ReversalType::Maneuver(ManeuverType::Strike),
-                    "Grapple" => ReversalType::Maneuver(ManeuverType::Grapple),
-                    "Submission" => ReversalType::Maneuver(ManeuverType::Submission),
-                    "High Risk" => ReversalType::Maneuver(ManeuverType::HighRisk),
-                    "Action" => ReversalType::Action,
-                    _ => ReversalType::Special,
-                }
-            };
-            Some((CardKind::Reversal, Some(rev)))
+        "Strike" => return simple(CardKind::Maneuver(ManeuverType::Strike)),
+        "Grapple" => return simple(CardKind::Maneuver(ManeuverType::Grapple)),
+        "Submission" => return simple(CardKind::Maneuver(ManeuverType::Submission)),
+        "High Risk" => return simple(CardKind::Maneuver(ManeuverType::HighRisk)),
+        "Trademark Finisher" => return simple(CardKind::Maneuver(ManeuverType::TrademarkFinisher)),
+        "Action" => return simple(CardKind::Action),
+        "Enforcer" => return simple(CardKind::Enforcer),
+        "Pre-match Venue" => return pre(PreMatchType::Venue),
+        "Pre-match Feud" => return pre(PreMatchType::Feud),
+        "Pre-match Stipulation" => return pre(PreMatchType::Stipulation),
+        "Pre-match Manager" => return pre(PreMatchType::Manager),
+        "Pre-match Event" => return pre(PreMatchType::Event),
+        "Pre-match Object" => return pre(PreMatchType::Object),
+        "Pre-match Corner" => return pre(PreMatchType::Corner),
+        "Pre-match Faction" => return pre(PreMatchType::Faction),
+        "Pre-match Storyline" => return pre(PreMatchType::Storyline),
+        _ => {}
+    }
+    if let Some(rest) = part.strip_prefix("Reversal") {
+        let rest = rest.trim_start_matches(':').trim();
+        let rev = if rest.contains("Special") || rest.contains('/') {
+            ReversalType::Special
+        } else {
+            match rest {
+                "Strike" => ReversalType::Maneuver(ManeuverType::Strike),
+                "Grapple" => ReversalType::Maneuver(ManeuverType::Grapple),
+                "Submission" => ReversalType::Maneuver(ManeuverType::Submission),
+                "High Risk" => ReversalType::Maneuver(ManeuverType::HighRisk),
+                "Action" => ReversalType::Action,
+                _ => parse_card_expr(rest).map_or(ReversalType::Special, ReversalType::Filter),
+            }
+        };
+        return Some(ParsedKind { kind: CardKind::Reversal, reversal: Some(rev), traits: vec![], follow_up: None });
+    }
+
+    // Revolution: "Trademark: Mean: Follow-up: Maneuver", "Antic: Momentum".
+    let mut segments = part.split(':').map(str::trim);
+    let kind = match segments.next()? {
+        "Throw" => CardKind::Maneuver(ManeuverType::Throw),
+        "Hold" => CardKind::Maneuver(ManeuverType::Hold),
+        "Assault" => CardKind::Maneuver(ManeuverType::Assault),
+        "Trademark" => CardKind::Maneuver(ManeuverType::Trademark),
+        "Extreme" => CardKind::Maneuver(ManeuverType::Extreme),
+        "Antic" => CardKind::Antic,
+        _ => return None,
+    };
+    let (mut traits, mut follow_up) = (vec![], None);
+    while let Some(seg) = segments.next() {
+        match seg.to_ascii_lowercase().as_str() {
+            "core" => traits.push(Trait::Core),
+            "mean" => traits.push(Trait::Mean),
+            "colossal" => traits.push(Trait::Colossal),
+            "momentum" => traits.push(Trait::Momentum),
+            "follow-up" | "followup" => {
+                traits.push(Trait::FollowUp);
+                follow_up = Some(parse_card_expr(segments.next()?)?);
+            }
+            _ => return None,
         }
+    }
+    Some(ParsedKind { kind, reversal: None, traits, follow_up })
+}
+
+/// Reads a Revolution card description such as "Mean or Colossal",
+/// "non-Core non-Follow-up Throw", "printed 3D∙7D Assault" or "Hold: Mean".
+/// Returns `None` for descriptions it cannot express ("Maneuver with Target 'head'").
+fn parse_card_expr(expr: &str) -> Option<CardFilter> {
+    let expr = expr.trim();
+    if let Some(rest) = expr.strip_prefix("printed ") {
+        let (range, rest) = rest.split_once(' ')?;
+        let numbers: Vec<u8> = range.split(|c: char| !c.is_ascii_digit()).filter_map(|n| n.parse().ok()).collect();
+        let [low, high] = numbers[..] else { return None };
+        let what = parse_card_expr(rest)?;
+        return Some(CardFilter::All(vec![CardFilter::DamageAtLeast(low), CardFilter::DamageAtMost(high), what]));
+    }
+    let alternatives: Vec<&str> = expr
+        .split(',')
+        .flat_map(|p| p.split(" or "))
+        .map(|p| p.trim().trim_start_matches("or ").trim())
+        .filter(|p| !p.is_empty())
+        .collect();
+    let mut any = Vec::new();
+    for alt in alternatives {
+        let alt = alt.replace("High Risk", "HighRisk").replace("Trademark Finisher", "TrademarkFinisher");
+        let mut all = Vec::new();
+        for token in alt.split(':').flat_map(str::split_whitespace) {
+            let (negated, word) = match token.strip_prefix("non-") {
+                Some(w) => (true, w),
+                None => (false, token),
+            };
+            let f = match word.to_ascii_lowercase().as_str() {
+                "strike" => CardFilter::ManeuverType(ManeuverType::Strike),
+                "grapple" => CardFilter::ManeuverType(ManeuverType::Grapple),
+                "submission" => CardFilter::ManeuverType(ManeuverType::Submission),
+                "highrisk" => CardFilter::ManeuverType(ManeuverType::HighRisk),
+                "trademarkfinisher" => CardFilter::ManeuverType(ManeuverType::TrademarkFinisher),
+                "throw" | "throws" => CardFilter::ManeuverType(ManeuverType::Throw),
+                "hold" | "holds" => CardFilter::ManeuverType(ManeuverType::Hold),
+                "assault" | "assaults" => CardFilter::ManeuverType(ManeuverType::Assault),
+                "trademark" | "trademarks" => CardFilter::ManeuverType(ManeuverType::Trademark),
+                "extreme" | "extremes" => CardFilter::ManeuverType(ManeuverType::Extreme),
+                "maneuver" | "maneuvers" => CardFilter::Maneuver,
+                "card" | "cards" => CardFilter::Any,
+                "action" | "actions" => CardFilter::Action,
+                "antic" | "antics" => CardFilter::Antic,
+                "reversal" | "reversals" => CardFilter::Reversal,
+                "core" | "cores" => CardFilter::Trait(Trait::Core),
+                "mean" | "means" => CardFilter::Trait(Trait::Mean),
+                "colossal" | "colossals" => CardFilter::Trait(Trait::Colossal),
+                "momentum" => CardFilter::Trait(Trait::Momentum),
+                "unique" => CardFilter::Trait(Trait::Unique),
+                "follow-up" | "followup" => CardFilter::Trait(Trait::FollowUp),
+                "mid-match" => CardFilter::Trait(Trait::MidMatch),
+                "hybrid" => CardFilter::Hybrid,
+                _ => return None,
+            };
+            all.push(if negated { CardFilter::Not(Box::new(f)) } else { f });
+        }
+        any.push(match all.len() {
+            0 => return None,
+            1 => all.remove(0),
+            _ => CardFilter::All(all),
+        });
+    }
+    match any.len() {
+        0 => None,
+        1 => Some(any.remove(0)),
+        _ => Some(CardFilter::AnyOf(any)),
     }
 }
 
@@ -323,6 +457,7 @@ fn infer_reversal(rev: Option<ReversalType>, text: &str) -> Option<ReverseSpec> 
     match rev? {
         ReversalType::Maneuver(t) => return spec(CardFilter::ManeuverType(t)),
         ReversalType::Action => return spec(CardFilter::Action),
+        ReversalType::Filter(f) => return spec(f),
         ReversalType::Special => {}
     }
     let lower = text.to_ascii_lowercase();
@@ -507,7 +642,7 @@ mod tests {
     #[test]
     fn reversal_text_patterns() {
         let special = Some(ReversalType::Special);
-        let targets = |t: &str| infer_reversal(special, t).map(|s| s.targets);
+        let targets = |t: &str| infer_reversal(special.clone(), t).map(|s| s.targets);
         assert_eq!(
             targets("Reverse any maneuver and end your opponent's turn. Draw 1 card."),
             Some(CardFilter::Maneuver)
@@ -534,5 +669,42 @@ mod tests {
     fn slugs() {
         assert_eq!(slug("Don't You Never ... EVER!"), "don-t-you-never-ever");
         assert_eq!(slug("Stone Cold Steve Austin"), "stone-cold-steve-austin");
+    }
+
+    #[test]
+    fn revolution_types() {
+        use CardFilter as F;
+        let p = parse_kind("Trademark: Mean: Follow-up: Maneuver").unwrap();
+        assert_eq!(p.kind, CardKind::Maneuver(ManeuverType::Trademark));
+        assert_eq!(p.traits, vec![Trait::Mean, Trait::FollowUp]);
+        assert_eq!(p.follow_up, Some(F::Maneuver));
+        let p = parse_kind("Antic: Momentum").unwrap();
+        assert_eq!((p.kind, p.traits), (CardKind::Antic, vec![Trait::Momentum]));
+        assert!(parse_kind("Pre-match Storyline").is_some());
+        let rev = |t: &str| match parse_kind(t).unwrap().reversal {
+            Some(ReversalType::Filter(f)) => Some(f),
+            _ => None,
+        };
+        assert_eq!(
+            rev("Reversal: Mean or Colossal"),
+            Some(F::AnyOf(vec![F::Trait(Trait::Mean), F::Trait(Trait::Colossal)]))
+        );
+        assert_eq!(
+            rev("Reversal: non-Core non-Follow-up Throw"),
+            Some(F::All(vec![
+                F::Not(Box::new(F::Trait(Trait::Core))),
+                F::Not(Box::new(F::Trait(Trait::FollowUp))),
+                F::ManeuverType(ManeuverType::Throw)
+            ]))
+        );
+        assert_eq!(
+            rev("Reversal: printed 3D\u{2219}7D Assault"),
+            Some(F::All(vec![F::DamageAtLeast(3), F::DamageAtMost(7), F::ManeuverType(ManeuverType::Assault)]))
+        );
+        assert_eq!(
+            rev("Reversal: Hold: Mean"),
+            Some(F::All(vec![F::ManeuverType(ManeuverType::Hold), F::Trait(Trait::Mean)]))
+        );
+        assert_eq!(rev("Reversal: Maneuver with Target 'head' or 'leg'"), None);
     }
 }

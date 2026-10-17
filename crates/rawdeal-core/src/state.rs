@@ -184,6 +184,8 @@ pub struct PlayBonus {
     pub double_damage: bool,
     #[serde(default)]
     pub no_backlash_reversal: bool,
+    #[serde(default)]
+    pub momentum: bool,
 }
 
 /// What a player's next card this turn has to be.
@@ -210,6 +212,18 @@ pub enum Mode {
     QuickStart,
     /// Pre-match phase, Backlash decks and the Advanced count out.
     Advanced,
+    /// Advanced rules in the Revolution format: only Revolution cards,
+    /// Backlash of up to 6 Pre-match and 6 Mid-match cards, at most 3 of each
+    /// in the Ring, hands drawn before the Pre-match phase, and the Aggression
+    /// rule (end a turn without trying a maneuver: overturn 6 cards).
+    Revolution,
+}
+
+impl Mode {
+    /// Pre-match phase and Backlash decks.
+    pub fn is_advanced(self) -> bool {
+        matches!(self, Mode::Advanced | Mode::Revolution)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,6 +263,9 @@ pub struct GameState {
     /// Cards the active player played this turn, in order.
     #[serde(default)]
     pub played_this_turn: Vec<Played>,
+    /// Revolution: the Aggression rule was already checked this turn.
+    #[serde(default)]
+    pub aggression_checked: bool,
     /// The card each player reversed to end their opponent's last turn.
     #[serde(default)]
     pub reversed_last: [Option<Played>; 2],
