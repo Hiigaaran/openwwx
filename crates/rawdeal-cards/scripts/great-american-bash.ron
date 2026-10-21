@@ -80,6 +80,17 @@
         "Nicky": [PacksLogos(["The Spirit Squad"])],
     },
     scripts: {
+        "High Spirits": (as_action: Some((on_play: [DiscardThis, DrawUpTo(who: You, n: 5)]))),
+        "See No Evil": (
+            on_play: [DiscardPerRingCard(who: Opponent, filter: SuperstarSpecific)],
+            // When played by Kane he also discards 1 card per Superstar-specific card (not supported yet).
+            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]))),
+        ),
+        "The Condemned": (
+            on_play: [DiscardPerRingCard(who: Opponent, filter: SuperstarSpecific), Search(filter: Trait(Unique))],
+        ),
+        // The Hand Size and pinfall texts and the Stack and Arsenal Search are not supported yet.
+        "We Face Each Other As God Intended": (),
         // High Risk
         // Approximation: the +3D from the Ringside pile is extra damage that does not count as the card's D.
         "Blindside Elbow Drop": (

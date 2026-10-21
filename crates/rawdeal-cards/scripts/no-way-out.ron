@@ -388,6 +388,12 @@
         ],
     },
     scripts: {
+        // Approximated: you look at his hand and he puts a card of his choice on the bottom of his Arsenal.
+        // The Volley requirement and returning it to the Backlash deck are not supported yet.
+        "Volley Finisher": (),
+        "Carlito's Apple": (
+            backstage_ability: Some((sacrifice: true, effects: [LookAtHand(who: Opponent), HandToArsenalBottom(who: Opponent, n: 1)])),
+        ),
         // High Risk
         "Technical Stomp": (
             play_after: Some(Any),

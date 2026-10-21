@@ -128,6 +128,18 @@
         ],
     },
     scripts: {
+        // Hiding it during the opponent's turn to blank a card is not supported yet.
+        "Feathered Boa": (),
+        // Blanking the opponent's hand-looking cards is not supported yet.
+        "Super Masks and Super Capes": (
+            backstage_ability: Some((sacrifice: true, effects: [ShuffleHandAndRedraw(who: You)])),
+        ),
+        // Packing 3 copies is not supported yet.
+        "World Tour '05": (
+            backstage_abilities: [
+                OnPlayMatching(filter: Trait(Unique), effects: [Optional([RingsideToArsenalBottom(who: You, n: 1)])]),
+            ],
+        ),
         // High Risk
         "Counter Slash": (
             requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),

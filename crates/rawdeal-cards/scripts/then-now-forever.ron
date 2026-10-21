@@ -1,0 +1,126 @@
+// Hand-written scripts for Then, Now, Forever (Raw Deal Virtual) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
+// "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
+// Cards put under a Superstar card are not supported (that zone does not exist in the engine).
+// Enforcer cards set `enforcer_abilities`, one list per printed Enforcer, in order.
+(
+    abilities: {
+        // The Chain texts are not supported yet (the engine has no "is Chain" boost). Approximation: only his own
+        // Enforcer card can be revealed.
+        "Jim Cornette": [RevealEnforcers(AnyOf([Title("Midnight Express or Yokozuna and Owen Hart?"), Title("Vader or The British Bulldog?")]))],
+        // Packing as a Diva and the 'lady' title texts are not supported yet.
+        "Lacey Evans": [
+            Activated(
+                requires: Some(CountAtLeast(count: YourRemovedMatching(TitleContains("lady")), n: 1)),
+                cost: [Mill(who: You, n: 2)],
+                effects: [MoveCards(who: You, from: Removed, to: Hand, n: 1, filter: Some(TitleContains("lady")))],
+            ),
+        ],
+        "Pete Dunne": [
+            Activated(
+                requires: Some(HandAtLeast(1)),
+                cost: [],
+                effects: [
+                    Choice([
+                        [HandToArsenal(who: You, n: 1), HandToArsenal(who: Opponent, n: 1)],
+                        [HandToArsenal(who: You, n: 2), HandToArsenal(who: Opponent, n: 2), DrawUpTo(who: You, n: 1), DrawUpTo(who: Opponent, n: 1)],
+                        [HandToArsenal(who: You, n: 3), HandToArsenal(who: Opponent, n: 3), DrawUpTo(who: You, n: 1), DrawUpTo(who: Opponent, n: 1)],
+                    ]),
+                ],
+            ),
+        ],
+    },
+    scripts: {
+        // Strikes
+        // "Reversed as if non-Unique" is not supported yet.
+        "Classic Slap": (
+            on_play: [
+                Choice([[], [Mill(who: You, n: 1), Mill(who: Opponent, n: 1)], [Mill(who: You, n: 2), Mill(who: Opponent, n: 2)]]),
+                If(condition: YouAre("Female"), effects: [Mill(who: Opponent, n: 1)]),
+            ],
+        ),
+
+        // Submissions
+        // "Reversed as if non-Unique" is not supported yet.
+        "Classic Ankle Lock": (
+            on_play: [
+                Choice([
+                    [],
+                    [HandToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1), HandToArsenalBottom(who: Opponent, n: 1), Draw(who: Opponent, n: 1)],
+                    [HandToArsenalBottom(who: You, n: 2), Draw(who: You, n: 2), HandToArsenalBottom(who: Opponent, n: 2), Draw(who: Opponent, n: 2)],
+                    [HandToArsenalBottom(who: You, n: 3), Draw(who: You, n: 3), HandToArsenalBottom(who: Opponent, n: 3), Draw(who: Opponent, n: 3)],
+                ]),
+            ],
+        ),
+
+        // Reversals
+        // Approximation: a WWF Manager in your Ring or Ringside is not recognised.
+        "Classic Distraction": (
+            reverses: Some((
+                targets: All([Not(Trait(Unique)), Maneuver]),
+                requires: Some(AnyOf([YouAre("Tag Team"), YouAre("Stable"), HasEnforcer(You)])),
+            )),
+        ),
+
+        // Pre-match
+        // Approximation: the cards not chosen go on the bottom of the Arsenal instead of being removed. The 5D cap on
+        // the opponent's Superstar-specific hybrid reversals is not supported yet.
+        "Study the Tapes": (end_of_prematch: [Dig(n: 4, take: 1)]),
+
+        // Jim Cornette
+        // The first Enforcer (a Ringside High Risk played with the Grapple) and the Tag Team packing text are not
+        // supported yet. Approximation: the second Enforcer's first maneuver is -3F instead of Chain and +3F.
+        "Midnight Express or Yokozuna and Owen Hart?": (
+            enforcer_abilities: [
+                [],
+                [StartOfTurn([Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -3))])],
+            ],
+        ),
+        // The 'old school' Ring slot text is not supported yet.
+        "The Louisville Lip": (
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversed(Action), HandAtLeast(2)]),
+                    effects: [Optional([Discard(who: You, n: 2, pick: Chosen), RingsideToHand(who: You, n: 1, filter: Some(All([Action, Trait(Chain)])))])],
+                ),
+            ],
+        ),
+        // The Unique-reversal restriction on the next maneuver and the Volley texts are not supported yet.
+        "Cornette's Patented Tennis Racket": (
+            requires: Some(FirstCardThisTurn),
+            on_play: [ShuffleThisIntoArsenal],
+            reverses: Some((targets: Maneuver)),
+        ),
+
+        // Lacey Evans
+        // The 'male'/'female' text and the ACE (cards under the Superstar card) are not supported yet.
+        "Act Like a Lady": (
+            on_opponent_reverses: [If(condition: OpponentReversed(TitleContains("lady")), effects: [ReversedCardTo(to: Removed)])],
+        ),
+        // The pinfall with 19+ cards under the Superstar card and the shuffle from hand are not supported yet.
+        "A Woman's Right": (on_play: [Discard(who: Opponent, n: 5, pick: Chosen)]),
+        "Southern Charm": (
+            on_play: [
+                Discard(who: Opponent, n: 2, pick: Random),
+                Counted(count: Half(YourRingMatching(TitleContains("lady"))), effect: RingsideToArsenal(who: You, n: 0)),
+            ],
+            reverses: Some((
+                targets: Not(Maneuver),
+                effects: [Counted(count: Half(YourRingMatching(TitleContains("lady"))), effect: RingsideToArsenal(who: You, n: 0))],
+            )),
+        ),
+
+        // Pete Dunne
+        // Packing Split Finger Lock in the Backstage Area and playing maneuvers from it are not supported yet.
+        "Joint Manipulation": (),
+        // The Split Finger Lock draws and playing Elbow to the Face as a Strike are not supported yet.
+        "The Bruiserweight": (
+            in_ring_on_play: [(whose: Some(You), filter: Title("Elbow to the Face"), effects: [Draw(who: You, n: 2)])],
+        ),
+        // The Counter reversal restriction and the hand / Ringside ability are not supported yet.
+        "The Bitter End": (),
+    },
+)

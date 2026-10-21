@@ -14,6 +14,9 @@
         ],
     },
     scripts: {
+        // The Feud and Stipulation requirement, the forced Stipulation and blanking a Stipulation are not
+        // supported yet.
+        "SummerSlam": (),
         // Actions
         // Filtering cards by their printed set logo (Survivor Series) is not supported yet.
         "That Won't Make the Cut!": (requires: Some(Never)),

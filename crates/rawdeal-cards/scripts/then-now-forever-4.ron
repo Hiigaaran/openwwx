@@ -1,0 +1,175 @@
+// Hand-written scripts for Then, Now, Forever 4 (Raw Deal Virtual set 48) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
+// "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
+// ACE (Activated Card Effects) are ring abilities used during your own turn. Packing permissions printed on
+// Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
+// Face-down cards, "does not take up a Ring slot" (approximated as +1 Pre-match / Mid-match capacity) and
+// "cannot be blanked" are not supported.
+(
+    abilities: {
+        // Approximation: when your maneuver is reversed while you have lower Fortitude you may put it into your
+        // hand (the opponent's RFG answer and the Charismatic Style / So Much Larger Than Life texts are not
+        // supported yet).
+        "Akeem": [
+            OnOpponentReverses([
+                If(
+                    condition: All([FortitudeBelowOpponent, OpponentReversed(Maneuver)]),
+                    effects: [Optional([ReversedCardTo(to: Hand)])],
+                ),
+            ]),
+            CannotPackMatching(All([ManeuverType(HighRisk), Not(TitleContains("Splash"))])),
+        ],
+        // The 'Classic' title, Over Sell Maneuver and Thrust Knee Lift texts are not supported yet.
+        "Kamala": [
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversed(All([
+                        Maneuver,
+                        AnyOf([TitleContains("Chop"), TitleContains("Thrust"), TitleContains("Choke"), TitleContains("Splash"), TitleContains("Head")]),
+                    ])),
+                    effects: [Mill(who: Opponent, n: 3)],
+                ),
+            ]),
+            CannotPackMatching(All([Action, Not(Hybrid)])),
+        ],
+        // Halving both Fortitude Ratings and flipping cards face-down are not supported yet.
+        "Joe Gacy": [],
+        // Approximation: the +5F is a -5F boost to your next maneuver. The Bionic Elbow / Figure Four texts are
+        // not supported yet; he may pack every Cody Rhodes card ('Mask' maneuvers included).
+        "The American Nightmare": [
+            Activated(
+                requires: Some(HandAtLeast(1)),
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -5)), Optional([Dig(n: 3, take: 1)])],
+            ),
+            PacksLogos(["Cody Rhodes"]),
+        ],
+        // Packing Back to Basics maneuvers in the Backstage and the Superstar-specific 'Classic' text are not
+        // supported yet.
+        "Bruno Sammartino": [
+            CannotPack("Wrestlemania"),
+            CannotPackMatching(ManeuverType(HighRisk)),
+            CannotPackMatching(All([Maneuver, TitleContains("Panic")])),
+            CardFortitude(title: "Maintain Hold", delta: -10),
+        ],
+        // The discard-to-reverse cost and the packing permissions are not supported yet.
+        "The Great Muta": [CannotPack("Man of 1000 Holds")],
+    },
+    scripts: {
+        // Akeem
+        // Approximation: +1D for each maneuver with Stun Value 1+ and +1D more for Stun Value 2+. The opponent's
+        // -#D, the reversal damage and the Damage-overflow texts are not supported yet.
+        "One Man Gang": (
+            not_with: ["So Much Larger Than Life", "Charismatic Style"],
+            backstage_abilities: [
+                DamageFor(filter: All([Maneuver, StunValueAtLeast(1)]), delta: 1),
+                DamageFor(filter: All([Maneuver, StunValueAtLeast(2)]), delta: 1),
+            ],
+        ),
+        // The You're a Jive Soul Bro! text is not supported yet.
+        "Managed by Slick": (
+            ring_ability: Some((
+                effects: [
+                    ReturnThis(to: Removed),
+                    If(condition: Not(Superstar("Akeem")), effects: [Search(filter: TitleContains("Classic"))]),
+                    If(
+                        condition: Superstar("Akeem"),
+                        effects: [Search(filter: All([Maneuver, Not(Trait(Unique)), Not(Hybrid), StunValueAtLeast(1)]))],
+                    ),
+                ],
+            )),
+        ),
+        // Approximation: -1F for each card in your Ring with Stun Value, -1F more for Stun Value 2+. The reversal
+        // cost and the Bury-from-hand text are not supported yet.
+        "747 Splash": (
+            requires: Some(AnyOf([
+                All([ReversedLastTurn(All([Maneuver, StunValueAtLeast(1)])), FirstCardThisTurn]),
+                CountAtLeast(count: YourRingStun, n: 10),
+            ])),
+            bonuses: [
+                (per: Some(StunValueAtLeast(1)), fortitude: -1),
+                (per: Some(StunValueAtLeast(2)), fortitude: -1),
+            ],
+        ),
+
+        // Kamala
+        // Approximation: as an action, 1 maneuver in your opponent's Ring goes to his Ringside pile. Putting cards
+        // under this card and the 5D cap are not supported yet.
+        "The Ugandan Giant": (
+            as_action: Some((on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Maneuver)])),
+            reverses: Some((targets: All([Not(ManeuverType(TrademarkFinisher)), Maneuver]))),
+        ),
+        // "Its damage cannot be reduced" is not supported yet.
+        "Air Africa": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            irreversible_when: Some(After(Maneuver)),
+        ),
+        // The Bury text is not supported yet.
+        "Ugandan Belly Slaps": (
+            irreversible_when: Some(After(All([Maneuver, TitleContains("Classic")]))),
+            on_play: [RingsideToBacklash(who: You, n: 1), RingsideToHand(who: You, n: 1, up_to: true)],
+        ),
+
+        // Joe Gacy
+        // Approximation: always hidden (revealing it when you play A Safe Space is not supported).
+        "Any Conflict Can Be Resolved Using Words": (starts_hidden: true),
+        // Approximation: if your opponent has more cards in hand you draw until you match him. The shuffle option,
+        // the Male / Female text and the once-per-turn draw are not supported yet.
+        "All-Inclusive Invitational": (end_of_prematch: [If(condition: OpponentHandLarger, effects: [DrawToMatchOpponent])]),
+        // Only the draw is scripted; its rule texts are not supported yet.
+        "A Safe Space": (end_of_prematch: [DrawUpTo(who: You, n: 1), DrawUpTo(who: Opponent, n: 1)]),
+
+        // The American Nightmare
+        // Only "when your maneuver is successful, Bury 1 random Ringside card" is scripted.
+        "I Built My Kingdom": (
+            backstage_abilities: [
+                OnPlayMatching(filter: Maneuver, effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, pick: Random, bottom: true)]),
+            ],
+        ),
+        // Approximation: draw up to 6, put up to 4 cards from hand under it, discard 2 and Bury 2 Ringside cards.
+        // Playing it in any phase or from Ringside and the Promo texts are not supported yet.
+        "Adrenaline In My Soul": (
+            end_of_prematch: [
+                DrawUpTo(who: You, n: 6),
+                PutUnder(from: Hand, n: 4, up_to: true),
+                Discard(who: You, n: 2, pick: Chosen),
+                RingsideToArsenalBottom(who: You, n: 2),
+            ],
+        ),
+        // Approximation: "do not take up Ring slots" is +1 Pre-match and +1 Mid-match capacity. The Rhodes Family
+        // Values, logo and Counter texts are not supported yet.
+        "Wrestling Has More Than One Royal Family": (pre_match_limit: 1, mid_match_limit: 1),
+
+        // Bruno Sammartino
+        // Approximation: the maneuver is not reduced to D:0. Burying overturned maneuvers is not supported yet.
+        "The Italian Strongman": (
+            backstage_abilities: [
+                OnPlayMatching(filter: ManeuverType(Submission), effects: [Optional([Search(filter: Title("Maintain Hold"))])]),
+            ],
+        ),
+        // Only the Ringside option is scripted (the RFG and Ring options are not supported yet).
+        "Hammerlock": (
+            ringside_ability: Some((requires: Some(HandAtLeast(2)), cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Bruno's Bear Hug": (no_arsenal_reversal: true),
+
+        // The Great Muta
+        // The Capacity, Fortitude-modification and Backstage reversal texts are not supported yet.
+        "Backed by Gary Hart": (
+            backstage_abilities: [EndOfPrematch([Search(filter: All([Maneuver, Not(Trait(Unique))]))])],
+        ),
+        // Approximation: your non-Superstar-specific 'Moonsault' maneuvers may always ignore their "can only be
+        // played after" text (not only as a Counter). Its other texts are not supported yet.
+        "From the Land of the Rising Sun": (
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("Moonsault"), Not(SuperstarSpecific)]), ignore_play_after: true)],
+        ),
+        "Muta's Legendary Moonsault": (
+            play_after: Some(Any),
+            after_damage: [If(condition: CountAtLeast(count: YourRingMatching(TitleContains("Moonsault")), n: 5), effects: [WinByPin])],
+        ),
+    },
+)

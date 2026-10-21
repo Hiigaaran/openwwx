@@ -1,0 +1,913 @@
+// Hand-written scripts for the Prize Cards (classic, Revolution and Raw Deal Virtual prize cards: Title Belts, Guest
+// Ringside Announcers, Movies...), merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "ACE" (Activated Card Effect) texts are Ring abilities; reversing an ACE and using it during the opponent's turn are
+// not supported.
+// Changing the Starting Hand Size is approximated: +N is a draw of N at the end of the Pre-match phase (after the
+// starting hands), -N for a player puts N random cards from his hand on top of his Arsenal.
+// "You cannot play any title belt except the Tag Team Title Belts" / "when you can pack the Tag Team Title Belts" is
+// the Tag Team trait. "Does not take up a Pre-match slot" and "start the game regardless of Superstar Value" are not
+// supported.
+// "When you are a Revolution Superstar of the same name" is read as that Revolution Superstar.
+// Duplicate titles in this set: the second printing (Throwback) is imported as "<Title> (2)".
+(
+    abilities: {
+        // Playing with the opponent's hand revealed during his turn and the Arsenal/Backlash search when revealed are
+        // not supported yet.
+        "Bobby Heenan": [RevealEnforcers(Not(SuperstarSpecific)), CannotPackMatching(ManeuverType(HighRisk))],
+        "Junkyard Dog": [
+            CannotPackMatching(AnyOf([ManeuverType(Submission), ManeuverType(HighRisk)])),
+            FortitudeFor(filter: ManeuverType(Grapple), delta: -7),
+        ],
+        // Putting Ringside cards into the Backstage Area (and the -F / +F that depend on it) is not supported yet.
+        "Doink": [],
+        "Revolution Kevin Thorn": [
+            Activated(
+                cost: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(ManeuverType(Extreme)), bottom: true)],
+                effects: [Mill(who: Opponent, n: 2)],
+                requires: Some(CountAtLeast(count: YourRingsideMatching(ManeuverType(Extreme)), n: 1)),
+            ),
+        ],
+        // Approximation: not limited to once per turn.
+        "Revolution Balls Mahoney": [
+            OnPlayMatching(filter: ManeuverType(Extreme), effects: [Search(filter: ManeuverType(Extreme), up_to: true)]),
+        ],
+        // Approximation: the Extremes are +1D (not +1D for each Extreme in your Ring).
+        "Revolution Terry Funk": [
+            Activated(cost: [], effects: [DrawUpTo(who: You, n: 1)]),
+            DamageFor(filter: ManeuverType(Extreme), delta: 1),
+        ],
+        "Revolution Tommy Dreamer": [
+            Activated(cost: [Mill(who: You, n: 3)], effects: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(ManeuverType(Extreme)))]),
+        ],
+        "Revolution Elijah Burke": [
+            Activated(
+                cost: [HandToArsenalBottom(who: You, n: 1), RingsideToArsenalBottom(who: You, n: 1)],
+                effects: [DrawUpTo(who: You, n: 2)],
+                requires: Some(All([HandAtLeast(1), CountAtLeast(count: YourRingsideSize, n: 1)])),
+            ),
+        ],
+        "Revolution Marcus Cor Von": [
+            Activated(
+                cost: [DiscardMatching(who: You, n: 1, filter: ManeuverType(Extreme), pick: Chosen)],
+                effects: [Boost((applies_to: ManeuverType(Extreme), duration: NextMatching, fortitude: -4))],
+                requires: Some(HandHas(ManeuverType(Extreme))),
+            ),
+        ],
+        "Revolution Matt Striker": [
+            Activated(
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [LookAtHand(who: Opponent), DiscardMatching(who: Opponent, n: 1, filter: Not(Reversal), pick: Controller)],
+                requires: Some(HandAtLeast(2)),
+            ),
+        ],
+    },
+    scripts: {
+        // Maneuvers
+        "Tornado Takedown of Doom": (
+            only_packed_by: ["Male"],
+            on_play: [
+                Choice([
+                    [Search(filter: Any)],
+                    [RingsideToArsenal(who: You, n: 4, up_to: true)],
+                    [Discard(who: Opponent, n: 4, pick: Chosen)],
+                    [RemoveFromGame(who: Opponent, from: Ringside, n: 4, up_to: true, filter: Some(Not(Keyword("Heat"))), pick: Controller)],
+                ]),
+            ],
+        ),
+        "Atomic Powerbomb Suplexbuster Piledriver Bulldog DDT of Doom": (only_packed_by: ["Male"]),
+        "What a Maneuver!": (only_packed_by: ["Male"], on_play: [Discard(who: You, n: 1, pick: Chosen), Mill(who: You, n: 1)]),
+        // The F: 20 Trademark Finishers are not supported yet.
+        "Blatant Chokehold": (
+            on_play: [Search(filter: ManeuverType(TrademarkFinisher), ringside: true)],
+            while_in_ring: [(applies_to: ManeuverType(TrademarkFinisher), ignore_play_after: true)],
+        ),
+        "The Maneuver of Doom": (
+            only_packed_by: ["Male"],
+            on_play: [Counted(count: YourRingMatching(Trait(Unique)), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+        ),
+        "Dynamic Finisher": (
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [
+                    DiscardThis,
+                    Search(filter: TitleContains("dynamic"), ringside: true),
+                    CannotPlay(who: You, filter: All([Action, TitleContains("dynamic")]), turns: 1),
+                ],
+            )),
+        ),
+        // Locking the removed cards is not supported yet.
+        "The Finisher": (only_packed_by: ["Male"]),
+
+        // Actions
+        "That's Balanced!": (
+            on_play: [PutUnder(from: Arsenal, n: 2, up_to: true, filter: Some(Any))],
+            play_from_under: Some(All([Not(Trait(Unique)), Not(Hybrid)])),
+            under_to: Some(Removed),
+        ),
+        // Approximation: the top 3 cards are used (2 into your hand, 1 on the bottom) instead of the bottom 3.
+        // Approximation: when it is moved by the opponent, he removes the top 3 cards of his Arsenal.
+        "That's Sub-optimal": (
+            on_play: [Dig(n: 3, take: 2)],
+            restricts_opponent: Some((filter: AnyOf([Title("That's Broken"), Title("That's Balanced!")]))),
+            on_removed_by_opponent: [RemoveFromGame(who: Opponent, from: Arsenal, n: 3)],
+        ),
+        "That's ... Something?": (
+            on_play: [
+                Choice([
+                    [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(TitleContains("that's")), bottom: true)],
+                    [RemoveFromRing(who: Opponent, n: 1, filter: TitleContains("that's"))],
+                ]),
+            ],
+            ring_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: TitleContains("that's"))])),
+        ),
+        "When Kurt Met Christy": (
+            irreversible_when: Some(AnyOf([Superstar("Kurt Angle"), Superstar("Your Freaking Hero"), Superstar("Christy")])),
+            on_play: [Search(filter: Keyword("Movie"))],
+            ring_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
+        ),
+        "Keibler Instincts": (
+            irreversible_when: Some(
+                AnyOf([
+                    Superstar("Chris Jericho"),
+                    Superstar("Chris Benoit"),
+                    Superstar("Christian"),
+                    Superstar("The Crippler"),
+                    Superstar("Stacy Keibler"),
+                    Superstar("Mae Young"),
+                    Superstar("Moolah"),
+                    Superstar("The Highlight of the Night"),
+                    Superstar("Leader of the Peepulation"),
+                ]),
+            ),
+            on_play: [Draw(who: You, n: 3), CannotPlay(who: Opponent, filter: Maneuver, turns: 1), EndTurn],
+        ),
+        // Approximation: naming a card is not supported; the opponent always overturns 7 cards.
+        "Dirty Taker": (
+            irreversible_when: Some(AnyOf([Superstar("Undertaker"), Superstar("Deadman Inc."), Superstar("The Phenom")])),
+            on_play: [Mill(who: Opponent, n: 7)],
+        ),
+        // Searching for a card with the same title as the removed card is not supported yet.
+        "Pulp Mania": (
+            irreversible_when: Some(AnyOf([Superstar("Eddie Guerrero"), Superstar("Booker T")])),
+            on_play: [
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 1, filter: Some(Any), pick: Controller),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 5)),
+            ],
+        ),
+        "A Few Heel Men": (
+            irreversible_when: Some(AnyOf([Superstar("John Cena"), Superstar("JBL")])),
+            on_play: [
+                Discard(who: You, n: 2, pick: Chosen),
+                LookAtHand(who: Opponent),
+                RemoveFromGame(who: Opponent, from: Hand, n: 2, pick: Controller),
+            ],
+        ),
+        "Brave H": (
+            irreversible_when: Some(AnyOf([Superstar("Triple H"), Superstar("Ric Flair"), Superstar("The Game"), Superstar("Evolution")])),
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen), Boost((duration: NextCard, fortitude: -10, reversal_fortitude: 10))],
+        ),
+        // The opponent's part (you choose as many of his cards, he shuffles them in and redraws) is not supported yet.
+        "Eugene Gump": (
+            irreversible_when: Some(AnyOf([Superstar("William Regal"), Superstar("Eugene")])),
+            on_play: [Mulligan(n: 10)],
+        ),
+        // Approximation: any Ring card of his (not only one with an Activated Card Effect), and any card of your Ringside.
+        "Activate!": (
+            no_arsenal_reversal: true,
+            no_backlash_reversal: true,
+            on_play: [
+                Optional([RemoveFromRing(who: Opponent, n: 1, filter: Any)]),
+                Optional([RingsideToHand(who: You, n: 1)]),
+            ],
+        ),
+        "Lip Lock": (
+            requires: Some(AnyOf([YouAre("Female"), OpponentFemale])),
+            on_play: [
+                RemoveFromGame(
+                    who: Opponent,
+                    from: Arsenal,
+                    n: 2,
+                    filter: Some(All([Not(SuperstarSpecific), Not(Reversal)])),
+                    pick: Controller,
+                ),
+                Boost((duration: NextCard, fortitude: -6, reversal_fortitude: 9)),
+            ],
+        ),
+        // The -5F during the opponent's next turn is not supported yet.
+        "WWE The Power Is Back": (on_play: [Draw(who: You, n: 1), Boost((duration: ThisTurn, fortitude: -5))]),
+        "Big Time!": (
+            on_play: [
+                Choice([
+                    [],
+                    [RingsideToHand(who: You, n: 1, filter: Some(Trait(Cheater))), DrawUpTo(who: You, n: 1)],
+                    [RingsideToHand(who: You, n: 2, filter: Some(Trait(Cheater))), DrawUpTo(who: You, n: 2)],
+                ]),
+            ],
+        ),
+        "So Much Larger Than Life": (
+            on_play: [
+                Choice([
+                    [],
+                    [
+                        MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, filter: Some(Trait(FanFavorite)), bottom: true),
+                        Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -2, damage: 2, stun_value: 2)),
+                    ],
+                    [
+                        MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, filter: Some(Trait(FanFavorite)), bottom: true),
+                        Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -4, damage: 4, stun_value: 4)),
+                    ],
+                    [
+                        MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, filter: Some(Trait(FanFavorite)), bottom: true),
+                        Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6, damage: 6, stun_value: 6)),
+                    ],
+                    [
+                        MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, filter: Some(Trait(FanFavorite)), bottom: true),
+                        Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -8, damage: 8, stun_value: 8)),
+                    ],
+                ]),
+            ],
+        ),
+
+        // Mid-match Actions
+        "Living the Good Life": (
+            only_packed_by: ["Legend"],
+            on_play: [
+                Choice([
+                    [],
+                    [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, bottom: true), RingsideToHand(who: You, n: 1)],
+                    [MoveCards(who: You, from: Hand, to: Arsenal, n: 2, bottom: true), RingsideToHand(who: You, n: 2)],
+                    [MoveCards(who: You, from: Hand, to: Arsenal, n: 3, bottom: true), RingsideToHand(who: You, n: 3)],
+                    [MoveCards(who: You, from: Hand, to: Arsenal, n: 4, bottom: true), RingsideToHand(who: You, n: 4)],
+                ]),
+            ],
+        ),
+
+        // Reversals
+        // Reversing card effects and going back from the Ringside pile to the Arsenal are not supported yet.
+        "Divine Intervention": (
+            reverses: Some((targets: Any, overturned_only: true, ignores_irreversible: true, removed_after: true)),
+        ),
+        // Approximation: the result does not depend on the overturned card: you overturn 4 cards and he discards 4.
+        "Revolution Ariel's Augural Affection": (
+            reverses: Some((
+                targets: AnyOf([Antic, Trait(Momentum)]),
+                effects: [Mill(who: You, n: 4), Discard(who: Opponent, n: 4, pick: Chosen)],
+            )),
+        ),
+        "Revolution You've Got a Lot to Learn": (
+            reverses: Some((targets: Trait(Core), effects: [RingsideToArsenal(who: You, n: 4, up_to: true)])),
+            mid_match_limit: 1,
+        ),
+        // Reversing cards by the number of words in their title is not supported yet.
+        "Revolution Two For the Show...": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // The -20F when overturned and -2F for each of his Trademarks are not supported yet.
+        "Revolution Twoooooooo!": (
+            reverses: Some((
+                targets: ManeuverType(Trademark),
+                effects: [
+                    If(
+                        condition: OpponentRingHas(filter: ManeuverType(Trademark), n: 2),
+                        effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+                    ),
+                    If(
+                        condition: CountAtLeast(count: YourRingMatching(ManeuverType(Trademark)), n: 2),
+                        effects: [DrawUpTo(who: You, n: 2)],
+                    ),
+                ],
+            )),
+        ),
+
+        // Antics
+        // Approximation: "a non-Unique with 'Target' in the text" is a non-Unique card with a printed Target.
+        "Revolution Right on Target": (on_play: [Search(filter: All([Not(Trait(Unique)), HasTarget]), up_to: true)]),
+        "Revolution The Alpha Male": (
+            on_play: [
+                Counted(count: YourRingsideMatching(ManeuverType(Extreme)), effect: Mill(who: Opponent, n: 0)),
+                Counted(
+                    count: YourRingsideMatching(ManeuverType(Extreme)),
+                    effect: RingsideToArsenal(who: You, n: 0, filter: Some(ManeuverType(Extreme))),
+                ),
+            ],
+        ),
+        // Searching for cards with a Faction Requirement is not supported yet.
+        "Revolution One For the Money...": (requires: Some(Never)),
+        "Revolution Four Now Go, Cat Go!": (
+            on_play: [DrawUpTo(who: You, n: 4)],
+            restricts_opponent: Some((
+                when: All([
+                    InYourRing(Title("Revolution One For the Money...")),
+                    InYourRing(Title("Revolution Two For the Show...")),
+                    InYourRing(Title("Revolution Three to Get Ready...")),
+                ]),
+                filter: Antic,
+            )),
+        ),
+
+        // Trademarks
+        "Revolution Three to Get Ready...": (
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)],
+        ),
+
+        // Pre-match Events: Guest Ringside Announcers
+        "Shawn Michaels, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("Shawn Michaels"), OpponentSuperstar("Shawn Michaels")]))),
+            while_in_ring: [(applies_to: ManeuverType(Strike), damage: 1)],
+            reverses_from_ring: Some((
+                targets: AnyOf([
+                    Title("Iron Will"),
+                    Title("Clutch onto Opponent"),
+                    Title("Commission-er Rules!"),
+                    Title("Little She Devil"),
+                    Title("Simply The Best"),
+                    Title("I've Got Two Words for Ya!"),
+                ]),
+            )),
+        ),
+        "Chris Nowinski, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("Chris Nowinski"), OpponentSuperstar("Chris Nowinski")]))),
+            ring_ability: Some((
+                requires: Some(InYourRing(Title("Trash Talkin' Interview"))),
+                cost: [RemoveFromRing(who: You, n: 1, filter: Title("Trash Talkin' Interview"))],
+                sacrifice: true,
+                effects: [RingsideToArsenal(who: You, n: 12, up_to: true), DrawUpTo(who: You, n: 3)],
+            )),
+        ),
+        "Big Show, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("Big Show"), OpponentSuperstar("Big Show")]))),
+            end_of_prematch: [
+                If(
+                    condition: OpponentRingHas(filter: Title("It's Showtime"), n: 1),
+                    effects: [Optional([SacrificeThis, RemoveFromRing(who: Opponent, n: 1, filter: Title("It's Showtime"))])],
+                ),
+            ],
+            reverses_from_ring: Some((
+                targets: AnyOf([
+                    Title("Beating the Odds"),
+                    Title("Turn the Tide"),
+                    Title("Roll Out of the Ring"),
+                    Title("J.R. Style Slobberknocker"),
+                    Title("Ring Steps"),
+                ]),
+            )),
+        ),
+        "Rey Mysterio, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("Rey Mysterio"), OpponentSuperstar("Rey Mysterio")]))),
+            ring_ability: Some((
+                requires: Some(InYourRing(Title("Fans Love an Underdog"))),
+                cost: [RemoveFromRing(who: You, n: 1, filter: Title("Fans Love an Underdog"))],
+                sacrifice: true,
+                effects: [
+                    Draw(who: You, n: 2),
+                    RingsideToHand(who: You, n: 1, filter: Some(Trait(Face))),
+                    Boost((duration: NextCard, reversal_fortitude: 16)),
+                ],
+            )),
+        ),
+        // Approximation: any SmackDown card of his (not only one with an Activated Card Effect).
+        "Al Snow, Guest Ringside Announcer": (
+            not_packed_by: ["Al Snow"],
+            requires: Some(Not(OpponentSuperstar("Al Snow"))),
+            end_of_prematch: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Trait(SmackDown))])],
+            reverses_from_ring: Some((targets: All([Trait(SmackDown), Not(Trait(Unique))]))),
+        ),
+        // Naming a card is not supported yet.
+        "Hardcore Holly, Guest Ringside Announcer": (requires: Some(Never)),
+        // Blanking a Stipulation and "completely" reversing are not supported yet.
+        "Vince McMahon, Guest Ringside Announcer": (
+            not_packed_by: ["Vince McMahon"],
+            reverses_from_ring: Some((targets: Trait(Multi))),
+        ),
+        // "When this effect is reversed, your turn does not end" is not supported.
+        "Vince McMahon, Guest Ringside Announcer (2)": (
+            requires: Some(
+                Not(
+                    AnyOf([
+                        Superstar("Vince McMahon"),
+                        Superstar("The Genetic Jackhammer"),
+                        Superstar("The McMahon Dynasty"),
+                        OpponentSuperstar("Vince McMahon"),
+                        OpponentSuperstar("The Genetic Jackhammer"),
+                        OpponentSuperstar("The McMahon Dynasty"),
+                    ]),
+                ),
+            ),
+            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [Mill(who: You, n: 2)])],
+            ring_ability: Some((sacrifice: true, effects: [Search(filter: Title("What a Maneuver!"))])),
+        ),
+        // "When this effect is reversed, your turn does not end" is not supported.
+        "Jesse 'The Body' Ventura, Guest Ringside Announcer": (
+            not_with: ["All Together Now"],
+            // Approximation: all Starting Hand Sizes -1.
+            end_of_prematch: [HandToArsenalTop(who: You, n: 1, random: true), HandToArsenalTop(who: Opponent, n: 1, random: true)],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Search(
+                        filter: All([Trait(Cheater), Not(Keyword("Volley")), Not(Trait(Unique))]),
+                        ringside: true,
+                        n: 2,
+                        up_to: true,
+                    ),
+                ],
+            )),
+        ),
+        // Searching for a card with 'diva' in the text is not supported yet.
+        "Candice Michelle, Guest Ringside Announcer": (
+            reverses_from_ring: Some((targets: All([Not(Maneuver), DamageAtLeast(1)]))),
+        ),
+        // Approximation: when he does not discard 3 cards, you draw up to 2 cards (instead of 1 for each Unique card
+        // you play this turn).
+        "JBL, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("JBL"), OpponentSuperstar("JBL")]))),
+            end_of_prematch: [Draw(who: You, n: 1)],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [OpponentChooses(n: 1, options: [[Discard(who: Opponent, n: 3, pick: Chosen)], [DrawUpTo(who: You, n: 2)]])],
+            )),
+        ),
+        // Approximation: the ACE finds a card with the same title as one in your Ring (any number of copies).
+        "Mr. Kennedy, Guest Ringside Announcer": (
+            requires: Some(
+                Not(
+                    AnyOf([
+                        Superstar("Ken Kennedy"),
+                        Superstar("Mr. Kennedy"),
+                        Superstar("The Future Of Sports Entertainment"),
+                        OpponentSuperstar("Ken Kennedy"),
+                        OpponentSuperstar("Mr. Kennedy"),
+                        OpponentSuperstar("The Future Of Sports Entertainment"),
+                    ]),
+                ),
+            ),
+            end_of_prematch: [HandToArsenalTop(who: Opponent, n: 1, random: true)],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Search(filter: SameTitleInRing), Boost((duration: NextCard, ignore_play_after: true))],
+            )),
+        ),
+        // The opponent revealing 2 random cards and blanking his Superstar Ability for the turn are not supported yet.
+        "Triple H, Guest Ringside Announcer": (
+            requires: Some(
+                Not(
+                    AnyOf([
+                        Superstar("Triple H"),
+                        Superstar("The Game"),
+                        Superstar("DX"),
+                        Superstar("The King of Kings"),
+                        Superstar("Revolution Triple H"),
+                        OpponentSuperstar("Triple H"),
+                        OpponentSuperstar("The Game"),
+                        OpponentSuperstar("DX"),
+                        OpponentSuperstar("The King of Kings"),
+                        OpponentSuperstar("Revolution Triple H"),
+                    ]),
+                ),
+            ),
+            end_of_prematch: [Mulligan(n: 4)],
+        ),
+        // Continuing the turn when he reverses an ACE is not supported yet.
+        "Zack Ryder, Guest Ringside Announcer": (
+            requires: Some(Not(AnyOf([Superstar("Zack Ryder"), OpponentSuperstar("Zack Ryder")]))),
+            end_of_prematch: [Draw(who: You, n: 3), HandToArsenalBottom(who: You, n: 3)],
+        ),
+        "CM Punk, Guest Ringside Announcer": (
+            requires: Some(
+                Not(
+                    AnyOf([
+                        Superstar("CM Punk"),
+                        Superstar("Revolution CM Punk"),
+                        Superstar("The Best Wrestler in the World"),
+                        OpponentSuperstar("CM Punk"),
+                        OpponentSuperstar("Revolution CM Punk"),
+                        OpponentSuperstar("The Best Wrestler in the World"),
+                    ]),
+                ),
+            ),
+            while_in_ring: [(applies_to: All([Action, Not(Trait(Unique))]), fortitude: -1)],
+            reverses_from_ring: Some((
+                targets: AnyOf([
+                    Title("Ready to Fight"),
+                    Title("Shane O'Mac Delivers the BASH"),
+                    Title("Shoot Action"),
+                    All([Antic, Trait(Unique), Not(SuperstarSpecific)]),
+                ]),
+            )),
+        ),
+        // Making cards Active, the Shoot Counter limit and continuing the turn after a failed maneuver are not
+        // supported yet.
+        "Rybaxel, Guest Ringside Announcers": (requires: Some(Never)),
+
+        // Other Pre-match Events
+        "ECW One Night Stand": (
+            in_ring_on_play: [
+                (
+                    filter: Keyword("Foreign Object"),
+                    effects: [
+                        Choice([
+                            [],
+                            [Draw(who: You, n: 1), RingsideToArsenal(who: You, n: 1)],
+                            [Draw(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)],
+                            [RingsideToArsenal(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        // Using it when about to lose by pinfall is not supported yet.
+        "Through All of These Years": (
+            only_packed_by: ["Legend"],
+            pre_match_limit: 1,
+            ring_ability: Some((effects: [RingsideToArsenal(who: You, n: 9, up_to: true), EndTurn], sacrifice: true)),
+        ),
+        "The Champ Is Here!": (requires: Some(InYourRing(TitleBelt)), pre_match_limit: 2, mid_match_limit: 2),
+        // Approximation: you choose any non-Unique Backlash card (not only a Pre-match one). Blanking your own Ability
+        // is not supported yet.
+        "Revolution Judgment Day": (on_play: [LookAtHand(who: Opponent), BacklashToRingside(who: Opponent, n: 1)]),
+
+        // Pre-match Managers
+        // Its Ringside effect is not supported yet.
+        "Managed by 'The Mouth of the South' Jimmy Hart": (
+            only_packed_by: ["Legend"],
+            reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+        ),
+        "Old School Manager": (
+            pre_match_limit: 1,
+            // Approximation: the opponent's Starting Hand Size -1.
+            end_of_prematch: [HandToArsenalTop(who: Opponent, n: 1, random: true)],
+        ),
+        // Approximation: you look at the top 10 cards and put them back in any order (none go to the bottom).
+        "Managed by the WWE Divas": (
+            on_play: [Arrange(who: You, n: 10)],
+            ring_ability: Some((sacrifice: true, effects: [Search(filter: All([Action, Keyword("Run-in")]))])),
+        ),
+
+        // Pre-match Objects: Title Belts
+        "World Wrestling Federation Heavyweight Title Belt": (value_bonus: 3),
+        "World Wrestling Federation Intercontinental Title Belt": (value_bonus: 2),
+        "World Wrestling Federation European Title Belt": (value_bonus: 1),
+        "WWE Tag Team Title Belts": (only_packed_by: ["Tag Team"], hand_size_bonus: 1, value_bonus: 2),
+        "World Wrestling Federation Hardcore Title Belt": (
+            while_in_ring_all: [(applies_to: Maneuver, damage: 1)],
+            value_bonus: 1,
+        ),
+        "WCW Title Belt": (mid_match_limit: 1, value_bonus: 2),
+        // Lowering the 'Can only be played after a #D maneuver' of High Risk cards is not supported yet.
+        "World Wrestling Federation Lt. Heavyweight Title Belt": (),
+        "WWE Undisputed Heavyweight Title Belt": (
+            requires: Some(
+                Not(AnyOf([InYourRing(Title("World Wrestling Federation Heavyweight Title Belt")), InYourRing(Title("WCW Title Belt"))])),
+            ),
+            restricts_self: Some((filter: AnyOf([Title("World Wrestling Federation Heavyweight Title Belt"), Title("WCW Title Belt")]))),
+            value_bonus: 4,
+        ),
+        "World Wrestling Federation Women's Title Belt": (
+            requires: Some(All([YouAre("Female"), Not(InYourRing(TitleBelt))])),
+            restricts_self: Some((filter: TitleBelt)),
+            pre_match_limit: 1,
+            hand_size_bonus: 1,
+            value_bonus: 2,
+        ),
+        "World Heavyweight Title Belt": (
+            requires: Some(Not(InYourRing(Title("WCW Title Belt")))),
+            restricts_self: Some((filter: Title("WCW Title Belt"))),
+            end_of_prematch: [Search(filter: All([Trait(Raw), Not(Trait(Unique))]))],
+            value_bonus: 2,
+        ),
+        "Cruiserweight Title Belt": (end_of_prematch: [Search(filter: All([Trait(SmackDown), Not(Trait(Unique))]))], value_bonus: 1),
+        "Raw Tag Team Title Belts": (
+            requires: Some(All([YouAre("Tag Team"), Not(InYourRing(Title("Tag Team Title Belts")))])),
+            restricts_self: Some((filter: Title("Tag Team Title Belts"))),
+            end_of_prematch: [Choice([[Draw(who: You, n: 1)], [RingsideToHand(who: You, n: 1, filter: Some(Trait(Raw)))]])],
+            value_bonus: 1,
+        ),
+        "SmackDown Tag Team Title Belts": (
+            requires: Some(All([YouAre("Tag Team"), Not(InYourRing(Title("Tag Team Title Belts")))])),
+            restricts_self: Some((filter: Title("Tag Team Title Belts"))),
+            end_of_prematch: [Choice([[Draw(who: You, n: 1)], [RingsideToHand(who: You, n: 1, filter: Some(Trait(SmackDown)))]])],
+            value_bonus: 1,
+        ),
+        "Raw Intercontinental Title Belt": (pre_match_limit: 1, value_bonus: 1),
+        "United States Title Belt": (opponent_pre_match_limit: -1, value_bonus: 1),
+        "WWE Championship Belt": (
+            end_of_prematch: [Discard(who: You, n: 1, pick: Chosen), Search(filter: AnyOf([Trait(Chain), Keyword("Volley")]))],
+            value_bonus: 2,
+        ),
+        // The trigger on cards with 'Can only be packed by a Female' or 'by a Diva' in the text is not supported yet.
+        "WWE Women's Championship Belt": (
+            only_packed_by: ["Female"],
+            requires: Some(Not(InYourRing(TitleBelt))),
+            restricts_self: Some((filter: TitleBelt)),
+            value_bonus: 1,
+        ),
+        // Approximation: Starting Hand Size +1.
+        "WWE Raw Deal Championship Belt": (end_of_prematch: [Draw(who: You, n: 1)], value_bonus: 3),
+        // Approximation: Starting Hand Size +1 with ECW One Night Stand in your Ring.
+        "ECW Championship Belt": (
+            end_of_prematch: [If(condition: InYourRing(Title("ECW One Night Stand")), effects: [Draw(who: You, n: 1)])],
+            while_in_ring: [(applies_to: Maneuver, damage: 2)],
+        ),
+        // Approximation: the opponent chooses the cards he shuffles in (not random).
+        "WWE Spinner Belt": (
+            end_of_prematch: [
+                Counted(count: SuperstarValue, effect: HandToArsenal(who: Opponent, n: 0)),
+                Counted(count: SuperstarValue, effect: Draw(who: Opponent, n: 0)),
+            ],
+            value_bonus: 3,
+        ),
+        // Approximation: Starting Hand Size +1.
+        "Intercontinental Title Belt": (
+            requires: Some(Not(InYourRing(All([TitleBelt, TitleContains("intercontinental")])))),
+            restricts_self: Some((filter: All([TitleBelt, TitleContains("intercontinental")]))),
+            end_of_prematch: [Draw(who: You, n: 1)],
+            pre_match_limit: 1,
+            value_bonus: 1,
+        ),
+        // Approximation: your Starting Hand Size +1 and his -1.
+        "United States Title Belt (2)": (
+            end_of_prematch: [Draw(who: You, n: 1), HandToArsenalTop(who: Opponent, n: 1, random: true)],
+            value_bonus: 1,
+        ),
+        // Approximation: Starting Hand Size +1. The free Pre-match slot is not supported yet.
+        "Raw Tag Team Title Belts (2)": (
+            only_packed_by: ["Tag Team"],
+            requires: Some(Not(InYourRing(All([TitleBelt, Not(Keyword("Throwback"))])))),
+            restricts_self: Some((filter: All([TitleBelt, Not(Keyword("Throwback"))]))),
+            end_of_prematch: [Draw(who: You, n: 1)],
+            value_bonus: 1,
+        ),
+        // Approximation: Starting Hand Size +1. Choosing 1 less card for I'm Gonna Break You or Fans Love an Underdog is
+        // not supported yet.
+        "Smackdown Tag Team Title Belts (2)": (
+            only_packed_by: ["Tag Team"],
+            requires: Some(Not(InYourRing(All([TitleBelt, Not(Keyword("Throwback"))])))),
+            restricts_self: Some((filter: All([TitleBelt, Not(Keyword("Throwback"))]))),
+            end_of_prematch: [Draw(who: You, n: 1)],
+            value_bonus: 1,
+        ),
+        // Approximation: you find 1 non-Unique maneuver (the opponent does not choose between 2). Starting the game
+        // first is not supported yet.
+        "Smoking Skull Title Belt": (
+            not_with: ["First of All"],
+            end_of_prematch: [Search(filter: All([Maneuver, Not(Trait(Unique))]))],
+            value_bonus: 2,
+        ),
+        // Its effects on cards with 'diva' in the text are not supported yet.
+        "WWE Divas Championship Belt": (only_packed_by: ["Diva"], value_bonus: 1),
+        // Its ACE (removing a maneuver he reversed and playing the revealed Action) is not supported yet.
+        "WCW Title Belt (2)": (value_bonus: 2),
+        "WCW Tag Team Title Belts": (
+            only_packed_by: ["Tag Team"],
+            requires: Some(Not(InYourRing(TitleBelt))),
+            restricts_self: Some((
+                when: Not(
+                    AnyOf([
+                        Superstar("Hall and Nash"),
+                        Superstar("The Brain Busters"),
+                        Superstar("Harlem Heat"),
+                        Superstar("Dudley Boyz"),
+                        Superstar("The Dudley Boyz"),
+                    ]),
+                ),
+                filter: TitleBelt,
+            )),
+            while_in_ring: [(applies_to: Maneuver, damage: 1)],
+            end_of_prematch: [Draw(who: You, n: 1)],
+            value_bonus: 1,
+        ),
+        // "Cannot be packed when you can pack Tag Team Title Belts" (the Tag Team trait) is left out: a Superstar trait
+        // in not_packed_by breaks the automatic decks. 'Old school' in the title and the protection of maneuvers
+        // played from under Back to Basics are not supported yet.
+        "World Wrestling Federation Heavyweight Title Belt (2)": (
+            end_of_prematch: [If(condition: InYourRing(Title("Back to Basics")), effects: [Draw(who: You, n: 2)])],
+            value_bonus: 3,
+        ),
+        // Resolving first at the end of the Pre-match phase and the Don't Mess With the Champ! protections are not
+        // supported yet.
+        "World Heavyweight Title Belt (2)": (not_with: ["First of All"], value_bonus: 3),
+        // Approximation: you reveal 5 cards (not as many as your Superstar Value).
+        "WWE Spinner Belt (2)": (
+            not_with: ["First of All"],
+            end_of_prematch: [
+                If(
+                    condition: Not(
+                        AnyOf([
+                            Superstar("John Cena"),
+                            Superstar("The Champ"),
+                            Superstar("Randy Orton"),
+                            Superstar("Revolution John Cena"),
+                            Superstar("Revolution Randy Orton"),
+                        ]),
+                    ),
+                    effects: [Dig(n: 5, take: 1)],
+                ),
+                If(
+                    condition: AnyOf([
+                        Superstar("John Cena"),
+                        Superstar("The Champ"),
+                        Superstar("Randy Orton"),
+                        Superstar("Revolution John Cena"),
+                        Superstar("Revolution Randy Orton"),
+                    ]),
+                    effects: [Dig(n: 5, take: 2)],
+                ),
+            ],
+            value_bonus: 3,
+        ),
+        // "Without 'reversed' in the text" is not supported (any non-Unique High Risk is found).
+        "Cruiserweight Title Belt (2)": (
+            end_of_prematch: [
+                Search(
+                    filter: All([
+                        Not(Trait(Unique)),
+                        AnyOf([ManeuverType(HighRisk), TitleContains("technical"), TitleContains("precision")]),
+                    ]),
+                ),
+            ],
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        Maneuver,
+                        Not(Trait(Unique)),
+                        Holds(AnyOf([Superstar("Hurricane"), Superstar("The Hurricane"), Superstar("Matt Hardy"), Superstar("Jamie Noble"), Superstar("X-Pac")])),
+                    ]),
+                    fortitude: -3,
+                ),
+            ],
+            value_bonus: 1,
+        ),
+        // The free Pre-match / Mid-match slots for Superstar-specific cards are not supported yet.
+        "WWE Undisputed Heavyweight Title Belt (2)": (
+            requires: Some(
+                Not(
+                    AnyOf([
+                        InYourRing(Title("First of All")),
+                        InYourRing(All([TitleBelt, AnyOf([TitleContains("Heavyweight"), TitleContains("WWE")])])),
+                    ]),
+                ),
+            ),
+            restricts_self: Some((filter: AnyOf([Title("First of All"), All([TitleBelt, AnyOf([TitleContains("Heavyweight"), TitleContains("WWE")])])]))),
+            restricts_opponent: Some((filter: Title("I'm Gonna Break You"))),
+            value_bonus: 4,
+        ),
+        // Moving to the opponent's Ring after his Foreign Object maneuver or Trademark Finisher is not supported yet.
+        "World Wrestling Federation Hardcore Title Belt (2)": (
+            while_in_ring: [
+                (applies_to: Maneuver, fortitude: -2, damage: 1),
+                (
+                    applies_to: All([
+                        Keyword("Foreign Object"),
+                        Holds(AnyOf([Superstar("Al Snow"), Superstar("Raven"), Superstar("Stevie Richards")])),
+                    ]),
+                    damage: 1,
+                ),
+            ],
+            value_bonus: 1,
+        ),
+        // Approximation: always "your maneuvers are +1D" (the opponent's -1D option is not offered).
+        "ECW Championship Belt (2)": (
+            while_in_ring: [(applies_to: Maneuver, damage: 1)],
+            end_of_prematch: [
+                If(
+                    condition: AnyOf([
+                        Superstar("Rob Van Dam"),
+                        Superstar("Lashley"),
+                        Superstar("Revolution Tommy Dreamer"),
+                        Superstar("Jack Swagger"),
+                        Superstar("Christian"),
+                    ]),
+                    effects: [Draw(who: You, n: 1)],
+                ),
+            ],
+            value_bonus: 1,
+        ),
+        // Approximation: up to 5 cards are shuffled in and redrawn (not put on the bottom, nor as many as your
+        // Superstar Value). The packing limit and locking the Superstar Value are not supported yet.
+        "WWE World Heavyweight Title Belts": (end_of_prematch: [Mulligan(n: 5)], value_bonus: 4),
+        "WWE Tag Team Title Belts (2)": (
+            only_packed_by: ["Tag Team"],
+            end_of_prematch: [
+                Choice([
+                    [RingsideToArsenalBottom(who: You, n: 2)],
+                    [DrawUpTo(who: You, n: 3), HandToArsenalBottom(who: You, n: 2)],
+                ]),
+            ],
+            value_bonus: 1,
+        ),
+
+        // Pre-match Objects: Revolution Title Belts
+        // Approximation: always the first option (draw 2 cards, Superstar Value +1).
+        "Revolution WWE Intercontinental Title Belt": (on_play: [Draw(who: You, n: 2)], value_bonus: 1),
+        // Approximation: always the first option (he discards 2 cards, Superstar Value +3).
+        "Revolution WWE Heavyweight Title Belt": (end_of_prematch: [Discard(who: Opponent, n: 2, pick: Chosen)], value_bonus: 3),
+        "Revolution WWE United States Title Belt": (
+            requires: Some(SuperstarValueBelowOpponent),
+            restricts_opponent: Some((filter: TitleBelt)),
+            opponent_value_bonus: -4,
+        ),
+        // Approximation: the card found has any printed Target (not only one missing from your hand).
+        "Revolution WWE Championship Title Belt": (
+            end_of_prematch: [Optional([RevealHand(who: You), Search(filter: All([Not(Trait(Unique)), HasTarget]), up_to: true)])],
+            value_bonus: 3,
+        ),
+        "Revolution ECW World Title Belt": (
+            end_of_prematch: [
+                Discard(who: You, n: 2, pick: Chosen),
+                Search(filter: All([ManeuverType(Extreme), Not(Trait(Core))]), n: 2, up_to: true),
+            ],
+            value_bonus: 1,
+        ),
+        // Cards with 'cannot be reversed' in the text are not supported yet.
+        "Revolution WWE Cruiserweight Title Belt": (requires: Some(Never)),
+        // Approximation: up to 2 cards are shuffled in and redrawn (not put on the bottom, not doubled).
+        "Revolution WWE World Heavyweight Title Belts": (end_of_prematch: [Mulligan(n: 2)], value_bonus: 5),
+        // The doubled Superstar Value and the extra Pre-match slot for Tag Teams are not supported yet.
+        "Revolution WWE Tag Team Title Belts": (
+            on_play: [
+                If(condition: YouAre("Tag Team"), effects: [DrawUpTo(who: You, n: 2)]),
+                If(condition: Not(YouAre("Tag Team")), effects: [DrawUpTo(who: You, n: 1)]),
+            ],
+            value_bonus: 1,
+        ),
+        // The doubled Superstar Value and the Corner limit are not supported yet.
+        "Revolution Money in the Bank Briefcase": (
+            on_play: [
+                If(condition: OpponentRingHas(filter: TitleBelt, n: 1), effects: [DrawUpTo(who: You, n: 2)]),
+                If(condition: Not(OpponentRingHas(filter: TitleBelt, n: 1)), effects: [DrawUpTo(who: You, n: 1)]),
+            ],
+            value_bonus: 1,
+        ),
+        // Approximation: you choose the card from under it (not at random), and the cards under it go to your hand
+        // whenever it leaves your Ring.
+        "Revolution McMahon Family Jewels": (
+            ring_ability: Some((
+                effects: [
+                    Choice([
+                        [PutUnder(from: Arsenal, n: 1)],
+                        [
+                            If(
+                                condition: AnyOf([OpponentHandLarger, FortitudeBelowOpponent]),
+                                effects: [TakeFromUnder(to: Hand, n: 1)],
+                            ),
+                        ],
+                    ]),
+                ],
+            )),
+            under_to: Some(Hand),
+        ),
+
+        // Kevin Thorn
+        // (Ariel's Augural Affection is with the Reversals.)
+        // Balls Mahoney
+        // Counting as an Extreme while in the Arsenal is not supported yet.
+        "Revolution The Nutcracker Suite": (),
+        // Terry Funk
+        "Revolution Extreme Throttling": (bonuses: [(when: CountAtLeast(count: OpponentFortitude, n: 15), fortitude: -15)]),
+        // Tommy Dreamer
+        "Revolution The Dreamer DDT": (momentum_when: Some(CountAtLeast(count: YourRingMatching(ManeuverType(Extreme)), n: 5))),
+        // Elijah Burke
+        "Revolution The Elijah Express": (momentum_when: Some(OpponentHandLarger)),
+        // Marcus Cor Von: The Alpha Male is with the Antics. Matt Striker: You've Got a Lot to Learn is with the Reversals.
+
+        // Backstage cards
+        // Changing the opponent's Superstar Value from the Backstage Area is not supported yet.
+        "Backstage Signature": (),
+        "WWE Raw Deal Fifth Anniversary": (
+            backstage_ability: Some((sacrifice: true, effects: [Mill(who: You, n: 5), RingsideToArsenal(who: You, n: 5)])),
+        ),
+        // Changing the Superstar Value from the Backstage Area is not supported yet.
+        "WWE Signing Appearance": (
+            backstage_abilities: [
+                EndOfPrematch([
+                    Optional([HandToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)]),
+                    AsOpponent([Optional([HandToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)])]),
+                ]),
+            ],
+        ),
+        // Approximation: each player's Starting Hand Size +1.
+        "Backstage Autograph Session": (
+            backstage_abilities: [
+                EndOfPrematch([
+                    Draw(who: You, n: 1),
+                    AsOpponent([Draw(who: You, n: 1)]),
+                    Optional([RingsideToArsenalBottom(who: You, n: 1)]),
+                    AsOpponent([Optional([RingsideToArsenalBottom(who: You, n: 1)])]),
+                ]),
+            ],
+        ),
+        "Raw Deal Tenth Anniversary": (
+            backstage_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Mill(who: You, n: 4),
+                    RingsideToArsenal(who: You, n: 4),
+                    If(
+                        condition: BackstageRevealed(who: You, filter: Title("WWE Raw Deal Fifth Anniversary")),
+                        effects: [Optional([MoveCards(who: You, from: Removed, to: Arsenal, n: 1)]), Draw(who: You, n: 1)],
+                    ),
+                ],
+            )),
+        ),
+    },
+)

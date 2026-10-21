@@ -1,0 +1,556 @@
+// Hand-written scripts for V2: WCW Invasion cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// Raw Deal Virtual (fan-made) set: there is no official rule sheet.
+// The Backstage Area as a place to put cards (other than Backstage cards), changing card traits ("are Multi",
+// "considered to have 'sleeper' in the title"), Pre-match Capacity on Superstars and blanking text are not supported yet.
+(
+    abilities: {
+        // Putting cards into the Backstage Area at the end of the turn (and losing with 20+ there) and packing
+        // Too Sweet! are not supported yet.
+        "nWo Wolfpack": [
+            OnYouReverse([If(condition: OpponentArsenalAtLeast(20), effects: [Mill(who: Opponent, n: 3)])]),
+            PacksLogos(["Hall and Nash"]),
+            CannotPack("Hall's Fall-Away Slam"),
+        ],
+        // Approximation: the +1D for each 'sleeper' card in your Ring is extra damage.
+        "The Rowdy One": [
+            Activated(
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [Search(filter: TitleContains("sleeper"))],
+            ),
+            OnPlayMatching(
+                filter: All([Maneuver, TitleContains("sleeper")]),
+                effects: [Counted(count: YourRingMatching(TitleContains("sleeper")), effect: Damage(who: Opponent, n: 0))],
+            ),
+            CannotBeReversedBy(played: All([Action, SuperstarSpecific]), reversal: Any),
+            PacksLogos(["Rowdy Roddy Piper"]),
+        ],
+        // Approximation: the Ringside shuffle happens on every Unique maneuver, not once per turn. Packing
+        // Once a Horseman, Always a Horseman and No Sell Maneuver (and the changes to them) is not supported yet.
+        "Sting": [
+            OnPlayMatching(
+                filter: All([Maneuver, Trait(Unique)]),
+                effects: [RingsideToArsenal(who: You, n: 5, up_to: true)],
+            ),
+        ],
+        // The Pre-match Capacity +2 and the packing permissions are not supported yet.
+        "Lex Luger": [
+            DamageFor(filter: All([Maneuver, TitleContains("dynamic")]), delta: 3),
+            OpponentCannotPlay("Hold the Phone"),
+            OpponentCannotPlay("Shoot Counter"),
+        ],
+        // Making Give and Take / Hide and Seek Permanent and unblankable, and the "Unique reversals only" part
+        // are not supported yet. The Diamond Cutter's -5F is on that card.
+        "DDP": [
+            EndOfPrematch([
+                MoveCards(
+                    who: You,
+                    from: Arsenal,
+                    to: Ring,
+                    n: 1,
+                    filter: Some(AnyOf([Title("Give and Take"), Title("Hide and Seek")])),
+                ),
+            ]),
+            FortitudeFor(
+                filter: All([TitleContains("360-Degree Clothesline"), Holds(InYourRing(Trait(FanFavorite)))]),
+                delta: -8,
+            ),
+            CannotPackMatching(TitleContains("BASH")),
+        ],
+        // Making the opponent discard to reverse Foreign Object maneuvers, suplex Grapples becoming Chain and the
+        // packing permissions are not supported yet (the Chain rule already applies to Chain maneuvers).
+        "Saturn": [
+            CannotPackMatching(
+                All([
+                    Maneuver,
+                    Not(Trait(Chain)),
+                    Not(Keyword("Foreign Object")),
+                    Not(All([ManeuverType(Grapple), TitleContains("suplex")])),
+                    Not(Title("Sidewalk Slam")),
+                ]),
+            ),
+        ],
+        // Counting cards as having 'shoot' and 'technical' in the title is not supported yet.
+        "The Steiner Brothers": [
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+            CannotPack("Back to Basics"),
+            CannotPack("Straight-Shootin' Interview"),
+        ],
+        // Making Strikes Multi is not supported yet. Approximation: cards with 'Sharmell' in the title cannot be
+        // packed at all.
+        "Harlem Heat": [
+            PacksLogos(["Booker T"]),
+            CannotPackMatching(TitleContains("Sharmell")),
+            CannotPack("Yo Dawg, Respect the Bookerman"),
+            CannotPackMatching(
+                All([AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]), Not(Title("Sidewalk Slam"))]),
+            ),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
+    },
+    scripts: {
+        // nWo Wolfpack / Hall and Nash
+        // The Starting Hand Size per copy in his Ring and changing the text of Too Sweet! are not supported yet.
+        "Wolfpack Is Back, Causin' Mass Destruction": (requires: Some(Never)),
+        // The Ring maneuvers condition reads "no maneuvers in your Ring". Burying Konnan's Rolling Clothesline and
+        // returning this card to the Backlash deck are not supported yet.
+        "I'll Shoot You Right Between the Eyes!": (
+            irreversible_when: Some(
+                All([CountAtMost(count: YourRingMatching(Maneuver), n: 0), CountAtLeast(count: OpponentFortitude, n: 5)]),
+            ),
+            mid_match_limit: 2,
+            on_play: [Search(filter: Title("Konnan's Rolling Clothesline"), ringside: true)],
+        ),
+        // Moving non-Backstage cards out of the Backstage Area is not supported yet.
+        "You Might Wind Up in a Body Bag": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Trademark), ManeuverType(TrademarkFinisher)]),
+                effects: [RingsideToArsenalBottom(who: You, n: 4)],
+            )),
+        ),
+        "Konnan's Rolling Clothesline": (play_after: Some(Any), bonuses: [(reversal_damage: -60)]),
+        "Don't Turn Your Back on The Wolfpack": (
+            reverses: Some((
+                targets: AnyOf([
+                    // The reversing player has more maneuvers in the Ring (judged from the attacker's side).
+                    All([
+                        Maneuver,
+                        Not(Trait(Unique)),
+                        Holds(CountBelow(a: YourRingMatching(Maneuver), b: OpponentRingMatching(Maneuver))),
+                    ]),
+                    All([Maneuver, Holds(CountBelow(a: OpponentRingMatching(Maneuver), b: YourRingMatching(Maneuver)))]),
+                    All([
+                        Not(Maneuver),
+                        Holds(Not(CountBelow(a: YourRingMatching(Maneuver), b: OpponentRingMatching(Maneuver)))),
+                        Holds(Not(CountBelow(a: OpponentRingMatching(Maneuver), b: YourRingMatching(Maneuver)))),
+                    ]),
+                ]),
+            )),
+        ),
+
+        // Rowdy Roddy Piper / The Rowdy One
+        // Playing Piper Pre-match cards regardless of Back to Basics and the sleeper Actions not counting as played
+        // are not supported yet.
+        "Piper's Pit": (
+            end_of_prematch: [
+                If(
+                    condition: Not(Superstar("The Rowdy One")),
+                    effects: [
+                        MoveCards(
+                            who: Opponent,
+                            from: Arsenal,
+                            to: Removed,
+                            n: 2,
+                            up_to: true,
+                            filter: Some(All([Not(Trait(Unique)), FortitudeAtLeast(1)])),
+                            pick: Controller,
+                        ),
+                    ],
+                ),
+                If(
+                    condition: Superstar("The Rowdy One"),
+                    effects: [
+                        Choice([
+                            [
+                                MoveCards(
+                                    who: Opponent,
+                                    from: Arsenal,
+                                    to: Removed,
+                                    n: 2,
+                                    up_to: true,
+                                    filter: Some(All([Not(Trait(Unique)), FortitudeAtLeast(1)])),
+                                    pick: Controller,
+                                ),
+                            ],
+                            [
+                                LookAtHand(who: Opponent),
+                                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
+                            ],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        // Approximation: "maneuvers or actions with 'reverse' in the text" are left out (only Multi maneuvers).
+        "Time to Pay the Piper": (
+            reverses: Some((
+                targets: All([Maneuver, Trait(Multi)]),
+                ignores_irreversible: true,
+                effects: [MoveCards(who: You, from: Removed, to: Arsenal, n: 2, up_to: true, bottom: true)],
+            )),
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        AnyOf([TitleContains("questions"), TitleContains("answers")]),
+                        Holds(YouAre("Rowdy Roddy Piper")),
+                    ]),
+                    fortitude: -10,
+                ),
+            ],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([AnyOf([TitleContains("questions"), TitleContains("answers")]), Holds(YouAre("Rowdy Roddy Piper"))]),
+                    effects: [DrawUpTo(who: You, n: 1)],
+                ),
+            ],
+        ),
+        // Counting as a 'sleeper' card in the Ring is not supported yet.
+        "Piper's Patented Eye Poke": (
+            not_packed_by: ["Eugene"],
+            not_reversed_by: Some(Not(Title("Clumsy Opponent"))),
+            reverses: Some((
+                targets: AnyOf([
+                    ManeuverType(Strike),
+                    ManeuverType(Assault),
+                    All([Not(SuperstarSpecific), Not(Maneuver)]),
+                ]),
+            )),
+        ),
+        "Piper's Inverted Atomic Drop": (
+            not_reversed_by: Some(DamageAtLeast(1)),
+            on_play: [
+                Search(filter: TitleContains("sleeper")),
+                Discard(who: Opponent, n: 1, pick: Random),
+                Discard(who: Opponent, n: 1, pick: Chosen),
+            ],
+        ),
+        "I Was Rowdy Before Rowdy Was Cool!": (
+            irreversible_when: Some(
+                AnyOf([
+                    OpponentRingHas(filter: Keyword("nWo"), n: 1),
+                    OpponentRingHas(filter: Keyword("ECW"), n: 1),
+                    BackstageRevealed(who: Opponent, filter: AnyOf([Keyword("nWo"), Keyword("ECW")])),
+                ]),
+            ),
+            on_play: [
+                RingsideToArsenal(who: You, n: 3, up_to: true),
+                RingsideToHand(who: You, n: 3, up_to: true),
+                Mill(who: Opponent, n: 3),
+            ],
+            while_in_ring: [
+                (applies_to: Maneuver, damage: 2),
+                (applies_to: All([Maneuver, TitleContains("sleeper")]), fortitude: -3),
+            ],
+        ),
+
+        // Sting
+        // Blanking his It's Showtime and your own Ability are not supported yet.
+        "It's Showtime!": (
+            hand_size_bonus: 3,
+            opponent_hand_size_bonus: -2,
+            while_in_ring: [
+                (applies_to: All([Maneuver, SuperstarSpecific, Holds(OpponentRingHas(filter: Maneuver, n: 1))]), fortitude: -10),
+            ],
+        ),
+        // "Can only be reversed from hand or Arsenal": not from the Backlash deck.
+        "Sting's Black Baseball Bat": (
+            no_backlash_reversal: true,
+            irreversible_when: Some(
+                AnyOf([
+                    OpponentSuperstar("The Immortal One"),
+                    OpponentRingHas(filter: Keyword("nWo"), n: 1),
+                    BackstageRevealed(who: Opponent, filter: Keyword("nWo")),
+                ]),
+            ),
+        ),
+        "Stinger Splash": (
+            play_after: Some(Any),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            irreversible_when: Some(After(Title("Throw Into the Corner Turnbuckle"))),
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]))),
+        ),
+        "Scorpion Death Drop": (
+            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Trademark)]))),
+            on_play: [Search(filter: All([Maneuver, Trait(Unique)]))],
+        ),
+        // Approximation: it reverses any Submission or Trademark Finisher ('maintain' in the text is not checked).
+        "Scorpion Deathlock": (
+            on_play: [
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
+                NextPlayWatch(filter: Title("Maintain Hold"), on_success: [WinByPin]),
+            ],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Submission), ManeuverType(TrademarkFinisher)]),
+                fortitude: Some(30),
+            )),
+        ),
+
+        // Lex Luger
+        // Eliminating this card on the opponent's turn to end it is not supported yet.
+        "Managed by Miss Elizabeth": (
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, TitleContains("dynamic")]),
+                    effects: [Optional([Search(filter: TitleContains("dynamic"))])],
+                ),
+            ],
+        ),
+        // Skipping the next Draw Segment is not supported yet.
+        "Sculpted Like a Statue": (
+            reverses: Some((
+                targets: Any,
+                effects: [
+                    Counted(
+                        count: YourRingMatching(TitleContains("dynamic")),
+                        effect: MoveCards(
+                            who: You,
+                            from: Ringside,
+                            to: Arsenal,
+                            n: 0,
+                            filter: Some(TitleContains("dynamic")),
+                            bottom: true,
+                        ),
+                    ),
+                    CannotPlay(who: You, filter: Action, turns: 1),
+                ],
+            )),
+        ),
+        // Approximation: the reversal limits also apply to the card played as an Action.
+        "Luger's Running Forearm": (
+            not_reversed_by: Some(
+                AnyOf([
+                    All([Holds(OpponentSuperstar("Lex Luger")), DamageAtLeast(1)]),
+                    All([Holds(OpponentSuperstar("nWo Wolfpack")), Not(Trait(Unique)), Not(Hybrid)]),
+                ]),
+            ),
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [DiscardThis, Search(filter: TitleContains("dynamic"), ringside: true)],
+            )),
+        ),
+        "Lex's Dynamic Torture Rack": (
+            after_damage: [WinByPin],
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [DiscardThis, Search(filter: TitleContains("dynamic"), ringside: true)],
+            )),
+        ),
+
+        // DDP
+        // Making Fan Favorite / Cheater Actions Multi and the +4D / +2 Stun Value cap are not supported yet.
+        // Approximation: the opponent can never play The Road to Victory.
+        "Self High-Five": (restricts_opponent: Some((filter: Title("The Road to Victory")))),
+        "It's Me... It's Me... It's D-D-P": (
+            irreversible: true,
+            on_play: [
+                If(
+                    condition: Not(InYourRing(Trait(FanFavorite))),
+                    effects: [
+                        RingsideToArsenalCount(who: You, count: AtMost(YourRingMatching(Trait(Cheater)), 8)),
+                        Counted(
+                            count: AtMost(YourRingMatching(Trait(Cheater)), 8),
+                            effect: Boost((applies_to: Maneuver, damage: 1, fortitude: -1)),
+                        ),
+                    ],
+                ),
+                If(
+                    condition: InYourRing(Trait(FanFavorite)),
+                    effects: [
+                        RingsideToArsenalCount(
+                            who: You,
+                            count: AtMost(
+                                Plus(
+                                    YourRingMatching(AnyOf([Trait(FanFavorite), SuperstarSpecific])),
+                                    YourRingMatching(AnyOf([Trait(FanFavorite), SuperstarSpecific])),
+                                ),
+                                16,
+                            ),
+                        ),
+                        Counted(
+                            count: AtMost(
+                                Plus(
+                                    YourRingMatching(AnyOf([Trait(FanFavorite), SuperstarSpecific])),
+                                    YourRingMatching(AnyOf([Trait(FanFavorite), SuperstarSpecific])),
+                                ),
+                                16,
+                            ),
+                            effect: Boost((applies_to: Maneuver, damage: 1, fortitude: -1)),
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        // DDP's Ability: -5F for every non-Backlash Superstar-specific card in your Ring.
+        "The Diamond Cutter": (
+            bonuses: [
+                (
+                    when: Superstar("DDP"),
+                    per: Some(All([SuperstarSpecific, AnyOf([Maneuver, Action, Reversal]), Not(Trait(MidMatch))])),
+                    fortitude: -5,
+                ),
+            ],
+            on_play: [
+                If(
+                    condition: AnyOf([After(Any), All([ReversedLastTurn(Any), FirstCardThisTurn])]),
+                    effects: [DiscardAll(who: Opponent, filter: Any)],
+                ),
+            ],
+            reverses: Some((targets: Any, from_hand_only: true, ignores_irreversible: true)),
+        ),
+        // Approximation: the win is checked when it is played as an Action.
+        "BANG!!!": (
+            on_play: [
+                Optional([RingsideToHand(who: You, n: 1, filter: Some(Title("The Diamond Cutter")))]),
+                DrawUpTo(who: You, n: 5),
+                If(
+                    condition: All([InYourRing(Title("Out of Nowhere")), InYourRing(Title("The Diamond Cutter"))]),
+                    effects: [WinByPin],
+                ),
+            ],
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [
+                    Choice([
+                        [RingsideToHand(who: You, n: 1, filter: Some(Title("The Diamond Cutter")))],
+                        [DrawUpTo(who: You, n: 5)],
+                    ]),
+                ],
+            )),
+        ),
+
+        // Saturn
+        // Being Chain when played by Saturn is not supported yet.
+        "The Rings of Saturn": (
+            bonuses: [(when: Superstar("Saturn"), damage: 10)],
+            on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
+        ),
+        "The Flock Interferes": (
+            reverses: Some((
+                targets: Any,
+                effects: [Search(filter: AnyOf([Trait(Chain), Keyword("Foreign Object")]), n: 2)],
+            )),
+        ),
+        // The overturn per card in the Backstage Area and putting a card into it are not supported yet.
+        "...You're Welcome": (
+            irreversible: true,
+            play_after: Some(Any),
+            on_play: [ThisToArsenal(bottom: true), RingsideToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)],
+        ),
+        // Returning it to your hand when he looks at your hand and discarding it instead are not supported yet.
+        "What Are YOU Lookin' At?!": (
+            on_play: [LookAtHand(who: Opponent), DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller)],
+        ),
+
+        // The Steiner Brothers
+        // Not taking a Pre-match slot, -1F per Ringside maneuver, the reversal limits and Multi are not supported yet.
+        "University of Michigan": (
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        Maneuver,
+                        FortitudeAtMost(4),
+                        AnyOf([TitleContains("clothesline"), TitleContains("suplex")]),
+                        Not(TitleContains("Revolution")),
+                        Not(Keyword("Throwback")),
+                    ]),
+                    fortitude: -4,
+                ),
+            ],
+        ),
+        "The Steinerline": (
+            bonuses: [
+                (when: YouAre("Big Poppa Pump"), damage: 2),
+                (
+                    when: All([
+                        Superstar("The Steiner Brothers"),
+                        CountAtMost(count: YourFortitude, n: 5),
+                        CountAtLeast(count: OpponentFortitude, n: 10),
+                    ]),
+                    fortitude: -10,
+                ),
+            ],
+            not_reversed_by: Some(
+                All([
+                    Not(Trait(Unique)),
+                    Holds(
+                        All([
+                            OpponentSuperstar("The Steiner Brothers"),
+                            CountAtMost(count: OpponentFortitude, n: 5),
+                            CountAtLeast(count: YourFortitude, n: 10),
+                        ]),
+                    ),
+                ]),
+            ),
+            on_play: [
+                If(
+                    condition: Superstar("The Steiner Brothers"),
+                    effects: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Trait(Unique)))],
+                ),
+            ],
+        ),
+        "Tandem Bulldog Finish": (
+            irreversible_when: Some(After(Maneuver)),
+            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(HighRisk)]))),
+        ),
+        // Discarding maneuvers from the Backstage Area for -1F each is not supported yet.
+        "Steinerized!": (
+            reverses: Some((
+                targets: AnyOf([Maneuver, TitleContains("Revolution")]),
+                effects: [RingsideToArsenalBottom(who: You, n: 2)],
+            )),
+        ),
+        // Putting maneuvers into the Backstage Area is not supported yet.
+        "Michigan Pride": (requires: Some(Never)),
+
+        // Harlem Heat / Booker T
+        // ACE (removing it to shuffle and draw) is not supported yet.
+        "Managed by Sherri Martel": (
+            in_ring_on_play: [
+                (whose: Some(Opponent), filter: Maneuver, effects: [AsOpponent([Optional([Draw(who: You, n: 1)])])]),
+            ],
+        ),
+        // The reversal limits on your Strikes are not supported yet. At the end of the Pre-match phase your
+        // Fortitude is always 0, so the card goes into your Ring.
+        "Ice, Ice, Ice... Cold, Cold, Cold...": (
+            end_of_prematch: [
+                MoveCards(who: You, from: Arsenal, to: Ring, n: 1, filter: Some(Title("Booker's Thrust Kick"))),
+            ],
+        ),
+        "The Harlem Sidekick": (
+            bonuses: [(per: Some(ManeuverType(Strike)), damage: 2)],
+            not_reversed_by: Some(Title("Overshot Your Mark")),
+            as_action: Some((
+                on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 3, up_to: true, filter: Some(ManeuverType(Strike)))],
+            )),
+        ),
+        "The Heat Seeker": (reverses: Some((targets: AnyOf([ManeuverType(Submission), ManeuverType(HighRisk)])))),
+        // Approximation: the cards go on the bottom even when the reversed card was the first card of the turn.
+        "That's How We Do!": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [RingsideToArsenalBottom(who: You, n: 10)],
+            )),
+        ),
+
+        // Backstage cards
+        // Not being blankable and hiding it to reduce his damage to 4 (on his turn) are not supported yet.
+        "4-Percent Body Fat": (
+            backstage_abilities: [
+                FortitudeFor(filter: All([Maneuver, TitleContains("dynamic"), FortitudeAtMost(4)]), delta: -4),
+            ],
+        ),
+        // Ringside cards counting as Cheater / Fan Favorite and reversing from the Backstage Area are not supported yet.
+        "Accompanied by Kimberly": (
+            backstage_abilities: [
+                OnPlayMatching(
+                    filter: All([AnyOf([Trait(Cheater), Trait(FanFavorite)]), AnyOf([Maneuver, Action, Reversal])]),
+                    effects: [DrawUpTo(who: You, n: 1)],
+                ),
+            ],
+        ),
+        // Approximation: he shuffles his hand in, draws as many and shuffles 1 random card back.
+        "Backed by Moppy": (
+            backstage_ability: Some((
+                requires: Some(After(Maneuver)),
+                effects: [
+                    ShuffleHandAndRedraw(who: Opponent),
+                    MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random),
+                ],
+                sacrifice: true,
+            )),
+        ),
+    },
+)

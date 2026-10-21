@@ -60,6 +60,14 @@
         ],
     },
     scripts: {
+        // The Feud requirement and the Starting Hand Size are not supported yet; the search takes the two titles.
+        "Bad Blood": (
+            on_play: [
+                Search(filter: Title("Insurrextion")),
+                Search(filter: Title("Vengeance")),
+                Search(filter: All([Maneuver, SuperstarSpecific])),
+            ],
+        ),
         // High Risk
         "Leaping Neck Snap": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),

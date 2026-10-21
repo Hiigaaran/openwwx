@@ -16,6 +16,10 @@
         ],
     },
     scripts: {
+        // Ignoring the 'Can only be played after...' text and hiding this card afterwards are not supported yet.
+        "King's Crown": (backstage_abilities: [CardFortitude(title: "Falling Fist", delta: -4)]),
+        // The search when revealed is not supported yet.
+        "Remember Who Pays Your Salary!": (),
         // Strikes
         // Approximation: one random Backlash deck card is discarded, Mid-match or not.
         "Sucker Punch": (before_reversal: [BacklashToRingside(who: You, n: 1, random: true)]),

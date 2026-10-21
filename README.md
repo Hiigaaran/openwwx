@@ -78,7 +78,7 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Palabras clave: follow-up (la carta anterior debe cumplir una condición; usar la habilidad no rompe la
   cadena), Active, Universally Unique, Irreversible.
 - Multi (hay que revertirla dos veces, desde la mano o al voltear daño; las Superstars femeninas no pueden
-  jugar maniobras Multi) y Chain (revertirla desde la mano o el Backlash cuesta descartar 2; si tiene éxito,
+  jugar maniobras Multi, salvo las de su propio logo) y Chain (revertirla desde la mano o el Backlash cuesta descartar 2; si tiene éxito,
   puedes descartar 2 y buscar otra Chain en el Arsenal).
 - Modo avanzado (`GameSetup::advanced`, o `--advanced` en la CLI): mazo Backlash de hasta 20 cartas
   (10 Pre-match y 10 Mid-match), fase Pre-match completa (Venue, Feud, Stipulation y Manager por turnos,
@@ -158,6 +158,12 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   formato Revolution se elige en el menú (o `--revolution` en el CLI): solo cartas Revolution, Backlash de 6 Pre-match y
   6 Mid-match, máximo 3 de cada en el Ring, manos antes del Pre-match y regla de agresión (si terminas el turno sin
   intentar una maniobra, volteas 6 cartas).
+- Sets Virtual (27-51, hechos por fans en teamcanadaonline.net), Promos y Prize Cards: cartas Backstage (van en el
+  Backstage Area, se revelan al empezar y dan habilidades; algunas se esconden para usar su efecto una vez), Pre-match
+  Allegiance (su propio paso antes del Venue), TMF, tipos con rasgos ("Strike: Heel", "Action: Movie") y el formato
+  Virtual en el menú (o `--virtual` en el CLI): Backlash de 12 Pre-match y 12 Mid-match, máximo 6 de cada en el Ring.
+  Dos cartas distintas con el mismo título en un set se distinguen por su último logo ("Dream Street (The Legacy)") o
+  por un número ("Trip (2)").
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 
@@ -165,7 +171,8 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 
 - Un Reversal volteado durante el daño detiene el daño automáticamente (no es opcional).
 - Las Acciones hacen su D impreso como daño (casi todas tienen D 0).
-- Rechazar un Count Out vale para el resto de la partida.
+- Rechazar un Count Out vale para ese turno: se vuelve a ofrecer al final del turno siguiente (confirmado por
+  Simon el 2026-10-21; antes valía para toda la partida).
 - El primer jugador también roba en su primer turno.
 - Multi: el primer Reversal jugado desde la mano queda en el Ring sin efectos ni daño, y el rival puede
   jugar otro. Un Reversal volteado durante el daño también cuenta como uno de los dos.
@@ -181,7 +188,8 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 ## Pendiente
 
 Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team, Trip, Partner
-Interference y la parte de compañero de Combination Attack), los sets Virtual (27-51), Promos y Prize Cards.
+Interference y la parte de compañero de Combination Attack). Todos los sets de OCTGN (01-51, Promos y Prize Cards)
+están importados.
 
 Las cartas de cada set que todavía no se pueden jugar o que se juegan simplificadas están en
 [docs/pendiente.md](docs/pendiente.md).

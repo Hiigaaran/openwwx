@@ -1,0 +1,641 @@
+// Hand-written scripts for the Promos cards (classic, Revolution and Raw Deal Virtual promos), merged by the OCTGN
+// importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Played in Columbus, OH at Origins" = the Origins 2005 Venue is in either Ring; "played in Indianapolis, IN at
+// GenCon" = the Gen Con 2005 Venue is in either Ring.
+// Changing the Starting Hand Size is approximated: +N is a draw of N at the end of the Pre-match phase (after the
+// starting hands), -N for the opponent puts N random cards from his hand on top of his Arsenal.
+// Tag Team symbol cards ("inactive partner", 'tag in', 'tag out') are for 2-on-2 Tag Team format matches, which this
+// game does not have. "You cannot play any title belt except the Tag Team Title Belts" is the Tag Team trait.
+// Duplicate titles in this set: the second printing (Throwback) is imported as "<Title> (2)".
+(
+    abilities: {
+        "Chris Masters": [
+            OnOpponentReverses([
+                If(
+                    condition: All([OpponentReversedFrom([Hand]), OpponentReversed(Maneuver)]),
+                    effects: [Optional([RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Controller)])],
+                ),
+            ]),
+            Activated(cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Search(filter: TitleContains("maintain"))]),
+        ],
+        // Searching for a card with exactly 2 words in the title (after discarding 2) is not supported yet.
+        "DX": [PacksLogos(["Triple H", "Shawn Michaels"])],
+    },
+    scripts: {
+        // High Risk
+        "Flying Body Press": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            on_reversed_from_hand: [Discard(who: You, n: 3, pick: Chosen)],
+        ),
+
+        // Strikes, Grapples, Trademarks (Tag Team cards are further down)
+        "Revolution Three to Get Ready...": (
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
+        ),
+        // The maneuver's 'only reversed from the Arsenal' rule and the Reversal (paid by removing Ringside cards from
+        // the game) are not supported yet; packing by Funaki is not supported.
+        "Volley This!": (reverses: Some((targets: Not(Any)))),
+
+        // Actions
+        "Rattlesnake Rulz": (on_play: [Boost((duration: NextCard, irreversible: true)), Draw(who: You, n: 1)]),
+        "Do You Smell What The Rock is Cookin?": (on_play: [Boost((duration: NextCard, irreversible: true)), Draw(who: You, n: 1)]),
+        // Going back to your hand instead of being discarded is not supported yet.
+        "Jerichoholics": (on_play: [Draw(who: You, n: 1)]),
+        "Really Going for a Cheap Pop": (
+            on_play: [
+                If(
+                    condition: Not(AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)])),
+                    effects: [
+                        Choice([
+                            [],
+                            [Discard(who: You, n: 1, pick: Chosen), Draw(who: You, n: 1)],
+                            [Discard(who: You, n: 2, pick: Chosen), Draw(who: You, n: 2)],
+                            [Discard(who: You, n: 3, pick: Chosen), Draw(who: You, n: 3)],
+                        ]),
+                    ],
+                ),
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [
+                        Choice([
+                            [],
+                            [Discard(who: You, n: 1, pick: Chosen), Draw(who: You, n: 1)],
+                            [Discard(who: You, n: 2, pick: Chosen), Draw(who: You, n: 2)],
+                            [Discard(who: You, n: 3, pick: Chosen), Draw(who: You, n: 3)],
+                            [Discard(who: You, n: 4, pick: Chosen), Draw(who: You, n: 4)],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        "Really Going for a Cheap Pop (2)": (
+            on_play: [
+                If(
+                    condition: Not(AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)])),
+                    effects: [
+                        Choice([
+                            [],
+                            [Discard(who: You, n: 1, pick: Chosen), Draw(who: You, n: 1)],
+                            [Discard(who: You, n: 2, pick: Chosen), Draw(who: You, n: 2)],
+                        ]),
+                    ],
+                ),
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [
+                        Choice([
+                            [],
+                            [Discard(who: You, n: 1, pick: Chosen), Draw(who: You, n: 1)],
+                            [Discard(who: You, n: 2, pick: Chosen), Draw(who: You, n: 2)],
+                            [Discard(who: You, n: 3, pick: Chosen), Draw(who: You, n: 3)],
+                        ]),
+                    ],
+                ),
+            ],
+        ),
+        "...Where the Hell are We?!": (on_play: [DrawUpTo(who: You, n: 3), AsOpponent([DrawUpTo(who: You, n: 3)])]),
+        "...Where the Hell Are We?! (2)": (
+            on_play: [
+                If(
+                    condition: Not(AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)])),
+                    effects: [DrawUpTo(who: You, n: 2), AsOpponent([DrawUpTo(who: You, n: 2)])],
+                ),
+                If(
+                    condition: AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)]),
+                    effects: [DrawUpTo(who: You, n: 3), AsOpponent([DrawUpTo(who: You, n: 3)])],
+                ),
+            ],
+        ),
+        // Looking at the opponent's Backlash deck does nothing here.
+        "No More Cheap Pops": (
+            irreversible_when: Some(InYourRing(Title("Really Going for a Cheap Pop"))),
+            on_play: [
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+            ],
+            restricts_opponent: Some((filter: TitleContains("cheap"))),
+        ),
+        // Looking at the opponent's Backlash deck does nothing here. "He must discard 1 card to play a card with 'cheap'
+        // in the title" is not supported yet.
+        "No More Cheap Pops (2)": (
+            irreversible_when: Some(InYourRing(Title("Really Going for a Cheap Pop"))),
+            on_play: [
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [Discard(who: Opponent, n: 1, pick: Chosen)],
+                ),
+            ],
+        ),
+        "Why the Hell Are We Back?": (
+            irreversible_when: Some(InYourRing(TitleContains("hell"))),
+            on_play: [RingsideToBacklash(who: You, n: 1)],
+            restricts_opponent: Some((filter: TitleContains("why"))),
+        ),
+        "...Why the Hell Are We Back? (2)": (
+            irreversible_when: Some(InYourRing(Title("Where the Hell Are We?"))),
+            on_play: [
+                RingsideToBacklash(who: You, n: 1),
+                If(
+                    condition: Not(AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)])),
+                    effects: [Mill(who: You, n: 1)],
+                ),
+            ],
+            restricts_opponent: Some((filter: TitleContains("why"))),
+        ),
+        "Why the Hell Are We Here?": (
+            on_play: [
+                Counted(count: OpponentRingMatching(TitleContains("hell")), effect: Discard(who: You, n: 0, pick: Chosen)),
+                Counted(count: YourRingMatching(TitleContains("hell")), effect: Discard(who: Opponent, n: 0, pick: Chosen)),
+                If(
+                    condition: AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)]),
+                    effects: [Optional([RingsideToArsenal(who: You, n: 1)])],
+                ),
+            ],
+        ),
+        "...Why the Hell Are We Here? (2)": (
+            on_play: [
+                Counted(
+                    count: AtMost(OpponentRingMatching(TitleContains("hell")), 4),
+                    effect: Discard(who: You, n: 0, pick: Chosen),
+                ),
+                Counted(count: AtMost(YourRingMatching(TitleContains("hell")), 4), effect: Discard(who: Opponent, n: 0, pick: Chosen)),
+                If(
+                    condition: AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)]),
+                    effects: [RingsideToArsenal(who: You, n: 1, up_to: true)],
+                ),
+            ],
+        ),
+        "Cheap Pops All Around!": (
+            on_play: [
+                Counted(
+                    count: YourRingMatching(TitleContains("cheap pop")),
+                    effect: RingsideToHand(who: You, n: 0, up_to: true, filter: Some(TitleContains("cheap pop"))),
+                ),
+                AsOpponent([
+                    Counted(
+                        count: YourRingMatching(TitleContains("cheap pop")),
+                        effect: RingsideToHand(who: You, n: 0, up_to: true, filter: Some(TitleContains("cheap pop"))),
+                    ),
+                ]),
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [Optional([RingsideToArsenal(who: You, n: 1)])],
+                ),
+            ],
+        ),
+        "Cheap Pops All Around (2)": (
+            on_play: [
+                Counted(count: YourRingMatching(TitleContains("cheap pop")), effect: RingsideToHand(who: You, n: 0, up_to: true)),
+                AsOpponent([
+                    Counted(count: YourRingMatching(TitleContains("cheap pop")), effect: RingsideToHand(who: You, n: 0, up_to: true)),
+                ]),
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [RingsideToArsenal(who: You, n: 1, up_to: true), AsOpponent([RingsideToArsenal(who: You, n: 1, up_to: true)])],
+                ),
+            ],
+        ),
+        // The delayed loss of the opponent's hand or Ring after his third turn is not supported yet (the Action cannot
+        // be played).
+        "Armageddon": (
+            as_action: Some((requires: Some(Never))),
+            reverses: Some((targets: AnyOf([Trait(Active), Trait(Unique), SuperstarSpecific]), fortitude: Some(15))),
+        ),
+        "Vengeance": (
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversedFrom([Hand]), OpponentReversed(Maneuver), FortitudeBelowOpponent]),
+                    effects: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+                ),
+            ],
+        ),
+        "Unforgiven": (
+            requires: Some(FortitudeBelowOpponent),
+            on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Maneuver)],
+            on_opponent_reverses: [
+                If(
+                    condition: All([OpponentReversedFrom([Hand]), OpponentReversed(Maneuver)]),
+                    effects: [Optional([SacrificeThis, Search(filter: All([Maneuver, StunValueAtLeast(1)]))])],
+                ),
+            ],
+        ),
+        // "Name a type": Face, Heel, Raw, SmackDown!, Chain, Heat, Throwback or Volley.
+        "Rumblings": (
+            on_play: [
+                Choice([
+                    [AsOpponent([Search(filter: Trait(Face))]), Search(filter: Trait(Face))],
+                    [AsOpponent([Search(filter: Trait(Heel))]), Search(filter: Trait(Heel))],
+                    [AsOpponent([Search(filter: Trait(Raw))]), Search(filter: Trait(Raw))],
+                    [AsOpponent([Search(filter: Trait(SmackDown))]), Search(filter: Trait(SmackDown))],
+                    [AsOpponent([Search(filter: Trait(Chain))]), Search(filter: Trait(Chain))],
+                    [AsOpponent([Search(filter: Keyword("Heat"))]), Search(filter: Keyword("Heat"))],
+                    [AsOpponent([Search(filter: Keyword("Throwback"))]), Search(filter: Keyword("Throwback"))],
+                    [AsOpponent([Search(filter: Keyword("Volley"))]), Search(filter: Keyword("Volley"))],
+                ]),
+            ],
+        ),
+        "You Talkin' to Me?": (
+            irreversible_when: Some(SuperstarValueBelowOpponent),
+            on_play: [
+                Counted(
+                    count: Plus(YourRingMatching(TitleContains("cheap pop")), Const(1)),
+                    effect: RemoveFromRing(who: Opponent, n: 0, filter: Any),
+                ),
+            ],
+        ),
+        // The next turn's discard and refill (by the 'hell' cards in your Ring) is not supported yet.
+        "Tonight I Unleash Hell": (
+            irreversible_when: Some(AnyOf([Superstar("Stone Cold Steve Austin"), Superstar("The Rattlesnake")])),
+            on_play: [
+                Counted(count: HandSize, effect: RemoveFromGame(who: You, from: Hand, n: 0)),
+                Counted(count: YourRingsideSize, effect: RingsideToHand(who: You, n: 0)),
+            ],
+        ),
+        // The Multi rule for William Regal, The Mystery Wrestler, Chairmen and GMs is not supported yet.
+        "Commission-er Rules!": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller),
+                If(
+                    condition: FortitudeBelowOpponent,
+                    effects: [
+                        If(
+                            condition: AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)]),
+                            effects: [DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller)],
+                        ),
+                        If(
+                            condition: Not(AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)])),
+                            effects: [
+                                Optional([
+                                    Discard(who: You, n: 1, pick: Chosen),
+                                    DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller),
+                                ]),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        // Pump Up the Crowd ... It's All in the Teamwork! are with the Tag Team cards below.
+
+        // Mid-match Actions
+        // Approximation: the 2 cards are overturned, then you take up to 2 maneuvers from your Ringside pile (not only
+        // the overturned ones); it is never put into the Ringside pile.
+        "Ruthless Aggression": (
+            in_ring_start_of_turn: [Mill(who: You, n: 2), RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Maneuver))],
+        ),
+        // Searching for cards with the Survivor Series logo is not supported yet.
+        "Four Years in the Making: Survivor Series 3": (
+            requires: Some(CountAtLeast(count: HandSize, n: 4)),
+            on_play: [
+                DiscardAll(who: You, filter: Any),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, top: true),
+            ],
+        ),
+        // Approximation: you remove 2 or 4 'hell' cards. Shuffling cards back after he removes cards is not supported.
+        "Where The HELL Did Everyone Go?!?!?": (
+            bonuses: [
+                (
+                    when: AnyOf([InYourRing(Title("Gen Con 2005")), OpponentRingHas(filter: Title("Gen Con 2005"), n: 1)]),
+                    fortitude: -5,
+                ),
+            ],
+            on_play: [
+                Choice([
+                    [],
+                    [
+                        If(
+                            condition: CountAtLeast(count: YourRingMatching(TitleContains("hell")), n: 2),
+                            effects: [
+                                RemoveFromGame(who: You, from: Ring, n: 2, filter: Some(TitleContains("hell"))),
+                                RemoveFromGame(who: Opponent, from: Ring, n: 1, pick: Controller),
+                            ],
+                        ),
+                    ],
+                    [
+                        If(
+                            condition: CountAtLeast(count: YourRingMatching(TitleContains("hell")), n: 4),
+                            effects: [
+                                RemoveFromGame(who: You, from: Ring, n: 4, filter: Some(TitleContains("hell"))),
+                                RemoveFromGame(who: Opponent, from: Ring, n: 2, pick: Controller),
+                            ],
+                        ),
+                    ],
+                ]),
+            ],
+        ),
+        // Approximation: every 'cheap pop' card in your Ringside pile is shuffled in (not those in your Ring).
+        "Victim of the Revolving Cheap Pop": (
+            bonuses: [
+                (
+                    when: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    fortitude: -5,
+                ),
+            ],
+            on_play: [
+                Counted(
+                    count: Half(YourRingsideMatching(TitleContains("cheap pop"))),
+                    effect: RemoveFromGame(who: Opponent, from: Arsenal, n: 0),
+                ),
+                If(
+                    condition: AnyOf([InYourRing(Title("Origins 2005")), OpponentRingHas(filter: Title("Origins 2005"), n: 1)]),
+                    effects: [Counted(count: Half(YourRingsideMatching(TitleContains("cheap pop"))), effect: DrawUpTo(who: You, n: 0))],
+                ),
+                Counted(
+                    count: YourRingsideMatching(TitleContains("cheap pop")),
+                    effect: RingsideToArsenal(who: You, n: 0, filter: Some(TitleContains("cheap pop"))),
+                ),
+            ],
+        ),
+
+        // Reversals
+        "'Cause I am That Damn Good!": (
+            reverses: Some((
+                targets: AnyOf([
+                    ManeuverType(Strike),
+                    ManeuverType(Grapple),
+                    ManeuverType(Submission),
+                    ManeuverType(HighRisk),
+                ]),
+                on_reverse: [DrawUpTo(who: You, n: 3)],
+            )),
+        ),
+        "Insurrextion": (
+            reverses: Some((
+                targets: Maneuver,
+                from_hand_only: true,
+                requires: Some(
+                    All([
+                        FortitudeBelowOpponent,
+                        CountBelow(a: YourRingMatching(Reversal), b: OpponentRingMatching(Reversal)),
+                    ]),
+                ),
+                on_reverse: [
+                    Counted(
+                        count: Minus(OpponentRingMatching(Reversal), YourRingMatching(Reversal)),
+                        effect: Discard(who: Opponent, n: 0, pick: Chosen),
+                    ),
+                ],
+            )),
+        ),
+        // Counting the lines of printed text is not supported yet.
+        "The Raw Deal Revolution": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Counting the lines of printed text is not supported yet.
+        "The Raw Deal Revolution (2)": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Reversing card effects is not supported yet.
+        "Divine Intervention": (
+            reverses: Some((targets: Any, overturned_only: true, ignores_irreversible: true, removed_after: true)),
+        ),
+        // Disregarding modifications is not supported yet.
+        "Restricted Use in This Area": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: it reverses the Mid-match card as it is played, instead of blanking it after it succeeds.
+        // Making an opponent with 15 or more cards discard down to 6 is not supported yet.
+        "The Road to Victory": (
+            on_play: [DiscardThis, Draw(who: You, n: 1)],
+            reverses: Some((targets: All([Trait(MidMatch), Not(Trait(Unique))]))),
+        ),
+        // Reversing from the Arsenal into the Ring and its Faction effect are not supported yet.
+        "Revolution Death-Defying Maniac": (
+            reverses: Some((targets: Any, requires: Some(InYourRing(Title("Revolution ECW Originals"))))),
+        ),
+        // Putting the reversed card into the opponent's Ring (blanked) and returning this card to hand when
+        // overturned are not supported yet.
+        "Revolution My Way": (),
+        // Reversing cards by the number of words in their title is not supported yet.
+        "Revolution Two For the Show...": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // 'When packing this card you cannot pack' is read as not sharing a deck.
+        "Legendary Assistance": (
+            only_packed_by: ["Legend"],
+            not_with: ["'Cowboy' Bob Orton Interferes"],
+            reverses: Some((targets: Not(Trait(Unique)))),
+        ),
+        // Approximation: the Action puts up to 2 of those maneuvers into your hand (none is shuffled back).
+        "Legendary Ring Skills": (
+            only_packed_by: ["Legend"],
+            not_with: ["In My Day, a Maneuver Was a Maneuver"],
+            as_action: Some((
+                on_play: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(All([Maneuver, Not(Hybrid), Not(Trait(Multi))])))],
+            )),
+            reverses: Some((targets: All([Maneuver, AnyOf([Hybrid, Trait(Multi)])]))),
+        ),
+
+        // Antics
+        "Revolution Four Now Go, Cat Go!": (
+            on_play: [DrawUpTo(who: You, n: 4), Discard(who: You, n: 1, pick: Chosen)],
+            restricts_opponent: Some((
+                when: All([
+                    InYourRing(Title("Revolution One For the Money...")),
+                    InYourRing(Title("Revolution Two For the Show...")),
+                    InYourRing(Title("Revolution Three to Get Ready...")),
+                ]),
+                filter: Antic,
+            )),
+        ),
+        // Searching for cards with a Faction Requirement is not supported yet.
+        "Revolution One For the Money...": (requires: Some(Never)),
+
+        // Pre-match Venues
+        "Origins 2005": (
+            // Approximation: Starting Hand Size +1.
+            end_of_prematch: [Draw(who: You, n: 1)],
+            ring_ability: Some((
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("cheap")))],
+            )),
+        ),
+        "Gen Con 2005": (
+            // Approximation: the opponent's Starting Hand Size -1.
+            end_of_prematch: [HandToArsenalTop(who: Opponent, n: 1, random: true)],
+            ring_ability: Some((
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("hell")))],
+            )),
+        ),
+        // Limiting the non-Superstar-specific Feuds, Stipulations, Managers and Objects is not supported yet.
+        "Your Town": (requires: Some(Never)),
+
+        // Pre-match Events
+        "Summer of Slam": (
+            end_of_prematch: [
+                If(
+                    condition: Not(
+                        AnyOf([
+                            OpponentSuperstar("Hulk Hogan"),
+                            OpponentSuperstar("Ric Flair"),
+                            OpponentSuperstar("Hall and Nash"),
+                            OpponentSuperstar("Trish Stratus"),
+                            OpponentSuperstar("Tajiri"),
+                            OpponentSuperstar("Hurricane"),
+                            OpponentSuperstar("Al Snow"),
+                            OpponentSuperstar("Billy and Chuck"),
+                        ]),
+                    ),
+                    effects: [BacklashToRingside(who: Opponent, n: 1, random: true)],
+                ),
+            ],
+        ),
+        // The Survivor Series set logo is not supported yet.
+        "Survivor Series": (requires: Some(Never)),
+        // Approximation: every non-Unique 'cheap pop' card is put into the Ringside pile.
+        "Cheap Pops Rule!": (
+            on_play: [MillAll(who: You, filter: All([TitleContains("cheap pop"), Not(Trait(Unique))]))],
+            ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("cheap pop")))])),
+        ),
+        // Approximation: every non-Unique 'cheap pop' card is put into the Ringside pile.
+        "Cheap Pops Rule (2)": (
+            on_play: [
+                MillAll(who: You, filter: All([TitleContains("cheap pop"), Not(Trait(Unique))])),
+                AsOpponent([DrawUpTo(who: You, n: 1)]),
+            ],
+            ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("cheap pop")))])),
+        ),
+        // Approximation: every non-Unique 'hell' card is put into the Ringside pile.
+        "Where the Hell is this?": (
+            on_play: [MillAll(who: You, filter: All([TitleContains("hell"), Not(Trait(Unique))]))],
+            ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("hell")))])),
+        ),
+        // Approximation: every non-Unique 'hell' card is put into the Ringside pile.
+        "Where the Hell Is This? (2)": (
+            on_play: [
+                MillAll(who: You, filter: All([TitleContains("hell"), Not(Trait(Unique))])),
+                AsOpponent([DrawUpTo(who: You, n: 1)]),
+            ],
+            ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1, filter: Some(TitleContains("hell")))])),
+        ),
+        "No Way Out": (in_ring_start_of_turn: [Mill(who: You, n: 1)], in_ring_opponent_start_of_turn: [Mill(who: You, n: 1)]),
+        // Approximation: you remove 7 (and then optionally 7 more) cards.
+        "The Great American Bash": (
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourRingsideSize, n: 7)),
+                sacrifice: true,
+                effects: [
+                    RemoveFromGame(who: You, from: Ringside, n: 7),
+                    Draw(who: You, n: 4),
+                    If(
+                        condition: CountAtLeast(count: YourRingsideSize, n: 7),
+                        effects: [Optional([RemoveFromGame(who: You, from: Ringside, n: 7), Draw(who: You, n: 4)])],
+                    ),
+                ],
+            )),
+        ),
+        "Revolution 4ever: No Mercy": (
+            on_opponent_reverses: [
+                If(
+                    condition: All([
+                        OpponentReversedFrom([Hand, Backlash]),
+                        OpponentReversed(All([Trait(Mean), Not(ManeuverType(Extreme))])),
+                    ]),
+                    effects: [Mill(who: Opponent, n: 4)],
+                ),
+            ],
+        ),
+        // Giving Faction cards your logo is not supported yet.
+        "Revolution You're Drafted": (on_play: [DrawUpTo(who: You, n: 1), AsOpponent([DrawUpTo(who: You, n: 1)])]),
+        "The Champ Is Here!": (requires: Some(InYourRing(TitleBelt)), pre_match_limit: 2, mid_match_limit: 1),
+
+        // Pre-match Managers
+        // Its Ringside effect and counting as Managed by 'The Mouth of the South' Jimmy Hart are not supported yet.
+        "Legendary Management": (
+            only_packed_by: ["Legend"],
+            reverses_from_ring: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+        ),
+
+        // Tag Team cards
+        "Pop the Guy On the Apron": (requires: Some(Never)),
+        "Captive Tag Out": (as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)]))),
+        "Cheap Shot From the Corner": (requires: Some(Never)),
+        "Surprise Hit": (requires: Some(Never)),
+        // Approximation: a Pre-match Manager is a card with "Managed by" in the title.
+        "Noggin Knocker": (
+            requires: Some(AnyOf([OpponentIs("Tag Team"), OpponentRingHas(filter: TitleContains("Managed by"), n: 1)])),
+            reverses: Some((
+                targets: All([Action, EarlierThisTurn(filter: Action, n: 1)]),
+                requires: Some(
+                    All([
+                        FortitudeBelowOpponent,
+                        AnyOf([OpponentIs("Tag Team"), OpponentRingHas(filter: TitleContains("Managed by"), n: 1)]),
+                    ]),
+                ),
+            )),
+        ),
+        "Tandem Suplex": (requires: Some(Never), not_with: ["Tandem Atomic Drop"]),
+        "Double Clothesline": (requires: Some(Never)),
+        "Stackplex": (
+            only_packed_by: ["Tag Team"],
+            bonuses: [(when: AnyOf([Superstar("Dudley Boyz"), Superstar("Edge and Christian")]), fortitude: -7)],
+            play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(5)]), Title("Throw Into the Corner Turnbuckle")])),
+            on_play: [HandToArsenalTop(who: Opponent, n: 2)],
+            reverses: Some((targets: AnyOf([Title("Superplex"), Title("From the Top Rope")]))),
+        ),
+        "Tandem Flapjack": (
+            only_packed_by: ["Tag Team"],
+            on_play: [RingsideToArsenalBottom(who: You, n: 1), Search(filter: Action)],
+        ),
+        // Approximation: the Reversal deals the reversed maneuver's damage (not 1 less).
+        "That's Gonna Cost You!": (
+            reverses: Some((
+                targets: All([AnyOf([ManeuverType(Strike), ManeuverType(HighRisk)]), DamageAtLeast(8)]),
+                damage: SameAsReversed,
+            )),
+        ),
+        "Blind Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Hot Tag!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Tag In Partner": (requires: Some(Never)),
+        "Pump Up the Crowd": (requires: Some(Never)),
+        "Propel Partner": (requires: Some(Never)),
+        "Double Team Attack": (requires: Some(Never), not_with: ["Double Team"]),
+        "Little She Devil": (
+            only_packed_by: ["Tag Team"],
+            on_play: [
+                Choice([
+                    [
+                        Counted(
+                            count: Minus(YourFortitude, Const(1)),
+                            effect: Boost((applies_to: Maneuver, duration: NextMatching, reversal_fortitude: 1)),
+                        ),
+                    ],
+                    [DiscardThis, DrawUpTo(who: You, n: 3)],
+                ]),
+            ],
+        ),
+        "Reeking of Awesomeness": (
+            irreversible_when: Some(AnyOf([Superstar("Edge"), Superstar("Christian"), Superstar("Edge and Christian")])),
+            on_play: [
+                Discard(who: Opponent, n: 1, pick: Chosen),
+                Boost((applies_to: Maneuver, duration: NextMatching, reversal_fortitude: 15)),
+            ],
+        ),
+        "Give and Take Strategy": (requires: Some(Never), not_with: ["Give and Take"]),
+        "Perennial Fan Favorites": (
+            only_packed_by: ["Tag Team"],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    RingsideToArsenal(who: You, n: 5, up_to: true),
+                    RingsideToHand(who: You, n: 1, filter: Some(Trait(Face))),
+                ],
+            )),
+        ),
+        // The Tag logo is the "Tag" trait.
+        "Glad Someone Has My Back": (
+            only_packed_by: ["Tag Team"],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]),
+                effects: [MillUntil(who: You, filter: Keyword("Tag")), MillUntil(who: You, filter: Keyword("Tag"))],
+            )),
+        ),
+        "Desperate Tag": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Tag Out": (requires: Some(Never)),
+        "Cut the Ring in Half": (requires: Some(Never)),
+        "It's All in the Teamwork!": (requires: Some(Never)),
+
+        // Backstage cards
+        // Its rules (protected overturned Fortitude, overturning to reverse Chains, halving forced discards, the
+        // continue limits) are not supported yet.
+        "Vintage Shenanigans": (),
+    },
+)

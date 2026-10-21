@@ -19,6 +19,8 @@
         ],
     },
     scripts: {
+        // The Feud requirement, Pre-match Capacity, the Ringside trigger and the ACE save are not supported yet.
+        "WrestleMania": (),
         // Actions
         "Absolutely Raw": (on_play: [Search(filter: All([Trait(Raw), Not(Trait(Unique))]), n: 2, up_to: true)]),
         // Approximation: the Ringside pile part is an ability used in your Main Segment right after you

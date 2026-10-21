@@ -51,6 +51,9 @@
         ],
     },
     scripts: {
+        "Ten Gallon Hat": (
+            backstage_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1)])),
+        ),
         // High Risk
         "Flying Head Scissors": (
             play_after: Some(All([Maneuver, DamageAtLeast(2)])),

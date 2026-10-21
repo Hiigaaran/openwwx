@@ -1,0 +1,448 @@
+// Hand-written scripts for VHS1: Divas Revolution (Raw Deal Virtual) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Reversal: Special" cards: "Reverse any X" is the reversal target. 'diva' in the title or text is approximated
+// as 'diva' in the title. "Ignore 'completely'", Activated Card Effects as reversal targets, ACE effects used during
+// the opponent's turn and packing named cards from other sets are not supported yet.
+// "You cannot pack Corners" is approximated as cards with "In My Corner" in the title.
+// Female Superstars cannot play Multi maneuvers (engine rule), so the Multi maneuvers here are only played by others.
+(
+    abilities: {
+        // Approximation: the Unique bury rider is not supported; neither is packing The Flair Flop.
+        "Charlotte": [
+            Activated(
+                cost: [],
+                effects: [
+                    RingsideToHand(
+                        who: You,
+                        n: 1,
+                        filter: Some(All([
+                            Maneuver,
+                            AnyOf([TitleContains("chop"), TitleContains("clothesline"), TitleContains("figure four")]),
+                        ])),
+                    ),
+                ],
+                requires: Some(CountAtLeast(
+                    count: YourRingsideMatching(All([
+                        Maneuver,
+                        AnyOf([TitleContains("chop"), TitleContains("clothesline"), TitleContains("figure four")]),
+                    ])),
+                    n: 1,
+                )),
+            ),
+            CannotPackMatching(TitleContains("In My Corner")),
+        ],
+        // Approximation: "F: 0" is -30F. The Boston, Massachusetts text and hidden Set-up cards are not supported yet.
+        "Sasha Banks": [FortitudeFor(filter: All([Action, Trait(SetUp)]), delta: -30)],
+        // Counting as Unique for the opponent's effects is not supported yet.
+        "Becky Lynch": [
+            OnPlayMatching(
+                filter: TitleContains("precision"),
+                effects: [
+                    MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, filter: Some(Not(Reversal)), bottom: true),
+                ],
+            ),
+            CannotPack("Dynamically Inclined"),
+        ],
+        // Making the first 'diva' card Multi, the named packing permissions and the Nikki Bella limit are not
+        // supported yet.
+        "Brie Bella": [CannotPackMatching(TitleContains("In My Corner"))],
+        // Making the first F: 0 maneuver Multi, the named packing permissions and the Brie Bella limit are not
+        // supported yet.
+        "Nikki Bella": [CannotPackMatching(TitleContains("In My Corner"))],
+    },
+    scripts: {
+        // Charlotte
+        // The Daughter of The Nature Boy rider is not supported yet.
+        "Genetically Superior": (
+            backstage_ability: Some((
+                requires: Some(InYourRing(SuperstarSpecific)),
+                cost: [RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(SuperstarSpecific))],
+                effects: [Draw(who: You, n: 4), HandToArsenalBottom(who: You, n: 3)],
+            )),
+        ),
+        // Approximation: "does not take up a Pre-match slot" is one more Pre-match slot.
+        "Daughter of The Nature Boy": (
+            pre_match_limit: 1,
+            on_play: [If(condition: Not(OpponentIs("NXT")), effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 4)])],
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        Maneuver,
+                        AnyOf([TitleContains("chop"), TitleContains("clothesline"), TitleContains("figure four")]),
+                    ]),
+                    reversal_damage: -4,
+                ),
+            ],
+            ring_ability: Some((
+                requires: Some(FortitudeBelowOpponent),
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [RemoveFromRing(who: Opponent, n: 1, filter: Not(All([Maneuver, FortitudeAtMost(0)])))],
+            )),
+        ),
+        "If You're Gonna Do It... Do It With Flair": (
+            play_after: Some(All([Maneuver, Not(TitleContains("diva"))])),
+            irreversible: true,
+            on_play: [Search(filter: All([Not(Hybrid), Maneuver]), n: 2, up_to: true)],
+            while_in_ring: [(applies_to: All([Maneuver, Not(TitleContains("diva"))]), stun_value: 1)],
+        ),
+        // The Genetically Superior text is not supported yet.
+        "Charlotte's Chop": (
+            on_play: [
+                Discard(who: Opponent, n: 1, pick: Random),
+                Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 10)),
+            ],
+        ),
+        // The maneuver part (played together with Figure Four Leg Lock) and the extra discard are not supported yet.
+        "Figure Eight": (
+            requires: Some(Never),
+            as_action: Some((on_play: [DiscardThis, MoveCards(who: You, from: Ringside, to: Arsenal, n: 8, up_to: true, bottom: true)])),
+        ),
+        "Figure Four Headlock": (on_play: [RingsideToArsenal(who: You, n: 4, up_to: true)]),
+        // The Counter reversal limit is not supported yet.
+        "Natural Selection": (on_play: [Discard(who: Opponent, n: 4, pick: Chosen)]),
+        // Approximation: the reversed card is always removed from the game (the opponent's discard option is not
+        // supported).
+        "Woo!": (reverses: Some((targets: Not(Maneuver), reversed_removed: true))),
+        "Charlotte's Web": (
+            reverses: Some((
+                targets: All([Maneuver, Not(SuperstarSpecific)]),
+                effects: [
+                    If(
+                        condition: All([HandLargerBy(4), RingStunLeadAtLeast(4), FortitudeLeadAtLeast(14)]),
+                        effects: [WinByPin],
+                    ),
+                ],
+            )),
+        ),
+        // Needing 3 reversals is not supported yet.
+        "Beautiful Fierce Females": (
+            on_play: [
+                RingsideToHand(who: You, n: 3, up_to: true),
+                RingsideToArsenal(who: You, n: 3, up_to: true),
+                Mill(who: Opponent, n: 3),
+                If(
+                    condition: Superstar("Charlotte"),
+                    effects: [RingsideToHand(who: You, n: 1, up_to: true), RingsideToArsenal(who: You, n: 1, up_to: true), Mill(who: Opponent, n: 1)],
+                ),
+            ],
+        ),
+        "The Nature Girl": (
+            on_play: [
+                OpponentChooses(
+                    n: 1,
+                    options: [[RemoveFromGame(who: Opponent, from: Arsenal, n: 4)], [Discard(who: Opponent, n: 4, pick: Chosen)]],
+                ),
+            ],
+        ),
+
+        // Sasha Banks
+        // Moving Set-up cards from the Backstage Area and the 'back' title text are not supported yet.
+        "The Baddest Diva in NXT": (),
+        // The Fortitude increase per card under this card and the ACE are not supported yet.
+        "Sky's The Limit": (
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, TitleContains("back")]),
+                    effects: [PutUnder(from: Ringside, n: 1, up_to: true, filter: Some(Trait(SetUp)))],
+                ),
+            ],
+        ),
+        // The conditional -10F and 'cannot respond' texts are not supported yet.
+        "Destined to Break In": (
+            not_reversed_by: Some(Not(SuperstarSpecific)),
+            on_play: [Search(filter: All([Maneuver, TitleContains("back")]))],
+        ),
+        // The optional maneuver discard for +2D (and its discard rider) is not supported yet.
+        "Banks' Brutal Bend": (
+            bonuses: [(when: After(Trait(SetUp)), fortitude: -5)],
+            on_play: [DrawUpTo(who: You, n: 1)],
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("back")]), damage: 2)],
+        ),
+        "The Bankrupt": (
+            on_play: [Discard(who: Opponent, n: 1, pick: Random)],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Grapple), All([Not(Trait(Unique)), Action])]),
+                effects: [If(condition: AnyOf([OpponentIs("Diva"), OpponentIs("NXT")]), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
+            )),
+        ),
+        // The From the Top Rope reversal limit is not supported yet.
+        "Sasha's Corner Diving Knee Drop": (play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(3)]), Trait(SetUp)]))),
+        // Becoming Multi is not supported yet. Approximation: counts every card under your cards.
+        "The Bank Statement": (
+            on_play: [
+                Counted(count: YourUnderSize, effect: Discard(who: Opponent, n: 0, pick: Chosen)),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
+                NextPlayWatch(filter: Title("Maintain Hold"), on_success: [WinByPin]),
+            ],
+        ),
+        // Making the next Set-up card Chain is not supported yet.
+        "Do it Like a Boss!": (
+            reverses: Some((
+                targets: AnyOf([
+                    All([Maneuver, Not(Trait(Unique))]),
+                    All([Maneuver, Not(SuperstarSpecific), Holds(AnyOf([YouAre("Diva"), YouAre("NXT")]))]),
+                ]),
+            )),
+        ),
+        // Putting the reversed card into the opponent's hand is not supported yet.
+        "The Boss Gets Involved": (
+            reverses: Some((
+                targets: All([Not(SuperstarSpecific), Trait(Unique)]),
+                fortitude_when: Some((Superstar("Sasha Banks"), 8)),
+                effects: [Search(filter: Any)],
+            )),
+        ),
+        // The protection text and the ACE are not supported yet.
+        "A Girl Gon' Push 'Em All Out The Way": (on_play: [DrawUpTo(who: You, n: 3)]),
+        // Approximation: # is half the cards under your cards, rounded up; removing a revealed card is not supported.
+        "Team B.A.D.: Beautiful and Dangerous": (
+            on_play: [
+                LookAtHand(who: Opponent),
+                Counted(
+                    count: Half(Plus(YourUnderSize, Const(1))),
+                    effect: MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 0, pick: Controller),
+                ),
+                Counted(count: Half(Plus(YourUnderSize, Const(1))), effect: Mill(who: Opponent, n: 0)),
+            ],
+        ),
+
+        // Becky Lynch
+        // Approximation: the opponent puts 1 random card from hand on the bottom of his Arsenal. The 'dynamic' and
+        // Volley texts are not supported yet.
+        "Becky's Steampunk Goggles": (
+            backstage_ability: Some((
+                requires: Some(HandHas(TitleContains("precision"))),
+                cost: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(TitleContains("precision")), bottom: true)],
+                effects: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)],
+            )),
+        ),
+        // The ACE cannot-reverse rider is not supported yet.
+        "Welcome to N-Bex-T": (
+            end_of_prematch: [Search(filter: All([Not(Trait(Unique)), TitleContains("precision")]), n: 2, up_to: true)],
+            ring_ability: Some((
+                effects: [
+                    RingsideToHand(who: You, n: 2, up_to: true, filter: Some(All([Not(Trait(Unique)), TitleContains("precision")]))),
+                ],
+                sacrifice: true,
+            )),
+        ),
+        "Maiden Ireland": (
+            reverses: Some((
+                targets: AnyOf([All([Maneuver, Not(SuperstarSpecific)]), Not(Maneuver)]),
+                effects: [
+                    OpponentChooses(
+                        n: 1,
+                        options: [
+                            [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)],
+                            [MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true, bottom: true)],
+                        ],
+                    ),
+                ],
+            )),
+        ),
+        // The reversal cost while in your Ring is not supported yet.
+        "Team PCB": (
+            irreversible_when: Some(Not(OpponentIs("NXT"))),
+            on_play: [RingsideToArsenal(who: You, n: 6, up_to: true), DrawUpTo(who: You, n: 2)],
+        ),
+        "Becky's Precision Leg Drop": (
+            play_after: Some(AnyOf([Maneuver, SuperstarSpecific])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            fortitude_discount: Some((per: 1, max: 5, overturn: true)),
+            no_hand_reversal: true,
+        ),
+        "Becky's Precision Exploder Suplex": (fortitude_discount: Some((per: 4, max: 3))),
+        // Becoming Multi with 4 reversals and the shuffle when unsuccessful are not supported yet.
+        "Four-Leg Clover": (),
+        // Counting as 'precision' is not supported yet.
+        "The Dis-Arm-Her": (
+            on_play: [
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 4),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true, irreversible: true)),
+            ],
+            reverses: Some((targets: AnyOf([TitleContains("punch"), TitleContains("arm"), TitleContains("fist")]))),
+        ),
+        "Lass Kicker": (
+            on_play: [Search(filter: All([Not(Trait(Unique)), Maneuver]), n: 3, up_to: true)],
+            reverses: Some((
+                targets: AnyOf([TitleContains("diva"), TitleContains("chick"), TitleContains("female")]),
+                fortitude: Some(0),
+            )),
+        ),
+        "Rockin' Out": (
+            on_play: [
+                ThisToArsenal(bottom: true),
+                RingsideToHand(who: You, n: 1, up_to: true),
+                Boost((applies_to: Maneuver, duration: NextCard, ignore_play_after: true)),
+            ],
+        ),
+        // Approximation: searches for Superstar-specific cards only. The same-title bonus is not supported yet.
+        "Dublin Down": (on_play: [Search(filter: SuperstarSpecific, n: 2, up_to: true)]),
+
+        // Brie Bella
+        // The Fortitude Rating and Draw Segment texts are not supported yet.
+        "Beautiful Life": (only_packed_by: ["Throwback"], requires: Some(Never)),
+        // The hand reversal limit for Throwback Superstars and Brie's Running Spear becoming Multi are not supported yet.
+        "Brie Mode!": (
+            bonuses: [(when: YouAre("Throwback"), fortitude: -10)],
+            on_play: [
+                Choice([
+                    [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
+                    [DrawUpTo(who: You, n: 3)],
+                ]),
+            ],
+            reverses: Some((targets: All([Not(Trait(Unique)), Not(SuperstarSpecific), Maneuver]))),
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("diva")]), damage: 3)],
+        ),
+        // The Ringside text is not supported yet.
+        "Brie's YES! Kicks": (
+            only_packed_by: ["Throwback"],
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            bonuses: [(when: After(TitleContains("diva")), fortitude: -3, damage: 3)],
+        ),
+        // Becoming Multi and 'can only be reversed' in the text are not supported yet.
+        "Bella Buster": (
+            requires: Some(Superstar("Brie Bella")),
+            on_play: [DrawUpTo(who: You, n: 2), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
+            reverses: Some((
+                targets: ManeuverType(HighRisk),
+                effects: [DrawUpTo(who: You, n: 2), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
+            )),
+        ),
+        // The hand/Ringside text is not supported yet.
+        "Brie's YES! Lock": (
+            only_packed_by: ["Throwback"],
+            on_play: [
+                Search(filter: Title("Maintain Hold"), up_to: true),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true, irreversible: true)),
+            ],
+        ),
+        // The draw per maneuver type and the ACE are not supported yet.
+        "Backed by Daniel Bryan": (only_packed_by: ["Throwback"], on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
+
+        // Nikki Bella
+        // "Printed reversal restriction" is not checked.
+        "The New Face of the Divas Division": (
+            only_packed_by: ["Throwback"],
+            backstage_abilities: [
+                CannotBeReversedBy(
+                    played: All([
+                        Maneuver,
+                        FortitudeAtMost(0),
+                        Holds(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5)),
+                    ]),
+                    reversal: DamageAtLeast(2),
+                ),
+            ],
+            backstage_ability: Some((
+                requires: Some(Not(HandHas(Maneuver))),
+                cost: [RevealHand(who: You)],
+                effects: [Search(filter: All([Not(Trait(Unique)), Not(Reversal), Maneuver, FortitudeAtMost(0)]))],
+            )),
+        ),
+        // Reversals dealing no damage, the Pinfall protection and the cards under this card are not supported yet.
+        "Fearless": (only_packed_by: ["Throwback"], requires: Some(Never)),
+        // The reversal limit and the Fearless text are not supported yet.
+        "Fearless Flying Kick": (only_packed_by: ["Throwback"]),
+        // Approximation: "shuffle any number of cards and draw the same number" is up to 10.
+        "Nikki's Alabama Slam": (
+            only_packed_by: ["Throwback"],
+            ringside_on_opponent_reverses: [
+                If(
+                    condition: OpponentReversed(Title("Nikki's Alabama Slam")),
+                    effects: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
+                ),
+            ],
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), After(Trait(SetUp))]), effects: [Mulligan(n: 10)])),
+        ),
+        // The hand text is not supported yet.
+        "The Rack Attack": (
+            requires: Some(Superstar("Nikki Bella")),
+            bonuses: [(when: OpponentIs("Diva"), damage: 5)],
+        ),
+        // The ACE is not supported yet.
+        "The Longest Reigning Divas Champion": (
+            on_play: [
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true),
+                MoveCards(who: You, from: Ring, to: Arsenal, n: 1, up_to: true, filter: Some(Not(Trait(Unique)))),
+                RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(Trait(Unique))),
+                RingsideToArsenal(who: You, n: 3, up_to: true, filter: Some(Not(Trait(Unique)))),
+                DrawUpTo(who: You, n: 1),
+                RemoveFromGame(who: Opponent, from: Arsenal, n: 4),
+            ],
+        ),
+
+        // The Bella Twins
+        // The Tag Team Multi text is not supported yet.
+        "Bella Suicide Dive": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            play_after_unless: Some(All([Not(YouAre("Tag Team")), ReversedLastTurn(Any), FirstCardThisTurn])),
+        ),
+        "Bella Flying Clothesline": (
+            bonuses: [(when: Not(YouAre("Tag Team")), fortitude: -4, damage: 2)],
+            on_play: [DrawUpTo(who: You, n: 2)],
+        ),
+
+        // Paige
+        // The NXT Breakout Star and Activate texts are not supported yet.
+        "Think Again": (),
+        // "Cannot be blanked" and the ACE are not supported yet.
+        "This Is MY House!": (irreversible: true),
+
+        // Several Divas
+        // Approximation: a Bella Twins card is a card with "Bella" in the title.
+        "Total Divas": (
+            irreversible_when: Some(InYourRing(TitleContains("Bella"))),
+            on_play: [
+                Counted(
+                    count: AtMost(YourRingMatching(TitleContains("diva")), 5),
+                    effect: RingsideToArsenal(who: You, n: 0, up_to: true),
+                ),
+                Counted(count: AtMost(YourRingMatching(TitleContains("diva")), 5), effect: Mill(who: Opponent, n: 0)),
+                DrawUpTo(who: You, n: 2),
+            ],
+        ),
+        "The Four Horsewomen of NXT": (
+            end_of_prematch: [
+                If(
+                    condition: Not(OpponentIs("NXT")),
+                    effects: [
+                        Choice([
+                            [],
+                            [
+                                HandToArsenalBottom(who: You, n: 1),
+                                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true),
+                            ],
+                            [
+                                HandToArsenalBottom(who: You, n: 2),
+                                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true),
+                                Draw(who: You, n: 1),
+                                Draw(who: Opponent, n: 1),
+                            ],
+                            [
+                                HandToArsenalBottom(who: You, n: 3),
+                                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 3, pick: Random, bottom: true),
+                                Draw(who: You, n: 2),
+                                Draw(who: Opponent, n: 2),
+                            ],
+                            [
+                                HandToArsenalBottom(who: You, n: 4),
+                                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 4, pick: Random, bottom: true),
+                                Draw(who: You, n: 3),
+                                Draw(who: Opponent, n: 3),
+                            ],
+                        ]),
+                    ],
+                ),
+            ],
+            reverses_from_ring: Some((
+                targets: All([Not(Trait(Unique)), Maneuver, DamageAtLeast(4)]),
+                requires: Some(All([FortitudeAtLeast(10), FortitudeBelowOpponent])),
+            )),
+        ),
+    },
+)

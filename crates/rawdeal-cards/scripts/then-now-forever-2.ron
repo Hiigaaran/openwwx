@@ -1,0 +1,146 @@
+// Hand-written scripts for Then, Now, Forever 2 (Raw Deal Virtual set 44) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
+// "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
+// Cards put under a Backstage card, Title Belt texts, Starting Hand Size and packing permissions printed on
+// Superstar cards are not supported.
+(
+    abilities: {
+        // Not drawing for the Stun Value and the Ax Kick changes (Unique) are partly supported; the packing
+        // permissions are not supported yet. Approximation: Ax Kick is -30F (F: 0) and +2D.
+        "Kairi Sane": [
+            OnOpponentReverses([
+                If(
+                    condition: All([OpponentReversed(Maneuver), CountAtLeast(count: YourBacklashSize, n: 1)]),
+                    effects: [Optional([RemoveFromGame(who: You, from: Backlash, n: 1), ContinueTurn])],
+                ),
+            ]),
+            FortitudeFor(filter: Title("Ax Kick"), delta: -30),
+            DamageFor(filter: Title("Ax Kick"), delta: 2),
+            CannotPackMatching(All([Maneuver, AnyOf([Trait(Chain), Keyword("Heat"), Keyword("Volley")])])),
+        ],
+        // Approximation: "any number" is 1 to 3 cards. The packing permissions are not supported yet.
+        "Hardcore Holly": [
+            Activated(
+                requires: Some(HandAtLeast(1)),
+                cost: [],
+                effects: [
+                    Choice([
+                        [RemoveFromGame(who: You, from: Hand, n: 1), Draw(who: You, n: 1)],
+                        [RemoveFromGame(who: You, from: Hand, n: 2), Draw(who: You, n: 2)],
+                        [RemoveFromGame(who: You, from: Hand, n: 3), Draw(who: You, n: 3)],
+                    ]),
+                ],
+            ),
+            CannotPack("Denville, New Jersey"),
+            CannotPack("Dallas, Texas"),
+        ],
+        // The 'Classic' title words, the Managed by Bobby 'The Brain' Heenan texts, the WCW trait change and the
+        // packing permissions are not supported yet.
+        "Harley Race": [],
+        // Cards under Moonrise, choosing random Hand cards that cannot reverse and reducing discards are not
+        // supported yet.
+        "Ember Moon": [],
+        // Counting titles as other words and the packing permissions are not supported yet.
+        "Steve Blackman": [CannotPack("The House That Hardcore Built")],
+        // Approximation: your opponent always reveals 2 cards, so you draw 1 additional card in your Draw Segment
+        // (the random discard and the packing permissions are not supported yet).
+        "Brian Pillman": [DrawSegment(2)],
+    },
+    scripts: {
+        // ---------------------------------------------------------------- Kairi Sane
+        // The Title Belt and putting cards under The Pirate's Treasure are not supported yet.
+        "Sane's Spyglass": (backstage_abilities: [OnOpponentPlayMatching(filter: Maneuver, effects: [LookAtHand(who: Opponent)])]),
+        // Cards under this card given to and played by the opponent are not supported yet.
+        "The Pirate's Treasure": (requires: Some(Never)),
+        // Counting as a High Risk and continuing damage after an Arsenal reversal are not supported yet.
+        "In-Sane Elbow": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            no_backlash_reversal: true,
+            after_damage: [EndTurn],
+        ),
+
+        // ---------------------------------------------------------------- Hardcore Holly
+        // Approximation: +1D to your maneuvers (the +#D for RFG cards and the Stun Value are not supported yet);
+        // the RFG texts are not supported yet.
+        "The Big Shot": (backstage_abilities: [ReduceDamage(1), DamageFor(filter: Maneuver, delta: 1)]),
+        // Doubling the Ability draws, the reversal restriction and the ACE are not supported yet.
+        "How Do Ya Like Me Now?": (requires: Some(Never)),
+        // The -#F for RFG cards, the RFG cost to reverse and revealing it from hand are not supported yet.
+        "Alabama Slam": (),
+
+        // ---------------------------------------------------------------- Harley Race
+        // Approximation: the 'Classic' maneuver goes from Ringside to your hand instead of being played. Turning
+        // 'Piledriver' maneuvers into Trademark Finishers is not supported yet.
+        "The King of Wrestling": (
+            backstage_ability: Some((
+                requires: Some(All([Superstar("Harley Race"), HandHas(All([Maneuver, TitleContains("Classic")]))])),
+                cost: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(All([Maneuver, TitleContains("Classic")])), bottom: true)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, TitleContains("Classic")])))],
+            )),
+        ),
+        // Approximation: your 'Classic' maneuvers are -2F and +1D (not for each Ringside 'Classic' maneuver).
+        // Superstar-specific, the draw and the ACE are not supported yet.
+        "The Greatest Wrestler on God's Green Earth": (
+            not_with: ["There Is No Escape"],
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("Classic")]), fortitude: -2, damage: 1)],
+        ),
+        // The "only reversed from Arsenal" text is not supported yet.
+        "Harley's Knee Drop": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+        ),
+
+        // ---------------------------------------------------------------- Ember Moon
+        // Cards under this card and playing Pre-match cards from Ringside are not supported yet.
+        "Moonrise": (),
+        // Putting cards under Moonrise is not supported yet.
+        "One Ember Sparks a Fire": (in_ring_on_play: [(whose: Some(You), filter: Maneuver, effects: [Mill(who: Opponent, n: 1)])]),
+        // The Moonrise reversal restrictions are not supported yet.
+        "Eclipse": (
+            play_after: Some(AnyOf([Maneuver, Title("From the Top Rope")])),
+            play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(10)])), FirstCardThisTurn])),
+        ),
+
+        // ---------------------------------------------------------------- Steve Blackman
+        // Superstar-specific / Permanent changes and the reversal damage cap are not supported yet.
+        "The Lethal Weapon": (
+            backstage_abilities: [CannotBeReversedBy(played: TitleContains("Dynamic"), reversal: Title("Shoot Counter"))],
+        ),
+        // Reversing cards with a reversal restriction is not supported yet.
+        "Drums in the Night": (
+            end_of_prematch: [
+                ReturnThis(to: Backlash),
+                Search(filter: TitleContains("Kendo"), ringside: true, n: 2, up_to: true),
+            ],
+            reverses: Some((targets: Not(Any))),
+        ),
+        // The Counter and Arsenal reversal restrictions are not supported yet.
+        "The Lethal Kick": (
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [
+                    ThisToArsenal(bottom: true),
+                    MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true),
+                ],
+            )),
+        ),
+
+        // ---------------------------------------------------------------- Brian Pillman
+        // Cards under this card and the 'Shoot' title are not supported yet.
+        "The Loose Cannon": (),
+        // The Pre-match Capacity and the revealed-card texts are not supported yet.
+        "The Rogue Horseman": (),
+        // Approximation: the Hand card is removed from the game instead of going under The Loose Cannon. Playing
+        // 'From' Set-up cards from Ringside and the RFG reversal cost are not supported yet.
+        "Flyin' Brian": (
+            ring_ability: Some((
+                requires: Some(HandAtLeast(1)),
+                cost: [RemoveFromGame(who: You, from: Hand, n: 1)],
+                effects: [Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, ignore_play_after: true))],
+            )),
+        ),
+    },
+)

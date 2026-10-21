@@ -1,0 +1,97 @@
+// Hand-written scripts for Then, Now, Forever 3 (Raw Deal Virtual set 46) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Bury" puts cards on the bottom of the Arsenal; "Stack" on top; "RFG" removes them from the game.
+// Face-down (Flipped) cards, Title Belts and packing permissions printed on Superstar cards are not supported.
+(
+    abilities: {
+        // The 2D reversal cap, the Pre-match / Mid-match Capacity, the Fortitude Rating bonus, the D: 1+ Pre-match
+        // packing ban and the Heenan Family text are not supported yet.
+        "Paul Orndorff": [
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversed(All([Maneuver, Hybrid])),
+                    effects: [
+                        MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, filter: Some(AnyOf([Maneuver, Action])), bottom: true),
+                    ],
+                ),
+            ]),
+            OnPlayMatching(
+                filter: All([Maneuver, Hybrid]),
+                effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, top: true)],
+            ),
+            CannotPack("Frankie Takes Ho-llywood"),
+        ],
+        // Approximation: you take the top Arsenal card instead of the bottom one. The DDT / This Diva's Got Claws!
+        // / Acolyte Protection Agency changes, the packing permission and the Cruiserweight trait are not
+        // supported yet.
+        "Jacqueline": [
+            Activated(
+                cost: [],
+                effects: [Draw(who: You, n: 1), If(condition: HandLargerBy(1), effects: [HandToArsenalTop(who: You, n: 1)])],
+            ),
+        ],
+        // Approximation: the Ring card goes to your Ringside pile instead of being Flipped face-down. Flipping
+        // cards, High-Flying Style in the Backstage and the packing permissions are not supported yet.
+        "Ricochet": [
+            Activated(
+                requires: Some(CountAtLeast(count: YourRingSize, n: 1)),
+                cost: [RemoveFromRing(who: You, n: 1, filter: Any)],
+                effects: [Boost((applies_to: ManeuverType(HighRisk), duration: NextMatching, ignore_play_after: true))],
+            ),
+        ],
+    },
+    scripts: {
+        // ---------------------------------------------------------------- Paul Orndorff
+        // Approximation: the ACE looks at the top 3 cards (not the bottom 3) and keeps 1 (the others go to the
+        // bottom, not to Ringside). The WCW / Classic trait changes and the play limits are not supported yet.
+        "Mr. Wonderful": (ring_ability: Some((effects: [Dig(n: 3, take: 1)]))),
+        // Approximation: search as many maneuvers as there are maneuvers in your hand, at most 3.
+        "Mockamania": (
+            on_play: [
+                Counted(
+                    count: AtMost(YourHandMatching(Maneuver), 3),
+                    effect: MoveCards(who: You, from: Arsenal, to: Hand, n: 0, up_to: true, filter: Some(All([Maneuver, Not(Reversal)]))),
+                ),
+                Boost((applies_to: Any, duration: NextCards(2), irreversible: true)),
+            ],
+            ringside_ability: Some((cost: [Mill(who: You, n: 3)], effects: [ReturnThis(to: Backlash), EndTurn])),
+        ),
+        // Approximation: +1D for each maneuver in your Ring (not Ringside). The Unique reversal restriction is not
+        // supported yet.
+        "Orndorff's Wonderful Piledriver": (
+            bonuses: [(per: Some(Maneuver), damage: 1)],
+            as_action: Some((
+                fortitude: Some(5),
+                on_play: [
+                    ThisToArsenal(bottom: true),
+                    Search(filter: All([Keyword("WCW"), Not(Title("Orndorff's Wonderful Piledriver"))])),
+                ],
+            )),
+        ),
+
+        // ---------------------------------------------------------------- Jacqueline
+        // Title Belts, hiding this card for a Multi Trademark Finisher and revealing it again are not supported yet.
+        "The First WWE Female Cruiserweight Champion": (),
+        // The Strike damage cap, the Counter bonus and the choices after his reversals are not supported yet.
+        "Toughest Woman in Wrestling": (requires: Some(Never)),
+        // Being a High Risk when you are not a Diva is not supported yet. Approximation: the action takes any
+        // Ringside card.
+        "Drop Kick": (
+            bonuses: [(when: YouAre("Diva"), damage: 3)],
+            as_action: Some((on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1)])),
+        ),
+
+        // ---------------------------------------------------------------- Ricochet
+        // Flipping cards face-up is not supported yet.
+        "The Future of Flight is Here": (),
+        // Approximation: the opponent's Ring cards go to his Ringside pile instead of being Flipped face-down.
+        "630°": (
+            play_after: Some(AnyOf([Title("From the Top Rope"), All([Maneuver, DamageAtLeast(6)])])),
+            on_play: [RemoveFromRing(who: Opponent, n: 3, filter: Any), DiscardAll(who: Opponent, filter: Any)],
+        ),
+        // Flipping cards face-up is not supported yet.
+        "King Ricochet": (),
+    },
+)

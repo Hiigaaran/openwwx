@@ -1,0 +1,2129 @@
+// Hand-written scripts for V7: The NXT Generation (Raw Deal Virtual set 34) cards, merged by the OCTGN importer.
+// Keys are card titles. Only the parts of the text the engine can express are
+// scripted; cards marked `requires: Some(Never)` cannot be played yet.
+// "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
+// "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
+// "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
+// "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
+// played, of card effects and of Activated Card Effects are not supported (`targets: Not(Any)`).
+// ACE (Activated Card Effects) are ring abilities used during your own turn. Packing permissions printed on
+// Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
+(
+    abilities: {
+        // Answering a reversed Activated Card Effect and the German Suplex / packing texts are not supported yet.
+        "The Beast Incarnate": [PacksLogos(["Brock Lesnar"])],
+        // Approximation: he may pack every Randy Orton card.
+        "The Viper": [
+            OnOpponentPlayMatching(
+                filter: Maneuver,
+                effects: [MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true, filter: Some(Not(Reversal)), bottom: true)],
+            ),
+            PacksLogos(["Randy Orton"]),
+        ],
+        // Removing a Reversal from hand to make the opponent's card -4D is not supported yet.
+        "Bray Wyatt": [CannotPack("Ring Psychology: Arm"), CannotPack("Beg For Mercy")],
+        // Playing Backlash cards face-down as European Uppercut is not supported yet.
+        "Cesaro": [],
+        // Punishing the opponent's draws and Ringside moves is not supported yet.
+        "Damien Sandow": [],
+        // Approximation: any reversed maneuver or Superstar-specific card, not only the first card of the turn.
+        "Ryback": [
+            OnOpponentReverses([
+                If(
+                    condition: All([OpponentReversed(AnyOf([Maneuver, SuperstarSpecific])), HandAtLeast(2)]),
+                    effects: [Optional([Discard(who: You, n: 2, pick: Chosen), ContinueTurn])],
+                ),
+            ]),
+        ],
+        "Brodus Clay": [
+            Activated(
+                requires: Some(HandAtLeast(1)),
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(All([Reversal, Not(SameTitleInRing)])))],
+            ),
+            DamageFor(filter: ManeuverType(HighRisk), delta: 2),
+            CannotPack("Over Sell Maneuver"),
+        ],
+        // Approximation: Dean Ambrose-specific means Superstar-specific. The Heat removal and blindside texts are not
+        // supported yet.
+        "Dean Ambrose": [OnPlayMatching(filter: AnyOf([Keyword("Heat"), SuperstarSpecific]), effects: [Optional([Dig(n: 2, take: 1)])])],
+        // The BASH, Multi and packing texts are not supported yet.
+        "Roman Reigns": [DamageFor(filter: Maneuver, delta: 2)],
+        // Approximation: Promo when the opponent reverses a precision / technical or Superstar-specific card.
+        "Seth Rollins": [
+            OnOpponentReverses([
+                If(
+                    condition: OpponentReversed(AnyOf([TitleContains("precision"), TitleContains("technical"), SuperstarSpecific])),
+                    effects: [Optional([Dig(n: 2, take: 1)])],
+                ),
+            ]),
+        ],
+        "Sin Cara": [],
+        // Approximation: you reveal your whole hand; # counts its D:10+ cards (at most 6).
+        "Titus O'Neil": [
+            Activated(
+                requires: Some(HandHas(DamageAtLeast(10))),
+                cost: [RevealHand(who: You)],
+                effects: [
+                    Counted(
+                        count: AtMost(YourHandMatching(DamageAtLeast(10)), 6),
+                        effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -1)),
+                    ),
+                    NextPlayWatch(filter: Maneuver, on_success: [DrawUpTo(who: You, n: 1)]),
+                ],
+            ),
+            CannotPack("The Nexus Armband"),
+        ],
+        "Luke Harper": [
+            OnPlayMatching(
+                filter: All([
+                    Maneuver,
+                    Not(TitleContains("Revolution")),
+                    AnyOf([TitleContains("slam"), TitleContains("bomb"), TitleContains("clothesline"), TitleContains("lariat")]),
+                ]),
+                effects: [Optional([Dig(n: 3, take: 1), MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true)])],
+            ),
+        ],
+        // The Drawing a Blank texts are not supported yet.
+        "Erick Rowan": [],
+        // Approximation: Promo whenever the opponent reverses your card; the D:1+ text is not supported yet.
+        "Sami Zayn": [OnOpponentReverses([Optional([Dig(n: 2, take: 1)])])],
+        // Approximation: you choose the Ringside card instead of a random one; Corners are not blocked.
+        "Team Hell No": [
+            OnPlayMatching(
+                filter: SuperstarSpecific,
+                effects: [Choice([[RingsideToArsenal(who: You, n: 1), Draw(who: You, n: 1)], [Mill(who: Opponent, n: 1)]])],
+            ),
+            PacksLogos(["Daniel Bryan", "Kane"]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
+        // Removing Backlash cards to ignore play requirements is not supported yet; Corners are not blocked.
+        "The Rhodes Brothers": [
+            PacksLogos(["Goldust", "Cody Rhodes"]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
+        "Prime Time Players": [
+            OnYouReverse([Optional([Dig(n: 2, take: 1)])]),
+            OnPlayMatching(filter: SuperstarSpecific, effects: [Optional([Dig(n: 4, take: 1)])]),
+            PacksLogos(["Darren Young", "Titus O'Neil"]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
+        // The 'Tag Team' text and the packing permissions are not supported yet.
+        "The Usos": [
+            OnPlayMatching(filter: SuperstarSpecific, effects: [DrawUpTo(who: You, n: 1)]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
+        // Approximation: on every Reversal you play (not once per turn). The Total Teamwork and Corner texts are not
+        // supported yet.
+        "The Shield": [OnYouReverse([Optional([DrawUpTo(who: You, n: 3), HandToArsenalBottom(who: You, n: 2)])]), CannotPack("First of All")],
+        // Packing Bray Wyatt hidden is not supported yet.
+        "The Wyatt Family": [
+            Activated(
+                requires: Some(HandAtLeast(1)),
+                cost: [],
+                effects: [
+                    Choice([
+                        [RemoveFromGame(who: You, from: Hand, n: 1), Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -2, damage: 2))],
+                        [RemoveFromGame(who: You, from: Hand, n: 2), Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -4, damage: 4))],
+                    ]),
+                ],
+            ),
+        ],
+        // Swapping cards under We're a 3 Man Band! and the Hornswoggle! text are not supported yet.
+        "3MB": [PacksLogos(["Heath Slater"])],
+        // Approximation: always 3 cards, chosen instead of random. The packing permissions are not supported yet.
+        "A.J. Lee": [
+            Activated(
+                requires: Some(HandAtLeast(3)),
+                cost: [],
+                effects: [HandToArsenal(who: You, n: 3), HandToArsenal(who: Opponent, n: 3), Draw(who: You, n: 3), Draw(who: Opponent, n: 3)],
+            ),
+            CannotPackMatching(All([AnyOf([ManeuverType(Grapple), ManeuverType(Throw)]), DamageAtLeast(4)])),
+        ],
+        // The NXT Breakout Star, Diva-packed and Skirt the Issue texts are not supported yet.
+        "Paige": [CannotPackMatching(TitleContains("girly"))],
+        // The one-ACE limit and Corner / Manager limits are not supported yet. Approximation: all Edge cards.
+        "The Rated R Superstar": [
+            OnOpponentPlayMatching(filter: Any, effects: [If(condition: OpponentHandLarger, effects: [Discard(who: Opponent, n: 1, pick: Chosen)])]),
+            PacksLogos(["Edge"]),
+            CannotPackMatching(Keyword("Run-in")),
+        ],
+    },
+    scripts: {
+        // Strikes
+        // Approximation: as a Counter it cannot be reversed at all. Its reversal (after a successfully played
+        // maneuver with a reversal restriction) is not supported yet.
+        "Counter Strike": (
+            irreversible_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reverses: Some((targets: Not(Any))),
+        ),
+
+        // Submissions
+        // "Reversed as if non-Unique" and "damage cannot be increased" are not supported yet.
+        "Classic Rest Hold": (
+            on_play: [
+                DrawUpTo(who: You, n: 1),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, irreversible: true)),
+            ],
+        ),
+        // "Reversed as if non-Unique" and the +1 Stun Value are not supported yet.
+        "Classic Bear Hug": (),
+
+        // Grapples
+        // "Reversed as if non-Unique" is not supported yet.
+        "Classic DDT": (on_play: [Mill(who: Opponent, n: 1), Discard(who: Opponent, n: 2, pick: Random)]),
+        // "Reversed as if non-Unique" is not supported yet. Approximation: every Grapple counts as a WWF Grapple.
+        "Classic Power Bomb": (
+            bonuses: [(per: Some(ManeuverType(Grapple)), damage: 1)],
+            on_play: [DrawUpTo(who: You, n: 1)],
+        ),
+
+        // Reversals
+        // Approximation: # is 1 (the Adam Crites Memorial Tournament count is not supported yet).
+        "I've Got One Thing To Say About That!": (
+            not_with: ["Sidewalk Slam"],
+            reverses: Some((
+                targets: AnyOf([Trait(Momentum), Trait(Irreversible)]),
+                from_hand_only: true,
+                ignores_irreversible: true,
+                on_reverse: [
+                    If(
+                        condition: Not(InYourRing(AnyOf([Title("Back to Basics"), Keyword("BASH")]))),
+                        effects: [DrawUpTo(who: You, n: 1), RingsideToArsenal(who: You, n: 1, up_to: true)],
+                    ),
+                ],
+            )),
+        ),
+        // The removed-from-game lock and the On One Arena / Tournament bonus are not supported yet.
+        "One!": (
+            reverses: Some((
+                targets: All([Maneuver, Not(SuperstarSpecific)]),
+                overturned_only: true,
+                removed_after: true,
+                effects: [RemoveFromGame(who: You, from: Ringside, n: 1), Discard(who: You, n: 1, pick: Chosen)],
+            )),
+        ),
+        // Approximation: the reversed card goes to the Ringside pile instead of back to his hand; the 4+ Heyman
+        // choices are not supported yet.
+        "Heyman Interferes": (
+            reverses: Some((
+                targets: Any,
+                requires: Some(CountAtLeast(count: YourRingAndRingsideMatching(TitleContains("Heyman")), n: 2)),
+                fortitude_when: Some((CountAtLeast(count: YourRingMatching(TitleContains("Heyman")), n: 4), 5)),
+            )),
+        ),
+
+        // Actions
+        // The PRO packing rule is not supported yet.
+        "Getting Extra PROmotion": (
+            irreversible_when: Some(After(SuperstarSpecific)),
+            on_play: [
+                RingsideToArsenal(who: You, n: 4, up_to: true),
+                DrawUpTo(who: You, n: 2),
+                Boost((duration: NextCard, reversal_fortitude: 8)),
+            ],
+        ),
+        // Approximation: "Classic WWF Superstar" is not recognised (only Legends).
+        "The NXT Generation": (
+            on_play: [
+                If(
+                    condition: YouAre("NXT"),
+                    effects: [
+                        RingsideToArsenal(who: You, n: 8, up_to: true, filter: Some(Not(Reversal))),
+                        DrawUpTo(who: You, n: 2),
+                        If(condition: OpponentIs("Legend"), effects: [HandToArsenalBottom(who: Opponent, n: 2)]),
+                    ],
+                ),
+                If(
+                    condition: Not(YouAre("NXT")),
+                    effects: [
+                        RingsideToArsenal(who: You, n: 4, up_to: true, filter: Some(Not(Reversal))),
+                        DrawUpTo(who: You, n: 1),
+                        If(condition: OpponentIs("Legend"), effects: [HandToArsenalBottom(who: Opponent, n: 1)]),
+                    ],
+                ),
+            ],
+        ),
+        // Approximation: "choose two" offers four pairs; the -2F per D:2+ card, flipping cards and the
+        // "only reversed by 2 reversals" texts are not supported yet.
+        "Two-Time! Two-Time!": (
+            on_play: [
+                Choice([
+                    [DrawUpTo(who: You, n: 2), RingsideToArsenal(who: You, n: 2, up_to: true)],
+                    [DrawUpTo(who: You, n: 2), Mill(who: Opponent, n: 2)],
+                    [RingsideToArsenal(who: You, n: 2, up_to: true), HandToArsenalBottom(who: Opponent, n: 2)],
+                    [HandToArsenalBottom(who: Opponent, n: 2), Mill(who: Opponent, n: 2)],
+                ]),
+            ],
+            reverses: Some((
+                targets: AnyOf([Title("Poke"), Title("Shake")]),
+                fortitude: Some(0),
+                effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            )),
+        ),
+
+        // Pre-match
+        // The Back to Basics, old school and ACE texts are not supported yet.
+        "A Foundation of Old School Wrestling": (),
+        // Putting overturned cards under this card and the Counter discount are not supported yet.
+        "NXT Arrival": (
+            only_packed_by: ["NXT"],
+            not_with: ["The Nexus Armband"],
+            ring_ability: Some((effects: [RingsideToArsenal(who: You, n: 5, up_to: true), ReturnThis(to: Removed)])),
+        ),
+        // Blocking your own Pre-match cards and putting cards under it are not supported yet.
+        "Shut Up and Wrestle!": (
+            not_with: ["I'm Gonna Break You!"],
+            ring_ability: Some((effects: [TakeFromUnder(to: Hand, n: 1)])),
+        ),
+        // Approximation: +1 Hand Size while in your Ring. The Superstar Value 0 text is not supported yet.
+        "NXT Championship Title Belt": (hand_size_bonus: 1, value_bonus: 1),
+        // Putting this card into the Ringside pile after playing the card under it and the ACE texts are not
+        // supported yet.
+        "Tech In a Bottle": (
+            end_of_prematch: [
+                PutUnder(
+                    from: Arsenal,
+                    n: 1,
+                    up_to: true,
+                    filter: Some(All([
+                        Maneuver,
+                        Not(SuperstarSpecific),
+                        Not(Trait(Unique)),
+                        AnyOf([
+                            Trait(Chain), Keyword("Heat"), Keyword("Volley"), Trait(Face), Trait(Heel),
+                            TitleContains("blindside"), TitleContains("precision"), TitleContains("technical"),
+                        ]),
+                    ])),
+                ),
+            ],
+            play_from_under: Some(Not(Trait(Multi))),
+        ),
+
+        // Backstage cards
+        // The Superstar Value start and the Activate texts are not supported yet.
+        "PRO Zack Ryder": (only_packed_by: ["Rookie"]),
+        // Approximation: always hidden (the Adam Crites Memorial Tournament is not supported).
+        "Cause Adam Crites Said So": (not_packed_by: ["Doink"], starts_hidden: true),
+        // Approximation: always hidden (the Adam Crites Memorial Tournament is not supported).
+        "Best There Is, Best There Was": (not_packed_by: ["Doink"], starts_hidden: true),
+        "Celebrity Shenanigans": (),
+        "Defeating Villainous Shenanigans": (),
+
+        // The Beast Incarnate / Brock Lesnar
+        // Approximation: Here Comes the Pain needs 30F less. Face-down cards and the Unique reversal text are not
+        // supported yet.
+        "The Conqueror": (
+            not_with: ["Interviewed by Mean Gene Okerlund"],
+            backstage_abilities: [CardFortitude(title: "Here Comes the Pain", delta: -30)],
+        ),
+        // The Pre-match slot and Multi texts are not supported yet. Approximation: every German Suplex is -30F.
+        "Suplex City": (
+            while_in_ring: [(applies_to: Title("German Suplex"), fortitude: -30)],
+            ring_ability: Some((
+                requires: Some(Not(InYourRing(Title("Collegiate Champions")))),
+                cost: [Mill(who: You, n: 3)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(Title("German Suplex")))],
+            )),
+        ),
+        // The Corner and D:15+ texts are not supported yet.
+        "Brock's Stretch Muffler": (
+            bonuses: [(per: Some(AnyOf([TitleContains("leg"), TitleContains("knee"), TitleContains("suplex")])), damage: 1)],
+        ),
+        // Playing the chosen Ringside maneuvers is not supported yet; the turn still ends.
+        "Beatdown by The Beast": (on_play: [EndTurn]),
+        // The ACE (playing it later from your Ring) is not supported yet.
+        "The Kimura": (
+            on_play: [
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true, irreversible: true)),
+            ],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), Not(Maneuver)]),
+                effects: [Discard(who: Opponent, n: 2, pick: Random)],
+            )),
+        ),
+        "Eat-Sleep-Conquer-Repeat": (
+            on_play: [
+                Dig(n: 4, take: 1),
+                ThisToArsenal(bottom: true),
+                RingsideToArsenalBottom(who: You, n: 3),
+                Mill(who: Opponent, n: 2),
+                HandToArsenalBottom(who: Opponent, n: 1),
+            ],
+        ),
+        // The F-5 texts are not supported yet.
+        "The One ... in 21-1": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 10, up_to: true),
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 2, up_to: true, bottom: true),
+                Draw(who: You, n: 1),
+            ],
+        ),
+
+        // The Viper / Randy Orton
+        // Approximation: the Viper choice happens on every maneuver the opponent plays (not once per turn).
+        "The Apex Predator": (
+            backstage_abilities: [
+                OnYouReverse([
+                    If(
+                        condition: YouReversedFrom([Hand, Backlash]),
+                        effects: [Boost((applies_to: Maneuver, duration: NextTurn, damage: 2))],
+                    ),
+                ]),
+                OnOpponentPlayMatching(
+                    filter: Maneuver,
+                    effects: [
+                        If(
+                            condition: Superstar("The Viper"),
+                            effects: [
+                                Choice([
+                                    [Draw(who: You, n: 1)],
+                                    [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)],
+                                    [RingsideToArsenal(who: You, n: 1, filter: Some(All([Not(Reversal), SuperstarSpecific])))],
+                                ]),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        // The extra titles, the Multi and Ringside texts are not supported yet. Approximation: the ACE is used during
+        // your turn.
+        "I Hear Voices In My Head": (
+            while_in_ring: [
+                (applies_to: Title("The Viper Strikes"), fortitude: -30),
+                (applies_to: Title("Battling The Voices"), fortitude: -6),
+            ],
+            ring_ability: Some((sacrifice: true, effects: [ShuffleHandAndRedraw(who: You), Draw(who: You, n: 2)])),
+        ),
+        // Approximation: "does not take up a slot" is +1 Pre-match capacity; # is 5 (The Viper's Value). The ACE is
+        // not supported yet.
+        "The New Face of The WWE": (
+            pre_match_limit: 1,
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        Title("The Legend Killer"),
+                        Holds(AnyOf([OpponentIs("Legend"), OpponentSuperstarValueAtLeast(5)])),
+                    ]),
+                    irreversible: true,
+                ),
+                (applies_to: All([Maneuver, Holds(All([Superstar("The Viper"), FortitudeBelowOpponent]))]), fortitude: -5),
+            ],
+        ),
+        // Approximation: the RKO card cannot be reversed from the Arsenal at all; removed cards are not searched;
+        // "3 reversals" and "cannot be played as reversals" are not supported yet.
+        "Pounding the Mat, Preparing to Strike": (
+            on_play: [
+                Search(filter: TitleContains("RKO"), ringside: true),
+                Boost((applies_to: TitleContains("RKO"), duration: NextCard, no_arsenal_reversal: true)),
+            ],
+            while_in_ring: [(applies_to: TitleContains("RKO"), fortitude: -5, ignore_play_after: true)],
+        ),
+        // Approximation: no Superstar-specific Reversal at all can reverse it; the Between the Ropes text is not
+        // supported yet.
+        "Orton's Hanging DDT": (
+            not_packed_by: ["Rated RKO"],
+            play_after: Some(AnyOf([Trait(SetUp), SuperstarSpecific, All([Maneuver, DamageAtLeast(8)])])),
+            not_reversed_by: Some(Not(SuperstarSpecific)),
+            on_play: [Counted(count: HalfOpponentHand, effect: Discard(who: Opponent, n: 0, pick: Chosen))],
+        ),
+        // Approximation: for The Viper it is -5F but still reverses only Unique maneuvers; the Apex Predator text is
+        // not supported yet.
+        "They Talk To Me": (
+            reverses: Some((
+                targets: All([Maneuver, Trait(Unique)]),
+                fortitude_when: Some((Superstar("The Viper"), 10)),
+                effects: [DrawUpTo(who: You, n: 1)],
+            )),
+        ),
+        // Approximation: the opponent discards 1 Superstar-specific card even if you did not bury one; the hybrid
+        // reversal text is not supported yet.
+        "They Counsel Me, They Understand": (
+            bonuses: [(when: Superstar("The Viper"), fortitude: -10)],
+            on_play: [
+                Optional([
+                    MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(SuperstarSpecific), bottom: true),
+                    LookAtHand(who: Opponent),
+                    DiscardMatching(who: Opponent, n: 1, filter: SuperstarSpecific, pick: Controller),
+                ]),
+                If(condition: Superstar("The Viper"), effects: [RingsideToArsenal(who: You, n: 4, up_to: true)]),
+            ],
+        ),
+
+        // Bray Wyatt / Wyatt Family
+        // The opponent's +F per removed card and the overturn exchange are not supported yet.
+        "The Lantern": (not_with: ["Denville, New Jersey", "Dallas, Texas"]),
+        // Blocking the opponent's prevent effects and the removal replacement are not supported yet.
+        "The Eater of Worlds": (),
+        // Blanking titles and the Pre-match protection are not supported yet.
+        "We're Here": (),
+        "Bray's Sambo Suplex": (
+            on_play: [
+                Optional([
+                    RemoveFromGame(who: You, from: Arsenal, n: 1),
+                    MoveCards(who: You, from: Removed, to: Hand, n: 1, up_to: true),
+                ]),
+            ],
+        ),
+        // The 2 reversals text is not supported yet.
+        "Bray's Corner Avalanche": (
+            play_after: Some(AnyOf([Maneuver, Title("Throw Into the Corner Turnbuckle")])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+        ),
+        // "Only reversed from Arsenal", the Bray Wyatt reversal and the return from the removed pile are not
+        // supported yet.
+        "Sister Abigail": (reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific), Trait(Unique)])))),
+        "Do Not Fear The Wolves Led by a Sheep": (
+            reverses: Some((
+                targets: SuperstarSpecific,
+                from_hand_only: true,
+                on_reverse: [
+                    MillUntil(who: Opponent, filter: SuperstarSpecific),
+                    Search(filter: Title("Fear the Sheep Led by a Wolf"), ringside: true),
+                ],
+            )),
+        ),
+        // Reversing a card after it was successfully played is not supported yet.
+        "The World Eater Crawl": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: the opponent discards 1 chosen Superstar-specific card (not all copies).
+        "Fear the Sheep Led by a Wolf": (
+            bonuses: [(when: InYourRing(Title("Do Not Fear The Wolves Led by a Sheep")), fortitude: -8)],
+            on_play: [
+                DrawUpTo(who: You, n: 3),
+                LookAtHand(who: Opponent),
+                DiscardMatching(who: Opponent, n: 1, filter: SuperstarSpecific, pick: Controller),
+            ],
+            reverses: Some((targets: SuperstarSpecific, from_hand_only: true, on_reverse: [Draw(who: You, n: 1)])),
+            in_ring_on_play: [(whose: Some(You), filter: SuperstarSpecific, effects: [Draw(who: You, n: 1)])],
+        ),
+        // The Sister Abigail texts are not supported yet.
+        "He's Got the Whole World in His Hands": (
+            on_play: [
+                Counted(count: YourRemoved, effect: RingsideToArsenal(who: You, n: 0, up_to: true)),
+                RingsideToArsenal(who: Opponent, n: 2),
+            ],
+        ),
+
+        // Cesaro
+        // Approximation: only the Bury 2 ability; the Set-up packing, the first Draw Segment and the hide texts are
+        // not supported yet.
+        "The King of Swing": (
+            backstage_ability: Some((
+                requires: Some(HandAtLeast(2)),
+                cost: [HandToArsenalBottom(who: You, n: 2)],
+                effects: [Choice([[RingsideToHand(who: You, n: 1, filter: Some(Trait(SetUp)))], [DrawUpTo(who: You, n: 2)]])],
+            )),
+        ),
+        // Playing it from Ringside and the European / Set-up texts are not supported yet.
+        "The Swiss Superman": (while_in_ring: [(applies_to: Maneuver, damage: 2)]),
+        // Approximation: all your maneuvers are +1D while in your Ring.
+        "Very European": (
+            not_reversed_by: Some(Hybrid),
+            on_play: [
+                Search(filter: AnyOf([All([Maneuver, TitleContains("European")]), Title("Master of Five Languages")]), ringside: true),
+            ],
+            while_in_ring: [(applies_to: Maneuver, damage: 1)],
+        ),
+        // The Multi and 'completely' texts are not supported yet.
+        "Cesaro's Double Stomp": (
+            play_after: Some(Any),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+        ),
+        // The Gut Wrench return is not supported yet.
+        "Cesaro's Gut Wrench Suplex": (
+            bonuses: [(fortitude: -7)],
+            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Throw)]))),
+        ),
+        // The Trademark Finisher change is not supported yet.
+        "The Cesaro Swing": (on_play: [OverturnUntilReversal(who: Opponent, n: 2, keep: 10)]),
+        // The Irish Whip Trademark Finisher text is not supported yet.
+        "Swiss Death": (
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Assault)]), ignores_irreversible: true)),
+        ),
+        // Approximation: counts every Set-up card (not different titles). The D:30+ and hand texts are not supported
+        // yet.
+        "The Neutralizer": (bonuses: [(per: Some(Trait(SetUp)), damage: 1, fortitude: -1)]),
+        "Amazing Show of Power": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [RingsideToHand(who: You, n: 2, up_to: true)],
+            )),
+            while_in_ring: [(applies_to: Maneuver, damage: 2)],
+        ),
+        // The "2 D:0 cards" reversal text is not supported yet.
+        "Cesaro's Neck Crank": (
+            on_play: [
+                Choice([[Draw(who: You, n: 2)], [Search(filter: Title("The Neutralizer"), ringside: true)]]),
+                Boost((applies_to: Maneuver, duration: NextMatching, damage: 5)),
+                NextPlayWatch(filter: Maneuver, on_success: [Draw(who: You, n: 1)]),
+            ],
+        ),
+        // Approximation: "when reversed" is only from hand.
+        "Master of Five Languages": (
+            on_play: [
+                DrawUpTo(who: You, n: 5),
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, up_to: true, bottom: true),
+                RingsideToBacklash(who: You, n: 5),
+                MoveCards(who: You, from: Removed, to: Ringside, n: 5, up_to: true),
+            ],
+            on_reversed_from_hand: [Mill(who: Opponent, n: 5)],
+        ),
+
+        // Damien Sandow
+        // Choosing extra or the opponent's effects is not supported yet.
+        "The Intellectual Savior of the Masses": (),
+        // Approximation: the extra draws and discards happen at the end of the Pre-match phase. Starting the game,
+        // blanking titles, the response lock and the Backlash reversal are not supported yet.
+        "I Cannot, And Will Not, Demean Myself By Engaging Such An Ignoramus This Evening!": (
+            end_of_prematch: [Draw(who: You, n: 3), Discard(who: Opponent, n: 3, pick: Random)],
+        ),
+        // Approximation: Mental Acumen only comes from the Ringside pile. The Face/Heel -2F text is not supported yet.
+        "The Beacon of Light in a Harbor of Iniquity": (
+            end_of_prematch: [
+                Optional([MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("Mental Acumen")))]),
+            ],
+        ),
+        // Approximation: "Recover #-" shuffles up to 2 cards from Ringside into the Arsenal. Blanking Fans cards and
+        // the Ringside move limit are not supported yet.
+        "Please Remain Silent While I Am Speaking, Thank You!": (
+            ring_ability: Some((
+                requires: Some(HandAtLeast(1)),
+                cost: [RemoveFromGame(who: You, from: Hand, n: 1)],
+                effects: [RingsideToArsenal(who: You, n: 2, up_to: true)],
+            )),
+        ),
+        // Approximation: cannot be reversed from the Backlash deck (the Ring part is not supported).
+        "A Magnificent Rolling Russian Leg Sweep": (
+            no_backlash_reversal: true,
+            on_play: [Choice([[DrawUpTo(who: You, n: 2)], [Discard(who: Opponent, n: 2, pick: Chosen)]])],
+        ),
+        "Sandow's Cubito Aequet Elbow of Disdain": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [
+                Choice([
+                    [HandToArsenalBottom(who: Opponent, n: 2)],
+                    [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)],
+                    [Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 2, pick: Controller)])],
+                ]),
+            ],
+        ),
+        "The Utterly Devastating Terminus": (
+            on_play: [
+                Choice([
+                    [RingsideToHand(who: You, n: 1)],
+                    [MoveCards(who: You, from: Removed, to: Hand, n: 1)],
+                    [Draw(who: You, n: 1)],
+                    [Discard(who: Opponent, n: 1, pick: Random)],
+                ]),
+            ],
+        ),
+        // The return from the removed pile is not supported yet.
+        "You're Welcome Full Nelson Slam": (reverses: Some((targets: ManeuverType(Strike)))),
+        // The discard-to-reverse text on your next turn is not supported yet.
+        "Thank You For Your Irrelevant Opinion!": (reverses: Some((targets: Not(Maneuver)))),
+        // Copying the previous card's text is not supported yet.
+        "...You're Welcome!": (requires: Some(Never)),
+        // Approximation: "must Promo: 2" for the opponent is left out of his option.
+        "I Do This For The Benefit, The Welfare, And The Common Good Of Each And Every One of You!": (
+            bonuses: [(fortitude: -5)],
+            on_play: [
+                ThisToArsenal(bottom: true),
+                Choice([
+                    [HandToArsenalBottom(who: Opponent, n: 2)],
+                    [Optional([Dig(n: 2, take: 1)])],
+                    [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
+                ]),
+            ],
+            reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]))),
+        ),
+
+        // Ryback
+        // Approximation: Ryback-specific actions cannot be reversed by non-Superstar-specific cards. The draw to
+        // 10 and putting cards under Ryback Rules are not supported yet.
+        "WAKE UP!": (
+            backstage_abilities: [
+                CannotBeReversedBy(played: All([Action, SuperstarSpecific]), reversal: Not(SuperstarSpecific)),
+            ],
+        ),
+        // Playing it from Ringside and the texts depending on the cards under it are not supported yet.
+        "Ryback Rules": (
+            end_of_prematch: [PutUnder(from: Backlash, n: 4, up_to: true)],
+            while_in_ring: [(applies_to: Maneuver, damage: 2)],
+        ),
+        // Approximation: as a maneuver it is -6F (the hybrid has no F of its own), +3D.
+        "Big Guy Overhead Suplex": (
+            bonuses: [(fortitude: -6, damage: 3)],
+            reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
+        ),
+        // Approximation: # counts nothing; the Backlash text is not supported yet.
+        "Big Guy Tackle and Slam": (
+            bonuses: [(fortitude: -5)],
+            on_play: [DrawUpTo(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)],
+            reverses: Some((targets: After(Trait(SetUp)), effects: [DrawUpTo(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)])),
+        ),
+        // The Multi and 'completely' texts are not supported yet.
+        "The Meathook": (
+            bonuses: [(fortitude: -5, damage: 5), (when: After(Maneuver), fortitude: -5)],
+            on_play: [Search(filter: ManeuverType(TrademarkFinisher), ringside: true)],
+            reverses: Some((targets: Action, effects: [Search(filter: ManeuverType(TrademarkFinisher), ringside: true)])),
+        ),
+        // The hand / Ringside bury ability is not supported yet.
+        "Shell Shocked": (no_arsenal_reversal: true),
+        // The No Sell Maneuver text is not supported yet.
+        "STUPID!": (
+            reverses: Some((targets: Maneuver, effects: [DrawUpTo(who: You, n: 1), RingsideToArsenal(who: You, n: 2, up_to: true)])),
+        ),
+        // Playing it from Ringside and the extra draws while in your Ring are not supported yet.
+        "FEED! ME! MORE!": (
+            on_play: [DrawUpTo(who: You, n: 2), MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)],
+        ),
+        // Approximation: as a reversal it reverses non-Unique maneuvers (the lower Fortitude first-card text is not
+        // supported yet).
+        "Welcome to the Food Chain!": (
+            on_play: [RingsideToArsenal(who: You, n: 4, up_to: true), Draw(who: You, n: 2), Mill(who: Opponent, n: 2)],
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique))]),
+                fortitude: Some(0),
+                effects: [RingsideToArsenal(who: You, n: 2, up_to: true), Draw(who: You, n: 1), Mill(who: Opponent, n: 1)],
+            )),
+        ),
+        "FINISH! IT!": (
+            irreversible_when: Some(AnyOf([All([ReversedLastTurn(Any), FirstCardThisTurn]), After(Maneuver)])),
+            on_play: [
+                MoveCards(who: You, from: Ringside, to: Arsenal, n: 5, up_to: true, bottom: true),
+                Search(filter: ManeuverType(TrademarkFinisher)),
+                Boost((applies_to: ManeuverType(TrademarkFinisher), duration: NextCard, no_backlash_reversal: true)),
+            ],
+        ),
+        // The Ringside ability is not supported yet.
+        "DONE!": (irreversible: true, on_play: [WinByPin]),
+
+        // Brodus Clay
+        // The Manager, Pre-match slot, +10F reversal and hide texts are not supported yet.
+        "Backed by The Funkadactyls": (),
+        // The ACE is not supported yet.
+        "Somebody Call My Mama!": (
+            end_of_prematch: [Search(filter: All([Not(Trait(Unique)), Not(Maneuver)]), n: 2)],
+        ),
+        // Approximation: splash High Risks are +2D; the Strike / Multi / blank texts and the second ACE are not
+        // supported yet.
+        "They're Tons of Funk!": (
+            while_in_ring: [(applies_to: All([ManeuverType(HighRisk), TitleContains("splash")]), damage: 2)],
+            ring_ability: Some((
+                requires: Some(HandHas(TitleContains("splash"))),
+                cost: [RevealHand(who: You), HandToArsenal(who: You, n: 1)],
+                effects: [Draw(who: You, n: 2)],
+            )),
+        ),
+        // The Unique reversal text and the ACE are not supported yet.
+        "The Funkasaurus": (
+            bonuses: [(when: CountAtLeast(count: OpponentFortitude, n: 10), fortitude: -5)],
+            on_play: [
+                Counted(count: Plus(YourRingMatching(Maneuver), Const(2)), effect: DrawUpTo(who: You, n: 0)),
+                Boost((duration: NextCard, irreversible: true)),
+            ],
+        ),
+        "Funkasaurus-Plex": (
+            bonuses: [(fortitude: -10)],
+            play_after: Some(Not(Any)),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+        // The Counter +10F and the "played after a Set-up card" discard are not supported yet.
+        "Funky Head Butt": (
+            bonuses: [(fortitude: -15, damage: 2)],
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [If(condition: OpponentReversed(ManeuverType(Strike)), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
+            )),
+        ),
+        "What the Funk": (
+            play_after: Some(Maneuver),
+            on_play: [DiscardAll(who: Opponent, filter: Any)],
+        ),
+        // The removed card is not supported yet.
+        "Brodus's Running Splash": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            no_arsenal_reversal: true,
+            as_action: Some((
+                fortitude: Some(5),
+                on_play: [
+                    ThisToArsenal(bottom: true),
+                    MoveCards(who: You, from: Ring, to: Arsenal, n: 1, up_to: true, filter: Some(Reversal), bottom: true),
+                    Optional([Discard(who: You, n: 1, pick: Chosen), Shuffle(who: You)]),
+                ],
+            )),
+        ),
+        // Activated Card Effects are not reversible yet.
+        "My Bad!": (reverses: Some((targets: Not(Maneuver)))),
+        // Approximation: the maneuver cannot be reversed from hand or Backlash; the Unique reversal text is not
+        // supported yet.
+        "Funk Is On A Roll!": (
+            on_play: [
+                If(
+                    condition: HandHas(Reversal),
+                    effects: [
+                        DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen),
+                        RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique)), Not(SameTitleInRing)]))),
+                        Boost((applies_to: Maneuver, duration: NextCard, no_hand_reversal: true)),
+                    ],
+                ),
+            ],
+        ),
+        // Removing reversals for -4F is not supported yet.
+        "Should I Get Him?": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 5, up_to: true),
+                DrawUpTo(who: You, n: 2),
+                RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Maneuver)),
+            ],
+        ),
+
+        // Dean Ambrose
+        // Approximation: the ACE offers three pairs; the Mind Games texts are not supported yet.
+        "The Lunatic Fringe": (
+            end_of_prematch: [
+                Optional([Discard(who: You, n: 2, pick: Chosen), MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)]),
+            ],
+            ring_ability: Some((
+                requires: Some(HandAtLeast(2)),
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [
+                    Choice([
+                        [DrawUpTo(who: You, n: 3), HandToArsenalBottom(who: Opponent, n: 1)],
+                        [DrawUpTo(who: You, n: 3), RingsideToArsenal(who: You, n: 1, filter: Some(Not(Reversal)))],
+                        [HandToArsenalBottom(who: Opponent, n: 1), RemoveFromGame(who: Opponent, from: Ringside, n: 2, pick: Controller)],
+                    ]),
+                ],
+            )),
+        ),
+        // Moving it from the Backlash and the Heat texts are not supported yet.
+        "Ambrose's Extreme Combat Skill": (),
+        // The Ring text is not supported yet.
+        "Lunatic Flying Tackle": (
+            bonuses: [(when: After(Any), damage: 3)],
+            on_play: [
+                RevealHand(who: Opponent),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Controller, bottom: true),
+                Draw(who: Opponent, n: 1),
+            ],
+            reverses: Some((targets: All([Not(Trait(Unique)), After(Any)]), fortitude: Some(4))),
+        ),
+        // Approximation: always -6F (the Multi text is not supported).
+        "Dean's Sleeper": (bonuses: [(fortitude: -6)]),
+        "Ambrose's Regal Stretch": (
+            bonuses: [(fortitude: -5)],
+            on_play: [Optional([Search(filter: Title("Maintain Hold"), ringside: true)])],
+        ),
+        // The reversal restriction is not supported yet.
+        "Double Underhook Superplex": (
+            play_after: Some(Title("Throw Into the Corner Turnbuckle")),
+            play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(5)])), FirstCardThisTurn])),
+        ),
+        // The Heat change and -8F against non-maneuvers are not supported yet.
+        "Nope!": (reverses: Some((targets: Any, effects: [RingsideToHand(who: You, n: 1, up_to: true)]))),
+
+        // Roman Reigns
+        // Approximation: "does not take up a slot" is +1 Pre-match capacity; Promo on every successful Multi
+        // maneuver. The BASH and unsuccessful texts are not supported yet.
+        "The Shield's Enforcer": (
+            pre_match_limit: 1,
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, Trait(Multi), Not(Keyword("Volley"))]),
+                    effects: [Dig(n: 3, take: 1), MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, filter: Some(Not(Reversal)), bottom: true)],
+                ),
+            ],
+        ),
+        // The title texts are not supported yet.
+        "Reigns' Apron Dropkick": (
+            play_after: Some(Any),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen)],
+        ),
+        // Approximation: the maneuver part is -12F, +2D.
+        "Roman's Full Nelson": (
+            bonuses: [(fortitude: -12, damage: 2)],
+            on_play: [Search(filter: All([Not(Trait(Unique)), AnyOf([All([Maneuver, Keyword("Volley")]), Keyword("BASH")])]))],
+        ),
+        // The Stun Value and D:0 texts are not supported yet.
+        "Roman's Samoan Drop": (
+            bonuses: [(per: Some(TitleContains("Samoan Drop")), damage: 3)],
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+        ),
+        // The 'completely' text is not supported yet.
+        "The Superman Punch": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [Boost((applies_to: TitleContains("spear"), duration: NextCard, ignore_play_after: true, no_hand_reversal: true))],
+        ),
+        // Approximation: cannot be reversed at all after a maneuver or as a Counter.
+        "Locked and Loaded": (
+            irreversible_when: Some(AnyOf([All([ReversedLastTurn(Any), FirstCardThisTurn]), After(Maneuver)])),
+            on_play: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Maneuver))],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: AnyOf([TitleContains("cocked"), TitleContains("fist"), TitleContains("punch")]),
+                    effects: [HandToArsenalBottom(who: Opponent, n: 1)],
+                ),
+            ],
+        ),
+        // Removed cards are not searched; the play-after text is ignored for the next Roman Reigns card only.
+        "Fist to the Ground": (
+            irreversible: true,
+            on_play: [
+                Search(filter: Title("The Superman Punch"), ringside: true),
+                DrawUpTo(who: You, n: 1),
+                Boost((applies_to: All([Maneuver, SuperstarSpecific]), duration: ThisTurn, ignore_play_after: true)),
+            ],
+        ),
+
+        // Seth Rollins
+        // Approximation: Educated Feet and Technically Sound and Brutal come from the Backlash at the end of the
+        // Pre-match phase. The Promo and reversal texts are not supported yet.
+        "The Architect": (
+            end_of_prematch: [
+                Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("Educated Feet")))]),
+                Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("Technically Sound and Brutal")))]),
+            ],
+        ),
+        "Seth's Forearm Corner Charge": (
+            on_play: [Search(filter: AnyOf([TitleContains("precision"), TitleContains("technical")]))],
+            as_action: Some((on_play: [ThisToArsenal(bottom: true), RingsideToArsenalBottom(who: You, n: 1)])),
+        ),
+        // Approximation: cannot be reversed from the Backlash deck nor the Ringside pile (only the Backlash part).
+        "Seth's Suicide Dive": (
+            play_after: Some(Any),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            no_backlash_reversal: true,
+        ),
+        "Rollins' Flying Knee Strike": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            fortitude_discount: Some((per: 2, max: 5)),
+            on_play: [DrawUpTo(who: You, n: 1)],
+            reverses: Some((targets: Action, effects: [DrawUpTo(who: You, n: 1)])),
+        ),
+        // Approximation: from hand only (the 2-card discard is a reversal cost the opponent cannot pay yet).
+        "Curb Stomp": (no_hand_reversal: true),
+        // Reversing a maneuver after it became successful is not supported yet.
+        "Rollins' Kip-Up": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Activated Card Effects and the Backstage text are not supported yet.
+        "Rollins' Remarkable Agility": (
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), Trait(SetUp)]), effects: [Optional([Dig(n: 3, take: 1)])])),
+        ),
+
+        // Sin Cara
+        // Approximation: tope High Risks draw up to 2 and scissors / rana High Risks make him discard 3 every time.
+        "Sin Cara's Incredible Aerial Ability": (
+            backstage_abilities: [
+                CannotBeReversedBy(
+                    played: All([ManeuverType(HighRisk), AnyOf([TitleContains("scissors"), TitleContains("tope")])]),
+                    reversal: Trait(Unique),
+                ),
+                OnPlayMatching(
+                    filter: All([ManeuverType(HighRisk), AnyOf([TitleContains("scissors"), TitleContains("rana")])]),
+                    effects: [Discard(who: Opponent, n: 3, pick: Chosen)],
+                ),
+                OnPlayMatching(filter: All([ManeuverType(HighRisk), TitleContains("tope")]), effects: [DrawUpTo(who: You, n: 2)]),
+            ],
+        ),
+        // Approximation: Drawing a Blank and High-Flying Style come from the Backlash; the Hand Size choices and
+        // capacity texts are not supported yet.
+        "Sin Cara's Explosive Entrance": (
+            end_of_prematch: [
+                Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("Drawing a Blank")))]),
+                Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("High-Flying Style")))]),
+            ],
+        ),
+        // Approximation: the ACE boost lasts for the next maneuver. The first Draw Segment shuffle is not supported yet.
+        "Wrestling in Colored Light": (
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [Search(filter: Maneuver), Boost((applies_to: Maneuver, duration: NextCard, reversal_fortitude: 6))],
+            )),
+        ),
+        // The Ring text is not supported yet.
+        "Technical Skill and Dynamic Speed": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                fortitude_when: Some((FortitudeBelowOpponent, 0)),
+                effects: [Choice([[Draw(who: You, n: 2)], [RingsideToArsenal(who: You, n: 3)]])],
+            )),
+        ),
+        // The response lock, the blanking ACE and the Ringside text are not supported yet.
+        "Lu-cha! Lu-cha! Lu-cha! Lu-cha!": (
+            mid_match_limit: 1,
+            bonuses: [(when: All([FortitudeBelowOpponent, CountAtLeast(count: OpponentFortitude, n: 5)]), fortitude: -5)],
+        ),
+        // The reversal restriction is not supported yet.
+        "Lucha Dragon Dropkick": (
+            bonuses: [(when: FortitudeBelowOpponent, fortitude: -6)],
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            as_action: Some((
+                on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 2, filter: Some(All([Maneuver, Not(Reversal)])))],
+            )),
+        ),
+        // The Multi / overturn-to-reverse and Backlash texts are not supported yet.
+        "Sin Cara's Flying Head Scissors": (
+            play_after: Some(Any),
+            as_action: Some((
+                on_play: [ThisToArsenal(bottom: false), RingsideToArsenal(who: You, n: 3, up_to: true), DrawUpTo(who: You, n: 1)],
+            )),
+        ),
+        // The hybrid, 3-reversal and 'completely' texts are not supported yet.
+        "La Mistica": (on_play: [Discard(who: Opponent, n: 3, pick: Chosen), BacklashToRingside(who: Opponent, n: 3, random: true)]),
+        "Sin Cara's Exploder": (
+            play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(5)]), Title("From the Top Rope")])),
+            play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(8)])), FirstCardThisTurn])),
+            no_hand_reversal: true,
+            as_action: Some((
+                fortitude: Some(5),
+                on_play: [ThisToArsenal(bottom: true), MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true, bottom: true)],
+            )),
+        ),
+        // The Multi and hand texts are not supported yet.
+        "Sin Cara's Senton Bomb": (
+            bonuses: [(when: InYourRing(Title("Wrestling in Colored Light")), fortitude: -10)],
+            play_after: Some(AnyOf([Maneuver, Title("From the Top Rope")])),
+        ),
+        // Activated Card Effects and the Ringside text are not supported yet.
+        "The International Sensation": (
+            bonuses: [(fortitude: -5)],
+            on_play: [
+                RingsideToArsenal(who: You, n: 5, up_to: true),
+                RemoveFromGame(who: Opponent, from: Ringside, n: 5, up_to: true, pick: Controller),
+                Discard(who: Opponent, n: 5, pick: Chosen),
+            ],
+            reverses: Some((targets: Not(Maneuver))),
+        ),
+
+        // Titus O'Neil / Prime Time Players
+        // Blanking the opponent's card from the Backstage Area is not supported yet.
+        "Titus's Whistle": (
+            backstage_abilities: [
+                OnYouReverse([
+                    If(condition: Superstar("Titus O'Neil"), effects: [Search(filter: All([Maneuver, Not(Trait(Unique))]), n: 2, up_to: true)]),
+                ]),
+            ],
+        ),
+        // The doubled ability reduction is not supported yet. Approximation: at the end of the Pre-match phase.
+        "The Big Deal Titus O'Neil": (
+            end_of_prematch: [If(condition: OpponentHandLarger, effects: [HandToArsenalBottom(who: You, n: 2), DrawToMatchOpponent, Draw(who: You, n: 1)])],
+        ),
+        // The Ability count, Stun Value and reversal texts are not supported yet.
+        "Big Deal Back Breaker": (),
+        // The unsuccessful text is not supported yet.
+        "Clash of the Titus": (
+            bonuses: [(when: Superstar("Titus O'Neil"), fortitude: -15, damage: 5)],
+            reverses: Some((
+                targets: ManeuverType(Grapple),
+                hand_targets: Some(All([ManeuverType(HighRisk), Holds(OpponentSuperstar("Titus O'Neil"))])),
+            )),
+        ),
+        // One-word titles and Activated Card Effects are not supported yet.
+        "How Do You Spell...": (
+            only_packed_by: ["Titus O'Neil"],
+            on_play: [ShuffleThisIntoArsenal, Draw(who: You, n: 1), HandToArsenalBottom(who: Opponent, n: 1)],
+            reverses: Some((targets: Not(Any))),
+        ),
+        "Titus: The Real Deal": (
+            bonuses: [(when: Superstar("Titus O'Neil"), fortitude: -6)],
+            on_play: [
+                RingsideToArsenal(who: You, n: 10, up_to: true),
+                If(condition: Superstar("Titus O'Neil"), effects: [DrawUpTo(who: You, n: 3)]),
+            ],
+            reverses: Some((targets: Maneuver, effects: [If(condition: Superstar("Titus O'Neil"), effects: [DrawUpTo(who: You, n: 3)])])),
+        ),
+        // The hand ability is not supported yet.
+        "Titus's Bark": (
+            only_packed_by: ["Titus O'Neil"],
+            on_play: [RingsideToArsenal(who: You, n: 3, up_to: true), Mill(who: Opponent, n: 2)],
+        ),
+
+        // Luke Harper
+        // The unsuccessful text is not supported yet.
+        "First Son of The Wyatt Family": (
+            end_of_prematch: [
+                Mulligan(n: 4),
+                Draw(who: You, n: 1),
+                LookAtHand(who: Opponent),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Controller),
+                Draw(who: Opponent, n: 1),
+            ],
+        ),
+        // The Arsenal-only and Ringside texts are not supported yet.
+        "The Gator Roll": (),
+        // The Multi +2D and the reversal ("same title as a card in his Ring") are not supported yet.
+        "Backwater Uppercut": (
+            bonuses: [(fortitude: -2)],
+            reverses: Some((targets: Not(Any))),
+        ),
+        "Harper's Dive Out of the Ring": (
+            play_after: Some(All([Maneuver, DamageAtLeast(3)])),
+            on_play: [Optional([Dig(n: 3, take: 1), MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)])],
+        ),
+        "Luke's Discus Lariat": (bonuses: [(fortitude: -7, damage: 5)]),
+        "The Truckstop Slam": (
+            bonuses: [(fortitude: -5)],
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), Trait(SetUp)]))),
+        ),
+
+        // Erick Rowan
+        // Approximation: Drawing a Blank comes from the Ringside pile. The other texts are not supported yet.
+        "The Silence of the Lamb": (
+            end_of_prematch: [Optional([MoveCards(who: You, from: Ringside, to: Ring, n: 1, filter: Some(Title("Drawing a Blank")))])],
+        ),
+        // The hybrid-only reversal text is not supported yet.
+        "Erick's Big Right Hand": (),
+        // The lower Fortitude text is not supported yet.
+        "Rowan's Fall-Away Slam": (),
+        // The Ringside text is not supported yet.
+        "Backwoods Bear Hug": (on_play: [Discard(who: Opponent, n: 1, pick: Chosen)]),
+        // Reversing a maneuver after it was successfully played is not supported yet.
+        "Unmasked Vengeance": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Activated Card Effects are not reversible yet; removed cards are not shuffled back.
+        "Wyatt's Second Son": (
+            on_play: [DrawUpTo(who: You, n: 2), Optional([Dig(n: 2, take: 1)]), RingsideToArsenal(who: You, n: 2, up_to: true)],
+            reverses: Some((targets: Not(Any))),
+        ),
+
+        // Sami Zayn
+        // Approximation: High-Flying Style comes from the Backlash. The type and reversal texts are not supported yet.
+        "Sami's Non-Generic Lucha Skill": (
+            end_of_prematch: [Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("High-Flying Style")))])],
+        ),
+        // Approximation: the reversal works on any maneuver after the first card of the turn; blank text and The NXT
+        // Breakout Star texts are not supported yet.
+        "Lower the Boom": (
+            bonuses: [(fortitude: -4)],
+            irreversible_when: Some(FortitudeBelowOpponent),
+            on_play: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6, reversal_fortitude: 10))],
+            reverses: Some((targets: All([Maneuver, After(Any)]))),
+        ),
+        // The 3 reversals, 'completely' and Breakout Star texts are not supported yet.
+        "Series of Arm Drags": (),
+        // The type change is not supported yet.
+        "Zayn's Drop Kick": (on_play: [HandToArsenalBottom(who: Opponent, n: 2)]),
+        // Reversing cards that move Ringside cards is not supported yet.
+        "Sami's Somersault Plancha": (
+            bonuses: [(fortitude: -4, damage: 4)],
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reverses: Some((targets: Not(Any))),
+        ),
+        // The discard-to-reverse, Val Venis and unsuccessful texts are not supported yet.
+        "Blue Thunder Bomb": (
+            bonuses: [(fortitude: -5, damage: 5)],
+            reverses: Some((targets: All([Maneuver, AnyOf([Trait(Multi), Keyword("BASH")])]))),
+        ),
+        // The punch -5F text is not supported yet.
+        "Sami's Tornado DDT": (
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Strike), ManeuverType(Assault)]),
+                effects: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            )),
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+        ),
+        // The turnbuckle text and the Arsenal restriction are not supported yet.
+        "Helluva Kick": (
+            bonuses: [(fortitude: -10)],
+            reverses: Some((targets: ManeuverType(HighRisk), ignores_irreversible: true)),
+        ),
+        "Sami's InZayn Agility": (
+            reverses: Some((
+                targets: All([Maneuver, Not(SuperstarSpecific)]),
+                effects: [
+                    Optional([Dig(n: 3, take: 1)]),
+                    RingsideToHand(who: You, n: 1, up_to: true),
+                    MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true),
+                ],
+            )),
+        ),
+        // Activated Card Effects are not reversible yet; his reversals with your Fortitude are not supported.
+        "Worlds Apart": (
+            irreversible_when: Some(FortitudeBelowOpponent),
+            on_play: [DrawUpTo(who: You, n: 2), Boost((duration: NextCard, use_opponent_fortitude: true))],
+            reverses: Some((targets: Not(Maneuver))),
+        ),
+
+        // The response lock is not supported yet.
+        "World Traveled Superstar": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 10, up_to: true),
+                DrawUpTo(who: You, n: 3),
+                Boost((duration: NextCard, fortitude: -30, damage: 3)),
+            ],
+        ),
+
+        // Team Hell No
+        // Approximation: Kane cards are the ones with "Kane" in the title. Multi, 'completely' and the ACE are not
+        // supported yet.
+        "Anger Management Classes": (while_in_ring: [(applies_to: All([Maneuver, TitleContains("Kane")]), fortitude: -5)]),
+        // Returning to the Backlash and the Title Belt text are not supported yet.
+        "I Am the Tag Team Champions!": (
+            irreversible_when: Some(After(Maneuver)),
+            on_play: [RingsideToArsenal(who: You, n: 10, up_to: true, filter: Some(SuperstarSpecific))],
+        ),
+        // The Trademark Finisher change is not supported yet.
+        "Bryan's Flying Headbutt": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Maneuver), FirstCardThisTurn])),
+            irreversible_when: Some(After(All([Maneuver, DamageAtLeast(5)]))),
+        ),
+        // The reversal restriction and the Multi reversal are not supported yet.
+        "Kane's Low Dropkick": (
+            reverses: Some((targets: Not(Any))),
+        ),
+        // The damage protection and the RMS reversal are not supported yet.
+        "The No! Lock": (
+            not_with: ["The YES! Lock"],
+            on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
+            reverses: Some((targets: Not(Any))),
+        ),
+        "Chokeslammed to Hell": (bonuses: [(when: YouAre("Tag Team"), per: Some(SuperstarSpecific), damage: 1)]),
+        // The Arsenal and Ability texts are not supported yet.
+        "No! No! No! No!": (reverses: Some((targets: Any, fortitude_when: Some((Superstar("Team Hell No"), 0))))),
+        // The Cheater and extra overturn texts are not supported yet.
+        "One Hell of a Temper": (
+            irreversible_when: Some(YouAre("Tag Team")),
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
+        ),
+        "Hug It Out!": (
+            bonuses: [(fortitude: -10)],
+            on_play: [
+                Choice([
+                    [Counted(count: YourRingMatching(SuperstarSpecific), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+                    [Counted(count: YourRingMatching(SuperstarSpecific), effect: Mill(who: Opponent, n: 0))],
+                ]),
+            ],
+            reverses: Some((
+                targets: Not(Maneuver),
+                effects: [
+                    Choice([
+                        [Counted(count: YourRingMatching(SuperstarSpecific), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+                        [Counted(count: YourRingMatching(SuperstarSpecific), effect: Mill(who: Opponent, n: 0))],
+                    ]),
+                ],
+            )),
+        ),
+
+        // The Rhodes Brothers / Cody Rhodes / Goldust
+        // Approximation: Promo on every successful Unique maneuver. The hand texts are not supported yet.
+        "Gold and Smoke": (
+            end_of_prematch: [Discard(who: Opponent, n: 1, pick: Random)],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, Trait(Unique)]),
+                    effects: [Choice([[Discard(who: Opponent, n: 1, pick: Chosen)], [Optional([Dig(n: 2, take: 1)])]])],
+                ),
+            ],
+        ),
+        // The Electrifying texts and the unsuccessful text are not supported yet.
+        "The Dashing and The Bizarre": (
+            end_of_prematch: [Search(filter: SuperstarSpecific), Search(filter: Title("Electrifying"))],
+        ),
+        // Activated Card Effects and the Rhodes Brothers -16F text are not supported yet.
+        "The Rhodes Drop Down Uppercut": (
+            bonuses: [(fortitude: -12, damage: 2)],
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            no_hand_reversal: true,
+            reverses: Some((targets: After(Trait(SetUp)))),
+        ),
+        // Approximation: as a Counter it cannot be reversed at all; non-damage effects are not reversible yet.
+        "Cody's Bulldog": (
+            bonuses: [(when: Superstar("Cody Rhodes"), fortitude: -4)],
+            irreversible_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [HandToArsenalBottom(who: Opponent, n: 1)],
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique))]),
+                overturned_only: true,
+                fortitude_when: Some((Superstar("Cody Rhodes"), 0)),
+                effects: [Draw(who: You, n: 1)],
+            )),
+        ),
+        // The reversal restriction is not supported yet.
+        "Cody's Rope-Assisted Kick": (
+            on_play: [Discard(who: Opponent, n: 1, pick: Random)],
+            as_action: Some((fortitude: Some(4), on_play: [ShuffleThisIntoArsenal, Discard(who: Opponent, n: 1, pick: Random)])),
+        ),
+        // Reversing cards that move Ringside cards and the reversal restriction are not supported yet.
+        "Goldust's Running Senton": (
+            bonuses: [(fortitude: -4)],
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            as_action: Some((fortitude: Some(6), on_play: [ShuffleThisIntoArsenal, Discard(who: Opponent, n: 1, pick: Chosen)])),
+            reverses: Some((targets: Not(Any))),
+        ),
+        // "Cannot play maneuvers on his next turn" is approximated with CannotPlay.
+        "Cody's Moonsault": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [
+                RingsideToHand(who: You, n: 1, up_to: true),
+                MoveCards(who: You, from: Removed, to: Backlash, n: 1, up_to: true, filter: Some(Trait(MidMatch))),
+                EndTurn,
+                CannotPlay(who: Opponent, filter: Maneuver, turns: 1),
+            ],
+        ),
+        // Approximation: the Backlash card comes from the Ringside pile only.
+        "Goldust's Final Cut": (
+            on_play: [DrawUpTo(who: You, n: 2), RingsideToBacklash(who: You, n: 1)],
+            reverses: Some((
+                targets: All([ManeuverType(Grapple), Not(Trait(Unique))]),
+                from_hand_only: true,
+                on_reverse: [DrawUpTo(who: You, n: 2), RingsideToBacklash(who: You, n: 1)],
+            )),
+        ),
+        // Approximation: # counts every removed Mid-match card, at most 3; he chooses the card he buries.
+        "The Bonds of Brotherhood": (
+            reverses: Some((
+                targets: Not(ManeuverType(TrademarkFinisher)),
+                effects: [
+                    Counted(count: AtMost(YourRemovedMatching(Trait(MidMatch)), 3), effect: Draw(who: You, n: 0)),
+                    HandToArsenalBottom(who: Opponent, n: 1),
+                ],
+            )),
+        ),
+        // The Counter restriction and the Ring texts are not supported yet.
+        "Backed by Dusty Rhodes": (
+            on_play: [
+                Choice([[DrawUpTo(who: You, n: 4)], [RingsideToHand(who: You, n: 1)]]),
+                Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -5)),
+            ],
+        ),
+        // Approximation: always -4F.
+        "Goldust's Bizarre Antics": (
+            bonuses: [(fortitude: -4)],
+            irreversible_when: Some(After(Title("Electrifying"))),
+            on_play: [
+                HandToArsenalBottom(who: Opponent, n: 1),
+                Draw(who: Opponent, n: 1),
+                RingsideToArsenal(who: You, n: 3, up_to: true),
+                Draw(who: You, n: 2),
+                Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -6, reversal_fortitude: 12)),
+            ],
+        ),
+
+        // Prime Time Players
+        // Reversals being taken back and the second ACE are not supported yet.
+        "Managed by A.W.": (),
+        // Approximation: only "maneuvers played as a Counter are -5F".
+        "Move! Get It, Get It, Get It In...": (
+            while_in_ring: [(applies_to: All([Maneuver, Holds(All([ReversedLastTurn(Any), FirstCardThisTurn]))]), fortitude: -5)],
+        ),
+        "Millions of Dollars": (
+            bonuses: [(when: Superstar("Prime Time Players"), fortitude: -6)],
+            irreversible_when: Some(After(SuperstarSpecific)),
+            on_play: [RingsideToArsenal(who: You, n: 6, up_to: true), DrawUpTo(who: You, n: 2), Mill(who: Opponent, n: 2)],
+        ),
+        "Prime Time Suplex Splash": (
+            play_after: Some(Any),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [HandToArsenalBottom(who: Opponent, n: 2)],
+        ),
+        // Approximation: the reversal makes him discard 2 cards (his choice of removing the card is not supported).
+        "Ain't Nobody Got Time For That!": (
+            on_play: [RevealHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+            reverses: Some((
+                targets: Not(Maneuver),
+                effects: [If(condition: Not(OpponentReversed(SuperstarSpecific)), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
+            )),
+        ),
+        // Approximation: the Ringside cards come back right away. The Managed by A.W. text is not supported yet.
+        "Distracting Comments by A.W.": (
+            reverses: Some((targets: Maneuver, effects: [RingsideToHand(who: You, n: 2, up_to: true)])),
+        ),
+        // The Millions of Dollars Backlash text and the Ability text are not supported yet.
+        "Money Makin' Scholars": (
+            irreversible_when: Some(InYourRing(Title("Millions of Dollars"))),
+            on_play: [RingsideToArsenal(who: You, n: 6, up_to: true)],
+        ),
+
+        // The Usos
+        // Doubling, blanking and playing two cards at once are not supported yet.
+        "The Kings of Double Teams": (),
+        // The +3D Ability-card text is not supported yet.
+        "The Uso Siva Tau": (
+            end_of_prematch: [RingsideToHand(who: You, n: 3, up_to: true), HandToArsenalBottom(who: You, n: 2)],
+        ),
+        // Approximation: a non-Unique maneuver comes back on every successful maneuver.
+        "Uso Crazy!": (
+            bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10), fortitude: -10)],
+            in_ring_on_play: [
+                (whose: Some(You), filter: Maneuver, effects: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Maneuver, Not(Trait(Unique))])))]),
+            ],
+            ring_ability: Some((
+                requires: Some(All([FortitudeBelowOpponent, HandAtLeast(2)])),
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [Search(filter: All([Maneuver, Not(Trait(Unique))]))],
+            )),
+        ),
+        // The elbow reversal restriction is not supported yet.
+        "Uso Double Elbow Drop": (
+            play_after: Some(Maneuver),
+            on_play: [RingsideToHand(who: You, n: 2, up_to: true)],
+        ),
+        "Uso Full Nelson Bomb": (
+            bonuses: [(fortitude: -4, damage: 4)],
+            reverses: Some((targets: AnyOf([TitleContains("dynamic"), TitleContains("precision"), TitleContains("technical")]))),
+        ),
+        // Approximation: # counts the Superstar-specific cards in your Ring.
+        "Uso Wrecking Ball": (
+            play_after: Some(AnyOf([Maneuver, Title("Throw into the Corner Turnbuckle")])),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [Counted(count: YourRingMatching(SuperstarSpecific), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+        ),
+        "Alley-Us": (
+            bonuses: [(fortitude: -5)],
+            not_reversed_by: Some(Not(SuperstarSpecific)),
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Assault)]))),
+        ),
+        // The 'completely' text is not supported yet.
+        "The Uso Samoan Splash": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Maneuver), FirstCardThisTurn])),
+        ),
+        // The When We Say 'Uce'... text is not supported yet.
+        "You Say 'O'!": (
+            reverses: Some((targets: All([Not(Maneuver), Not(Trait(Unique))]), effects: [DrawUpTo(who: You, n: 3)])),
+        ),
+        "Face-Painted Fury": (
+            reverses: Some((targets: Maneuver, effects: [Discard(who: Opponent, n: 2, pick: Chosen), DrawUpTo(who: You, n: 2)])),
+        ),
+        // Removed cards are not searched; the Multi text is not supported yet.
+        "When We Say 'Uce'...": (
+            on_play: [
+                If(condition: Not(InYourRing(Title("You Say 'O'!"))), effects: [Search(filter: Title("You Say 'O'!"), ringside: true)]),
+                If(condition: InYourRing(Title("You Say 'O'!")), effects: [Search(filter: SuperstarSpecific, ringside: true)]),
+            ],
+        ),
+
+        // The Shield
+        // Protecting Pre-match cards and the blanked titles are not supported yet.
+        "Sierra Hotel India Echo Lima Delta": (),
+        // The blindside bonuses, the opponent's +2F and the Counter text are not supported yet.
+        "Believe in The Shield!": (),
+        // The Justice for All texts are not supported yet.
+        "The Hounds of Justice": (
+            irreversible: true,
+            mid_match_limit: 1,
+            on_play: [RevealHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+        ),
+        // The Ringside text is not supported yet.
+        "Roman's Spear": (
+            bonuses: [(fortitude: -10), (when: Superstar("Roman Reigns"), damage: 5)],
+            play_after: Some(Not(Any)),
+            play_after_unless: Some(All([ReversedLastTurn(Maneuver), FirstCardThisTurn])),
+            reverses: Some((targets: ManeuverType(TrademarkFinisher), damage: Fixed(15))),
+        ),
+        // The Multi and "cannot play it again" texts are not supported yet.
+        "Rollins' Technical Dropkick": (
+            bonuses: [(when: Superstar("Seth Rollins"), fortitude: -3)],
+            as_action: Some((
+                on_play: [
+                    ThisToArsenal(bottom: false),
+                    Search(filter: All([Not(Title("Rollins' Technical Dropkick")), AnyOf([TitleContains("blindside"), TitleContains("precision"), TitleContains("technical")])])),
+                ],
+            )),
+        ),
+        // The Heat text is not supported yet.
+        "Ambrose's Elbow Drop": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Not(Maneuver)), FirstCardThisTurn])),
+            no_hand_reversal: true,
+            no_backlash_reversal: true,
+        ),
+        "Seth's Precision Enzuigiri": (
+            fortitude_discount: Some((per: 2, max: 5, overturn: true)),
+            on_play: [If(condition: Superstar("Seth Rollins"), effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)])],
+        ),
+        // The Multi and "draw when reversed" texts are not supported yet.
+        "Headlock Driver": (
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true), HandToArsenalBottom(who: Opponent, n: 1)],
+            )),
+        ),
+        // The 3-reversal text is not supported yet.
+        "Triple Power Bomb": (not_with: ["Flurry of Finishers"]),
+        "The Shield Tactical Vests": (
+            reverses: Some((
+                targets: All([Maneuver, Not(Trait(Unique))]),
+                hand_targets: Some(Maneuver),
+            )),
+            while_in_ring_opponent: [(applies_to: All([Maneuver, Not(Trait(Unique))]), damage: -2)],
+        ),
+        // Reversing a maneuver after it was successfully played is not supported yet.
+        "Roman's Roar": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+
+        // The Wyatt Family
+        // Approximation: his non-Unique, non-Superstar-specific reversals deal at most 2D; the Erick Rowan and draw
+        // texts are not supported yet.
+        "Rowan's Sheep Mask": (
+            backstage_abilities: [OpponentDamageCap(filter: All([Reversal, Not(Trait(Unique)), Not(SuperstarSpecific)]), max: 2)],
+        ),
+        // Putting Bray Wyatt's Superstar card on this card is not supported yet.
+        "The Rocking Chair": (),
+        // Approximation: the -1F per 2 removed cards and the Superstar-specific reversal text are not supported.
+        "Follow the Buzzards": (
+            on_play: [
+                RingsideToArsenal(who: You, n: 3, up_to: true),
+                DrawUpTo(who: You, n: 3),
+                RemoveFromGame(who: You, from: Hand, n: 1),
+            ],
+            reverses: Some((
+                targets: All([Not(SuperstarSpecific), Not(Maneuver)]),
+                effects: [DrawUpTo(who: You, n: 3), RemoveFromGame(who: You, from: Hand, n: 1)],
+            )),
+        ),
+        // The 2-reversal text is not supported yet.
+        "Rowan's Cranial Crunch": (
+            on_play: [Optional([RemoveFromGame(who: You, from: Ringside, n: 2)])],
+        ),
+        // The 12D+ reversal restriction is not supported yet.
+        "Bayou Face Stretch": (),
+        // The return before the Draw Segment is not supported yet.
+        "Harper's Big Boot": (bonuses: [(fortitude: -2, damage: 2)]),
+        // The Multi text is not supported yet.
+        "Rowan's Monster Splash": (
+            bonuses: [(when: Superstar("Erick Rowan"), damage: 5)],
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(5)])), FirstCardThisTurn])),
+            on_play: [RingsideToHand(who: You, n: 3, up_to: true)],
+        ),
+        // Approximation: it can never be reversed from the Backlash deck; 'completely' is not supported yet.
+        "Harper's Big Power Bomb": (
+            no_backlash_reversal: true,
+            reverses: Some((targets: ManeuverType(HighRisk))),
+        ),
+        // Activated Card Effects and the Multi text are not supported yet.
+        "Yeahyeahyeahyeah": (
+            on_play: [MoveCards(who: You, from: Removed, to: Arsenal, n: 4, up_to: true), Dig(n: 4, take: 1)],
+            reverses: Some((targets: Not(Maneuver))),
+        ),
+
+        // 3MB
+        // The Armageddon Is Upon Us text is not supported yet.
+        "We're a 3 Man Band!": (end_of_prematch: [Draw(who: You, n: 3), PutUnder(from: Hand, n: 3)]),
+        // The Run-in texts are not supported yet.
+        "Jam Session": (end_of_prematch: [Mill(who: Opponent, n: 3)]),
+        // The +1F per Pre-match card and the ACE are not supported yet.
+        "The Band Joins In": (reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))])))),
+        // The Maintain Hold and hand texts are not supported yet.
+        "Jinder's Camel Clutch": (),
+        // The hand ability is not supported yet.
+        "Future Shock DDT": (on_play: [Discard(who: Opponent, n: 3, pick: Random)]),
+        // Approximation: it goes to the Ringside pile like other Reversals; the Ring ability is not supported yet.
+        "The International House of Hits": (reverses: Some((targets: Any, effects: [DrawUpTo(who: You, n: 3)]))),
+        // Approximation: always 3 cards back to hand and no discard (the # discard is not supported yet).
+        "The Leader of 3MB": (
+            on_play: [RingsideToHand(who: You, n: 3, up_to: true)],
+        ),
+
+        // A.J. Lee
+        // Random moves and blanking cards are not supported yet.
+        "Don't Call Me Crazy!": (),
+        // Approximation: "does not take up a slot" is +1 Pre-match capacity.
+        "A.J.'s Manic Mood Swings": (
+            pre_match_limit: 1,
+            end_of_prematch: [DrawUpTo(who: You, n: 3), HandToArsenalBottom(who: You, n: 2)],
+            ring_ability: Some((
+                sacrifice: true,
+                requires: Some(HandAtLeast(2)),
+                cost: [HandToArsenalTop(who: You, n: 2)],
+                effects: [RingsideToArsenal(who: You, n: 9), Draw(who: You, n: 5)],
+            )),
+        ),
+        // The ACE is not supported yet.
+        "Let's Light It Up!": (
+            end_of_prematch: [PutUnder(from: Hand, n: 1, up_to: true)],
+            ring_ability: Some((effects: [PutUnder(from: Hand, n: 1, up_to: true)])),
+            play_from_under: Some(Any),
+        ),
+        // Approximation: as a Counter it cannot be reversed. The overturn count is not supported yet.
+        "What Did You Just Call Me?!?": (
+            irreversible_when: Some(All([ReversedLastTurn(Not(Maneuver)), FirstCardThisTurn])),
+            on_play: [DrawUpTo(who: You, n: 2), Discard(who: Opponent, n: 1, pick: Random)],
+        ),
+        "A.J.'s Flying Front Dropkick": (play_after: Some(Maneuver)),
+        "A.J.'s Flying Body Press": (
+            play_after: Some(Any),
+            bonuses: [(when: After(Maneuver), fortitude: -7)],
+            on_play: [Search(filter: ManeuverType(HighRisk))],
+            as_action: Some((fortitude: Some(5), on_play: [ThisToArsenal(bottom: false), Search(filter: ManeuverType(HighRisk))])),
+        ),
+        // The Ringside text is not supported yet.
+        "A.J.'s Shining Wizard": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            no_backlash_reversal: true,
+        ),
+        // Approximation: he chooses the card he buries.
+        "The Black Widow": (
+            on_play: [
+                HandToArsenalBottom(who: Opponent, n: 2),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
+            ],
+            reverses: Some((
+                targets: AnyOf([ManeuverType(Submission), Title("Clutch Onto Opponent"), Title("Girly Grab")]),
+                effects: [HandToArsenalBottom(who: Opponent, n: 1)],
+            )),
+        ),
+        "Don't Make Me Cry": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher)), DamageAtLeast(8)]),
+                effects: [RingsideToArsenal(who: You, n: 3, up_to: true)],
+            )),
+        ),
+        "From Nerdy to Crazy": (
+            bonuses: [(fortitude: -6)],
+            on_play: [Search(filter: Action), DrawUpTo(who: You, n: 1), Boost((duration: NextCard, fortitude: -13))],
+            reverses: Some((targets: All([Not(Maneuver), Not(Trait(Unique))]), effects: [DrawUpTo(who: You, n: 1)])),
+        ),
+        "The Longest Reigning Divas Champion": (
+            on_play: [
+                MoveCards(who: You, from: Removed, to: Arsenal, n: 6, up_to: true),
+                MoveCards(who: You, from: Ring, to: Arsenal, n: 1, up_to: true, filter: Some(Not(Trait(Unique)))),
+                RingsideToArsenal(who: You, n: 6, up_to: true),
+                Draw(who: You, n: 1),
+                Mill(who: Opponent, n: 3),
+            ],
+        ),
+
+        // Paige
+        // The Skirt the Issue, hybrid and Diva of Tomorrow texts are not supported yet.
+        "The First NXT Women's Champion": (backstage_abilities: [DamageFor(filter: Maneuver, delta: 1)]),
+        // The opponent's answer is not supported yet.
+        "The Diva of Tomorrow": (
+            not_with: ["Technical Drop Kick"],
+            ring_ability: Some((
+                requires: Some(HandHas(TitleContains("kick"))),
+                cost: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(TitleContains("kick")), bottom: true)],
+                effects: [RevealHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+            )),
+        ),
+        // The Diva of Tomorrow text is not supported yet.
+        "Paige's Series of Kicks": (play_after: Some(Any), no_hand_reversal: true),
+        "Paige's Fisherman Suplex": (
+            bonuses: [(fortitude: -8)],
+            on_play: [DrawUpTo(who: You, n: 1), RingsideToArsenal(who: You, n: 1, up_to: true)],
+            reverses: Some((targets: All([ManeuverType(Grapple), Not(Trait(Unique))]))),
+        ),
+        // The Trademark Finisher change and the Arsenal-only text are not supported yet.
+        "Ram-Paige DDT": (
+            bonuses: [(damage: 5), (when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), fortitude: -5)],
+            on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
+            reverses: Some((targets: AnyOf([ManeuverType(Submission), Title("Clutch Onto Opponent"), Title("Girly Grab")]))),
+        ),
+        // Approximation: it can never be reversed from the Backlash deck.
+        "The Paige Turner": (
+            bonuses: [(damage: 5)],
+            no_backlash_reversal: true,
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
+        "Scorpion Crosslock": (
+            no_arsenal_reversal: true,
+            on_play: [
+                Search(filter: Title("Maintain Hold"), ringside: true),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, irreversible: true)),
+            ],
+        ),
+        // Approximation: reverses non-Unique cards that cannot be reversed (or any card against a Diva).
+        "The Anti-Diva": (
+            reverses: Some((
+                targets: AnyOf([All([Not(Trait(Unique)), Trait(Irreversible)]), Holds(OpponentIs("Diva"))]),
+                ignores_irreversible: true,
+                effects: [RingsideToArsenal(who: You, n: 3, up_to: true)],
+            )),
+        ),
+        // Cards under this card are not supported for reversals yet.
+        "Miss Hell in Boots": (
+            reverses: Some((
+                targets: All([Maneuver, Not(SuperstarSpecific)]),
+                ignores_irreversible: true,
+                effects: [RingsideToHand(who: You, n: 2, up_to: true)],
+            )),
+        ),
+        // The reversal (after a successfully played maneuver) and the ACE are not supported yet.
+        "Paige's Rage": (
+            on_play: [LookAtHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+            reverses: Some((targets: Not(Any))),
+        ),
+        // Approximation: he chooses the card he buries.
+        "Stars in the Night": (
+            on_play: [
+                DrawUpTo(who: You, n: 4),
+                RingsideToArsenal(who: You, n: 7, up_to: true),
+                HandToArsenalBottom(who: Opponent, n: 1),
+                RemoveFromGame(who: Opponent, from: Ringside, n: 4, up_to: true, pick: Controller),
+            ],
+        ),
+
+        // The Rated R Superstar / Edge
+        // The title and Recover texts are not supported yet.
+        "On This Day, I See Clearly": (),
+        // Approximation: Edge-specific means your Superstar-specific maneuvers; the unsuccessful and hand texts are
+        // not supported yet.
+        "Everything Has Come To Life": (
+            mid_match_limit: 1,
+            on_play: [Search(filter: SuperstarSpecific, n: 2)],
+            while_in_ring: [(applies_to: All([Maneuver, SuperstarSpecific]), fortitude: -10)],
+        ),
+        // The action part is F: 0. Revolution maneuvers are not recognised.
+        "Rated R Spear": (
+            not_packed_by: ["Goldberg"],
+            bonuses: [(per: Some(SuperstarSpecific), fortitude: -5)],
+            after_damage: [RemoveFromGame(who: Opponent, from: Arsenal, n: 10)],
+            as_action: Some((
+                fortitude: Some(0),
+                on_play: [
+                    DrawUpTo(who: You, n: 1),
+                    ShuffleThisIntoArsenal,
+                    Choice([[RingsideToArsenal(who: You, n: 3, up_to: true)], [RingsideToHand(who: You, n: 1)]]),
+                ],
+            )),
+            reverses: Some((targets: All([Maneuver, Trait(Unique)]))),
+        ),
+
+        // Tazz
+        // The Human Suplex Machine and Multi texts are not supported yet. Approximation: Tazz cards are the ones
+        // with "Tazz" in the title.
+        "ECW's Human Suplex Machine": (
+            while_in_ring: [(applies_to: All([TitleContains("Tazz"), Not(Hybrid), Holds(FortitudeBelowOpponent)]), fortitude: -13)],
+        ),
+        "Tazz-Line": (
+            bonuses: [(fortitude: -6)],
+            on_play: [Choice([[RingsideToHand(who: You, n: 1, filter: Some(TitleContains("Tazz")))], [DrawUpTo(who: You, n: 2)]])],
+            reverses: Some((targets: ManeuverType(Strike))),
+        ),
+
+        // Road Dogg
+        // The DX Crotch Chop text is not supported yet.
+        "Shaky Legs Knee Drop": (
+            play_after: Some(All([Maneuver, DamageAtLeast(3)])),
+            no_backlash_reversal: true,
+            bonuses: [(when: Superstar("Road Dogg"), fortitude: -5)],
+            on_play: [DiscardMirror(max: 3)],
+        ),
+        // Approximation: "Recover" shuffles Ringside cards into the Arsenal; the next maneuver is -5F.
+        "Welcome to the Dogg Pound!": (
+            bonuses: [(when: Superstar("Road Dogg"), fortitude: -9)],
+            on_play: [
+                RingsideToHand(who: You, n: 2, up_to: true, filter: Some(All([Maneuver, Not(Hybrid)]))),
+                RingsideToArsenal(who: You, n: 6, up_to: true),
+                Boost((applies_to: Maneuver, duration: NextCard, fortitude: -5)),
+            ],
+        ),
+
+        // Other Superstars' logo cards
+        // The -#F, blank, Recover, under-card and ACE texts are not supported yet.
+        "Absolute Power Corrupts Absolutely": (),
+        // Starting the game, the response lock and the new Ability are not supported yet.
+        "The Dead Man's Motorcycle": (only_packed_by: ["Deadman Inc"], not_with: ["The Urn", "Managed by Paul Bearer"]),
+        // The Ability changes and the ACE are not supported yet.
+        "Do You Know Who I Am?": (),
+        // The Hardy Boyz packing and reversal texts are not supported yet.
+        "X-Treme Tag Team Champions": (),
+        // Approximation: European Uppercut needs 2F less; the discard-to-reverse texts are not supported yet.
+        "European Style": (backstage_abilities: [CardFortitude(title: "European Uppercut", delta: -2)]),
+        // The Great Technical Knowledge texts are not supported yet.
+        "A European Original": (end_of_prematch: [Search(filter: TitleContains("European"))]),
+        // Approximation: only the ability (reveal until a maneuver); the Pre-match texts are not supported yet.
+        "Commitment Ceremony": (
+            backstage_ability: Some((
+                requires: Some(HandHas(Maneuver)),
+                cost: [DiscardMatching(who: You, n: 1, filter: Maneuver, pick: Chosen)],
+                effects: [RevealUntil(filter: Maneuver)],
+            )),
+        ),
+        // Approximation: only the ability; Multi and doubled numbers are not supported yet.
+        "Matching Red Headbands": (
+            backstage_ability: Some((
+                requires: Some(InYourRing(All([SuperstarSpecific, Holds(Superstar("Billy and Chuck"))]))),
+                cost: [RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(SuperstarSpecific))],
+                effects: [RingsideToArsenal(who: You, n: 6, up_to: true)],
+            )),
+        ),
+        "Chuck's Flying Body Press": (
+            play_after: Some(Maneuver),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            no_backlash_reversal: true,
+            as_action: Some((
+                on_play: [
+                    ThisToArsenal(bottom: true),
+                    Choice([
+                        [RingsideToArsenal(who: You, n: 2, up_to: true)],
+                        [HandToArsenalBottom(who: Opponent, n: 1)],
+                        [Boost((duration: NextCard, reversal_fortitude: 5))],
+                    ]),
+                ],
+            )),
+        ),
+        // Approximation: a Storyline that keeps your Ability; the Backlash text and the -#F are not supported yet.
+        "May 19!": (
+            while_in_ring: [(applies_to: AnyOf([Title("Boot to the Face"), Title("Kane's Chokeslam"), Title("See No Evil")]), irreversible: true)],
+        ),
+        // The Legend Lives On and unsuccessful texts are not supported yet.
+        "Mr. Hall of Fame": (only_packed_by: ["Shawn Michaels"]),
+        // Packing as a Diva and the Puppies! Puppies! texts are not supported yet.
+        "She's a Diva-saurus!": (
+            backstage_ability: Some((sacrifice: true, effects: [Search(filter: Title("The Older the Berry..."), ringside: true)])),
+        ),
+        // Packing Puppies! Puppies! in the Backstage Area is not supported yet.
+        "Wrestling Over 9 Decades": (),
+        // Approximation: always 1 card (the Diva text is not supported yet).
+        "Billion Dollar Pedigree": (
+            on_play: [MillChosen(who: Opponent, n: 1)],
+            as_action: Some((
+                fortitude: Some(5),
+                on_play: [ThisToArsenal(bottom: true), Choice([[Search(filter: SuperstarSpecific)], [ChooseEnforcer(who: You)]])],
+            )),
+        ),
+        // The Arsenal-only text is not supported yet.
+        "Cena's Spinning Front Slam": (
+            bonuses: [(fortitude: -4)],
+            on_play: [Search(filter: Title("You Can't See Me!")), Search(filter: Title("Five Knuckle Shuffle"))],
+            reverses: Some((targets: ManeuverType(Strike))),
+        ),
+        // The Backstage packing and Roundhouse Kick texts are not supported yet.
+        "Diversion Into Hollywood": (not_packed_by: ["The Hurri-friends"]),
+        // Approximation: discard up to 3 and take as many back; the extra shuffle is not supported yet.
+        "...Running Through My Head": (
+            irreversible_when: Some(InYourRing(Title("All the Things She Said..."))),
+            on_play: [Optional([Discard(who: You, n: 3, pick: Chosen), RingsideToHand(who: You, n: 3, up_to: true)])],
+        ),
+        // The Backstage packing and Mid-match texts are not supported yet.
+        "Tough Enough Temptress": (),
+        // Playing it from Ringside and the Mid-match texts are not supported yet.
+        "The First Tough Enough Diva": (),
+        // Approximation: you pick the card you shuffle back.
+        "Southern Hospitality": (
+            bonuses: [(fortitude: -5)],
+            on_play: [RevealHand(who: You), HandToArsenal(who: You, n: 1), ShuffleThisIntoArsenal, DrawUpTo(who: You, n: 3)],
+            reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), reversed_to_arsenal: true)),
+        ),
+        // The Ability text is not supported yet.
+        "Evolved Batista Bomb": (
+            play_after: Some(Not(Any)),
+            play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            as_action: Some((fortitude: Some(0), on_play: [ThisToArsenal(bottom: true), RingsideToArsenalBottom(who: You, n: 1)])),
+        ),
+        // Approximation: reverses non-Unique maneuvers that are Reversals too (hybrids); the Ability text is not
+        // supported yet.
+        "Evolved RKO": (
+            play_after: Some(Any),
+            reverses: Some((targets: AnyOf([All([Maneuver, Reversal, Not(Trait(Unique))]), Title("Clutch Onto Opponent")]), damage: Fixed(15))),
+        ),
+        // Approximation: searches any Superstar-specific card. The response lock and the Ring texts are not supported
+        // yet.
+        "Adapt or Perish": (
+            bonuses: [(when: Superstar("Evolution"), fortitude: -12)],
+            on_play: [Search(filter: SuperstarSpecific, ringside: true)],
+            reverses: Some((targets: Not(Maneuver))),
+        ),
+        // Approximation: only the discard-and-draw ability; the other texts are not supported yet.
+        "Backed by The Cabinet": (
+            backstage_ability: Some((requires: Some(HandAtLeast(1)), cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [Draw(who: You, n: 1)])),
+        ),
+        // The Destroyer texts are not supported yet.
+        "Guardians of the Galaxy": (
+            bonuses: [(when: InYourRing(Title("The Destroyer")), fortitude: -5)],
+            on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 5), Mill(who: Opponent, n: 5)],
+        ),
+
+        // Choosing and blanking a card in his Ring and the Ring texts are not supported yet.
+        "Beware of Dog": (
+            bonuses: [(when: InYourRing(TitleContains("dog")), fortitude: -5)],
+            reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), from_hand_only: true)),
+        ),
+        // The packing, Pre-match slot and From the Top Rope texts are not supported yet.
+        "The Mexican Warrior": (),
+        // Moving it from the Backlash and the ACE are not supported yet.
+        "Interference from La Familia": (),
+        // The reversal punishment is not supported yet.
+        "Masters' Torture Rack": (ringside_ability: Some((effects: [ShuffleThisIntoArsenal, DrawUpTo(who: You, n: 1)]))),
+        // The unsuccessful draw is not supported yet.
+        "Masterpiece Press Slam": (
+            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 3, up_to: true), DrawUpTo(who: You, n: 2)])),
+        ),
+        // The title replacements are not supported yet.
+        "I Am a HUGE Rock Star!": (),
+        // Approximation: Promo whenever you successfully play a card with 'Heyman' in the title; the other texts are
+        // not supported yet.
+        "The Paul Heyman Guys": (
+            in_ring_on_play: [(whose: Some(You), filter: TitleContains("Heyman"), effects: [Optional([Dig(n: 3, take: 1)])])],
+        ),
+        // Playing cards from Ringside is not supported yet.
+        "Madness Lives Forever": (),
+        // The Counter texts are not supported yet.
+        "Savage Series of Jabs": (
+            bonuses: [(when: Superstar("Macho Man"), fortitude: -10)],
+            reverses: Some((targets: Trait(SetUp), hand_targets: Some(All([AnyOf([Action, Antic]), Holds(OpponentSuperstar("Macho Man"))])))),
+        ),
+        // The Heel and Ringside texts are not supported yet.
+        "Savage Piledriver": (only_packed_by: ["Macho Man"], on_play: [Discard(who: Opponent, n: 3, pick: Chosen)]),
+        // The reversal and Ring texts are not supported yet.
+        "Macho Man's Savagery": (on_play: [Discard(who: Opponent, n: 2, pick: Random)]),
+        // The Backlash and Ring texts are not supported yet.
+        "Ego-Driven Assault": (bonuses: [(reversal_fortitude: 10)]),
+        // The nWo discard text is not supported yet.
+        "Tequila Sunrise": (
+            on_play: [DrawUpTo(who: You, n: 2), Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
+        ),
+        // Cards under this card are not supported yet.
+        "Strength of Allied Powers": (),
+        // The capacity, Beware of Dog, Steinerline and Hold the Phone texts are not supported yet.
+        "The Dogfaced Gremlin": (),
+        // The We, The People! text is not supported yet.
+        "Managed by Zeb Colter": (pre_match_limit: 2, mid_match_limit: 2),
+        // Approximation: the first Draw Segment text happens at the end of the Pre-match phase; the ACE is not
+        // supported yet.
+        "The Real Americans": (
+            requires: Some(InYourRing(Title("Managed by Zeb Colter"))),
+            end_of_prematch: [Optional([Mill(who: You, n: 6), DrawUpTo(who: You, n: 3)])],
+        ),
+        // The Superstar-specific discard and the Ring text are not supported yet.
+        "We, The People!": (
+            requires: Some(InYourRing(Title("Managed by Zeb Colter"))),
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)],
+            reverses: Some((
+                targets: Not(Maneuver),
+                from_hand_only: true,
+                damage: Fixed(0),
+                requires: Some(InYourRing(Title("Managed by Zeb Colter"))),
+            )),
+        ),
+        // The Ability and the Backlash texts are not supported yet.
+        "Managed by Yamaguchi-san": (),
+        // The unsuccessful texts are not supported yet.
+        "Linda McMahon, Dynasty Matriarch": (),
+        // The first Draw Segment and the other texts are not supported yet.
+        "Respect The Authority": (not_packed_by: ["DX", "Two-Man Power Trip"]),
+        // Approximation: # counts every Heel card in your Ring; the pinfall text is not supported yet.
+        "Bad Times Don't Last, But Bad Guys Do": (
+            on_play: [Counted(count: YourRingMatching(Trait(Heel)), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
+            reverses: Some((targets: Maneuver, overturned_only: true)),
+        ),
+        // Approximation: searches any card (the printed Fortitude condition is not supported); the We Are One and
+        // discard texts are not supported yet.
+        "This is All Part of Something Greater": (on_play: [Search(filter: Any)]),
+        // Approximation: the bonus applies to your next maneuver this turn.
+        "McGillicutty Interferes": (
+            reverses: Some((
+                targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
+                effects: [
+                    MoveCards(who: You, from: Removed, to: Arsenal, n: 5, up_to: true),
+                    Boost((applies_to: Maneuver, duration: NextTurnFirstCard, fortitude: -10, ignore_play_after: true)),
+                ],
+            )),
+        ),
+        // Approximation: the -2D lasts while this card is in your Ring.
+        "An Army Tank With a Ferrari Engine": (
+            irreversible_when: Some(InYourRing(Title("Reinforcements from Harris and McGillicutty"))),
+            on_play: [DrawUpTo(who: You, n: 5)],
+            while_in_ring_opponent: [(applies_to: Maneuver, damage: -2)],
+        ),
+        // Approximation: the ability makes your next maneuver irreversible from the Backlash deck; the Arsenal look is
+        // not supported yet.
+        "Keep the Rebels Down": (
+            backstage_ability: Some((effects: [Boost((applies_to: Maneuver, duration: NextMatching, no_backlash_reversal: true))])),
+        ),
+        // Flipping cards face-up is not supported yet.
+        "The Bull Hammer Elbow": (
+            bonuses: [(fortitude: -5)],
+            on_play: [Discard(who: Opponent, n: 1, pick: Chosen), If(condition: OpponentHandLarger, effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
+            reverses: Some((targets: AnyOf([Trait(SetUp), After(Trait(SetUp))]), ignores_irreversible: true)),
+        ),
+        // Approximation: reverses non-Superstar-specific maneuvers that cannot be reversed; the overturned texts are
+        // not supported yet.
+        "I'm Afraid I've Got Some Bad News": (
+            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific), Trait(Irreversible)]), ignores_irreversible: true)),
+        ),
+        // Hiding the opponent's Backstage cards is not supported yet.
+        "Harvard Law Graduate": (),
+        // The 'It' Factor text is not supported yet.
+        "It's All About the Power": (
+            on_play: [
+                RevealHand(who: Opponent),
+                MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Controller, bottom: true),
+                RingsideToArsenal(who: You, n: 2, up_to: true),
+            ],
+            reverses: Some((targets: Any, effects: [DrawUpTo(who: You, n: 2)])),
+        ),
+        // The Promo on successful maneuvers is not supported yet.
+        "Otunga's Legal Counsel": (on_play: [Draw(who: You, n: 3), HandToArsenalBottom(who: You, n: 3)]),
+        // The Ring texts are not supported yet.
+        "The Cape Town Werewolf": (
+            ring_ability: Some((
+                requires: Some(HandAtLeast(2)),
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(All([Maneuver, Not(Trait(Unique)), Not(Hybrid)])))],
+            )),
+        ),
+        // The Ringside reversal and The Redemption of Darren Young texts are not supported yet.
+        "Mr. No Days Off": (
+            bonuses: [(when: Superstar("Darren Young"), fortitude: -10)],
+            on_play: [ThisToArsenal(bottom: true), RingsideToArsenalBottom(who: You, n: 1), Draw(who: You, n: 1)],
+            reverses: Some((targets: Trait(Unique), effects: [Discard(who: You, n: 2, pick: Chosen)])),
+        ),
+        // Approximation: as a Counter it cannot be reversed at all.
+        "Tarver's Tenacity": (
+            irreversible_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 2)],
+            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), overturned_only: true)),
+        ),
+        "Alberto's Superkick": (
+            irreversible_when: Some(AnyOf([After(Maneuver), All([ReversedLastTurn(Any), FirstCardThisTurn])])),
+            as_action: Some((
+                fortitude: Some(5),
+                on_play: [
+                    ThisToArsenal(bottom: true),
+                    RemoveFromGame(who: You, from: Ringside, n: 1),
+                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(SuperstarSpecific)),
+                ],
+            )),
+        ),
+        // Activated Card Effects, the Arsenal restriction and the hand text are not supported yet.
+        "Knee Plus": (
+            bonuses: [(fortitude: -10)],
+            reverses: Some((targets: Not(Maneuver), effects: [Discard(who: Opponent, n: 3, pick: Random)])),
+        ),
+        // Approximation: Mark Henry-specific means Superstar-specific; the play-after ignore is not supported yet.
+        "That's What I Do!": (
+            irreversible_when: Some(AnyOf([After(All([Maneuver, SuperstarSpecific])), All([ReversedLastTurn(SuperstarSpecific), FirstCardThisTurn])])),
+            on_play: [
+                Choice([
+                    [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(SuperstarSpecific))],
+                    [Discard(who: You, n: 4, pick: Chosen), RingToHand(who: You, n: 1, filter: SuperstarSpecific, up_to: true)],
+                ]),
+            ],
+        ),
+        // Approximation: the discard-to-reverse cost is "cannot be reversed from hand"; Backstage play is not
+        // supported yet.
+        "Irish Cloverleaf": (no_hand_reversal: true),
+        // The trash talk text is not supported yet.
+        "Miz TV": (ring_ability: Some((cost: [Mill(who: You, n: 1)], effects: [Search(filter: Title("Grab the Mic"))]))),
+        // The Ring and ACE texts are not supported yet.
+        "Damien Mizdow, Stunt Double": (),
+        "Miz's Figure Four Leglock": (
+            on_play: [
+                DrawUpTo(who: You, n: 2),
+                RemoveFromRing(who: Opponent, n: 1, filter: Any),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, irreversible: true)),
+            ],
+        ),
+        // The Backstage doubling texts are not supported yet.
+        "As Smart As Rhodes Scholars": (
+            bonuses: [(when: Superstar("Cody Rhodes"), fortitude: -3)],
+            on_play: [
+                Choice([
+                    [HandToArsenalBottom(who: Opponent, n: 1), Mill(who: Opponent, n: 2)],
+                    [RingsideToArsenal(who: You, n: 5, up_to: true), Draw(who: You, n: 1)],
+                    [Boost((duration: NextCard, fortitude: -4, reversal_fortitude: 6))],
+                ]),
+            ],
+        ),
+        "Ziggler's Superkick": (
+            on_play: [HandToArsenalBottom(who: Opponent, n: 1)],
+            as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true), HandToArsenalBottom(who: Opponent, n: 1)])),
+            reverses: Some((targets: DamageAtLeast(15), effects: [HandToArsenalBottom(who: Opponent, n: 1)])),
+        ),
+        // Approximation: Promo on every successful Face or Heel card; the other texts are not supported yet.
+        "You Better Get With This": (
+            not_with: ["There Is No Escape"],
+            backstage_abilities: [OnPlayMatching(filter: AnyOf([Trait(Face), Trait(Heel)]), effects: [Optional([Dig(n: 2, take: 1)])])],
+        ),
+        // Approximation: # is 5.
+        "The DiBiase Posse": (
+            backstage_ability: Some((
+                sacrifice: true,
+                effects: [
+                    AllFromUnder(to: Ringside),
+                    DrawUpTo(who: You, n: 2),
+                    Boost((applies_to: Maneuver, duration: NextCard, fortitude: -5, reversal_fortitude: 5)),
+                ],
+            )),
+        ),
+        // The reversal (after a successfully played maneuver) and the Ring text are not supported yet.
+        "The Fortunate Son": (
+            not_reversed_by: Some(Not(SuperstarSpecific)),
+            on_play: [Boost((duration: NextCard, irreversible: true))],
+            reverses: Some((targets: Not(Any))),
+        ),
+        // Approximation: reveals cards until a maneuver and keeps it. The reversal is not supported yet.
+        "Ezekiel's Corre Flex": (on_play: [RevealUntil(filter: Maneuver)], reverses: Some((targets: Not(Any)))),
+        "Long Island Knee Drop": (
+            play_after: Some(Any),
+            not_reversed_by: Some(Not(Trait(Unique))),
+            ringside_ability: Some((effects: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true), DrawUpTo(who: You, n: 2)])),
+        ),
+        // The Multi text and the ACE are not supported yet.
+        "Take Care-Spike Your Hair": (on_play: [Mulligan(n: 3), RingsideToArsenal(who: You, n: 3, up_to: true), Draw(who: You, n: 2)]),
+        // The Cole Mine and Two-Time Slammy Winner texts are not supported yet.
+        "Cole's Knighting Ceremony": (),
+        // The Michael Cole Challenge text and the ACE are not supported yet.
+        "Enforced by Jack Swagger": (bonuses: [(fortitude: -8)]),
+        // Approximation: "does not take up a slot" is +1 Pre-match capacity; the under-card texts are not supported
+        // yet.
+        "The French Phenom": (pre_match_limit: 1),
+        // The Numbers Game and Vickie Guerrero texts are not supported yet.
+        "Backed by La Familia": (),
+        // Approximation: he does not search first; you choose 2 cards from his revealed hand and they are removed.
+        "The Perfect Swerve": (
+            on_play: [RevealHand(who: Opponent), RemoveFromGame(who: Opponent, from: Hand, n: 2, pick: Controller)],
+        ),
+        // The hand and Ringside texts are not supported yet.
+        "Leader of the Wolfpack": (play_from_under: Some(Any)),
+        // The Big Sexy and hand texts are not supported yet.
+        "Magic Mike": (
+            ring_ability: Some((
+                requires: Some(InYourRing(Not(Title("Magic Mike")))),
+                cost: [RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(Not(Title("Magic Mike"))))],
+                effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, filter: Some(Not(Reversal)), bottom: true)],
+            )),
+        ),
+        // Approximation: Run-ins only ('GM' and 'Chairman' texts are not recognised); the ACE is not supported yet.
+        "The Vigilante Has Come to WWE": (
+            irreversible: true,
+            on_play: [MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true)],
+            reverses: Some((targets: Keyword("Run-in"), fortitude: Some(0), effects: [MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true)])),
+        ),
+        // Approximation: only the hide-and-search ability; the other texts are not supported yet.
+        "Who's Next? You're Next!": (
+            backstage_ability: Some((sacrifice: true, effects: [Search(filter: All([Not(Reversal), SuperstarSpecific]))])),
+        ),
+        // The hand text is not supported yet.
+        "Goldberg's Martial Arts Kick": (
+            as_action: Some((on_play: [DiscardThis, MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)])),
+        ),
+        "Goldberg's Running Clothesline": (
+            bonuses: [(fortitude: -10)],
+            on_play: [Discard(who: Opponent, n: 1, pick: Random)],
+            reverses: Some((
+                targets: AnyOf([After(Title("Irish Whip")), After(Title("Throw Into The Corner Turnbuckle"))]),
+                effects: [Discard(who: Opponent, n: 1, pick: Random)],
+            )),
+        ),
+        // "Printed" 6D+ is read as 6D+. The From the Top Rope win and the "cannot be prevented" text are not
+        // supported yet.
+        "Vadersault": (
+            play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(6)]), Title("From the Top Rope")])),
+            on_play: [RingsideToHand(who: You, n: 2, up_to: true), MoveCards(who: You, from: Removed, to: Arsenal, n: 1)],
+        ),
+        // Approximation: always 4 cards (you choose), up to the cards in hand. The Ring and Ringside texts are not
+        // supported yet.
+        "Backed by 'The Roadie' Jesse James": (on_play: [Mulligan(n: 4), Mill(who: Opponent, n: 4)]),
+        // The Ring slot and Draw Segment texts are not supported yet.
+        "Politically Incorrect and Damn Proud": (),
+        // Backstage cards cannot change the Mid-match capacity yet.
+        "Training the NXT Generation": (),
+
+    },
+)
