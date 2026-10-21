@@ -62,7 +62,7 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
     let mut used: Vec<&str> = Vec::new();
 
     for card in doc.descendants().filter(|n| n.has_tag_name("card")) {
-        let title = card.attribute("name").unwrap_or_default().trim().to_string();
+        let mut title = card.attribute("name").unwrap_or_default().trim().to_string();
         let source_id = card.attribute("id").map(str::to_string);
         let prop = |key: &str| {
             card.children()
@@ -79,6 +79,15 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         };
         let card_type = prop("CardType");
         let text = prop("Card Text");
+        // Two different cards with one title (V5's "Dream Street"): the later one
+        // is told apart by its last logo, "Dream Street (The Legacy)".
+        if card_type != "Superstar Card" && set.cards.iter().any(|c| c.title.eq_ignore_ascii_case(&title)) {
+            let logos = prop("SS Logos");
+            match logos.rsplit(',').map(str::trim).find(|l| !l.is_empty()) {
+                Some(logo) => title = format!("{title} ({logo})"),
+                None => title = format!("{title} (2)"),
+            }
+        }
         let id = format!("{prefix}/{}", slug(&title));
 
         if card_type == "Superstar Card" {
@@ -633,6 +642,7 @@ const FEMALE_SUPERSTARS: &[&str] = &[
     "The Iiconics",
     "The Legit Boss",
     "The Man",
+    "The Role Model",
     "Tiffany Stratton",
     "Torrie Wilson",
     "Toxic Attraction",
@@ -761,6 +771,25 @@ mod tests {
             Some(F::All(vec![F::ManeuverType(ManeuverType::Hold), F::Trait(Trait::Mean)]))
         );
         assert_eq!(rev("Reversal: Maneuver with Target 'head' or 'leg'"), None);
+    }
+
+    #[test]
+    fn a_repeated_title_is_told_apart_by_its_logo() {
+        let card = |id: &str, logos: &str| {
+            format!(
+                r#"<card id="{id}" name="Dream Street"><property name="CardType" value="Action" />
+  <property name="SS Logos" value="{logos}" /><property name="Card Text" value="" /></card>"#
+            )
+        };
+        let xml = format!(
+            r#"<set name="31. V5" id="x"><cards>{}{}</cards></set>"#,
+            card("a", "Ted DiBiase"),
+            card("b", "Priceless, The Legacy")
+        );
+        let (set, _) = import_set(&xml, "V5", "v", &Overlay::default()).unwrap();
+        let titles: Vec<&str> = set.cards.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(titles, ["Dream Street", "Dream Street (The Legacy)"]);
+        assert_eq!(set.cards[1].id, "v/dream-street-the-legacy");
     }
 
     #[test]

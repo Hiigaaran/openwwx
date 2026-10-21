@@ -176,7 +176,10 @@ fn count_out_can_be_claimed_or_refused() {
     assert_eq!(s.outcome, None);
     assert_eq!(waiting(&s), (P2, &DecisionKind::Main), "P2 plays on with no draw");
     e.apply(&mut s, P2, Action::EndTurn).unwrap();
-    assert_eq!(waiting(&s), (P1, &DecisionKind::Main), "a refused count out is not offered again");
+    assert!(
+        matches!(waiting(&s), (P1, DecisionKind::YesNo { purpose: YesNoPurpose::ClaimCountOut })),
+        "a refused count out is offered again at the end of the next turn"
+    );
 }
 
 #[test]

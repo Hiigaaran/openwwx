@@ -14,6 +14,7 @@ const SET: &str = r#"(
     superstars: [
         (id: "v/first", name: "First", hand_size: 5, superstar_value: 5),
         (id: "v/second", name: "Second", hand_size: 5, superstar_value: 1),
+        (id: "v/tough", name: "Tough", hand_size: 5, superstar_value: 1, abilities: [ReduceDamage(2)]),
     ],
     cards: [
         (id: "v/filler", title: "Filler", kinds: [Action], fortitude: 0, damage: 0),
@@ -27,6 +28,10 @@ const SET: &str = r#"(
         (id: "v/side", title: "Side", kinds: [PreMatch(Allegiance)], fortitude: 0, damage: 0,
             script: (on_play: [Draw(who: You, n: 1)])),
         (id: "v/event", title: "Event", kinds: [PreMatch(Event)], fortitude: 0, damage: 0),
+        (id: "v/belt", title: "Belt", kinds: [PreMatch(Event)], fortitude: 0, damage: 0,
+            script: (blanks_opponent_ability: true, blanks_when: Some(OpponentSuperstar("Tough")))),
+        (id: "v/other-belt", title: "Other Belt", kinds: [PreMatch(Event)], fortitude: 0, damage: 0,
+            script: (blanks_opponent_ability: true, blanks_when: Some(OpponentSuperstar("Nobody")))),
     ],
 )"#;
 
@@ -121,4 +126,19 @@ fn virtual_backlash_and_ring_limits() {
         apply(&e, &mut s, p, a.unwrap_or(Action::Pass));
     }
     assert_eq!(s.player(P1).ring.len(), 6);
+}
+
+#[test]
+fn blanking_that_names_the_opponent_superstar() {
+    let e = engine();
+    for (belt, ringside) in [("belt", 3), ("other-belt", 1)] {
+        let mut s = start(&e, Mode::Advanced, deck("first", &["hit"], &[belt], &[]), deck("tough", &[], &[], &[]));
+        while s.turn == 0 {
+            let p = s.decision.as_ref().unwrap().player;
+            let a = e.legal_actions(&s, p).into_iter().find(|a| matches!(a, Action::PlayCard { .. }));
+            apply(&e, &mut s, p, a.unwrap_or(Action::Pass));
+        }
+        play_hit(&e, &mut s, P1);
+        assert_eq!(s.player(P2).ringside.len(), ringside, "{belt}: Tough's ability blanked only by the Belt naming it");
+    }
 }

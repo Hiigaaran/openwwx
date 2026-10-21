@@ -960,6 +960,9 @@ impl Engine {
                 state.player_mut(p).ability_used = false;
                 state.played_this_turn.clear();
                 state.aggression_checked = false;
+                // A refused count out is offered again at the end of the next turn, so a
+                // match where nobody can pin still ends.
+                state.refused_count_out = [false; 2];
                 state.backstage_used.clear();
                 state.ring_used.clear();
                 state.heat_used = [false; 2];
@@ -2534,7 +2537,12 @@ impl Engine {
             && (state.volley_turn != Some(player)
                 || matches!((kind, inst.zone), (CardKind::Maneuver(_), Zone::Hand))
                 || (kind == CardKind::Action && def.has_trait(Trait::SetUp)))
-            && !(female && def.has_trait(Trait::Multi) && matches!(kind, CardKind::Maneuver(_)))
+            // Women cannot play Multi maneuvers, except their own logo cards (Virtual sets print some).
+            && !(female
+                && def.has_trait(Trait::Multi)
+                && matches!(kind, CardKind::Maneuver(_))
+                && !(def.superstar.is_some()
+                    && def.logos().any(|l| crate::deck::may_pack_logo(self.db.superstar(state.player(player).superstar), l))))
             && !(from_backlash
                 && self.count_in_ring(state, player, |d| d.has_trait(Trait::MidMatch))
                     >= self.ring_limit(state, player, true)))
@@ -3077,8 +3085,13 @@ impl Engine {
 
     /// Is `p`'s Superstar `name`, or does it count as `name`?
     fn is_superstar(&self, state: &GameState, p: PlayerId, name: &str) -> bool {
-        self.db.superstar(state.player(p).superstar).name.eq_ignore_ascii_case(name)
-            || self.abilities(state, p).iter().any(|a| match a {
+        // Counting as another Superstar is read from the printed abilities, even
+        // blanked ones: blanking conditions can name Superstars, so reading
+        // `abilities` here would recurse.
+        let star = self.db.superstar(state.player(p).superstar);
+        let backstage = self.revealed_backstage(state, p).flat_map(|c| &self.db.card(c).script.backstage_abilities);
+        star.name.eq_ignore_ascii_case(name)
+            || star.abilities.iter().chain(backstage).any(|a| match a {
                 Ability::CountsAs(names) => names.iter().any(|n| same_name(n, name)),
                 _ => false,
             })

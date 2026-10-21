@@ -244,7 +244,7 @@ pub struct GameState {
     pub in_play: Option<Played>,
     /// Last card successfully played this turn, for follow-ups.
     pub last_played: Option<Played>,
-    /// Players who refused a Count Out win and want to go for the pin.
+    /// Players who refused a Count Out win this turn and want to go for the pin.
     pub refused_count_out: [bool; 2],
     pub decision: Option<Decision>,
     /// Active boosts and the player whose cards they change.

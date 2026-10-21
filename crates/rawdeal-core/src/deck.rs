@@ -173,13 +173,7 @@ pub fn validate_deck(db: &CardDb, deck: &DeckList) -> Vec<DeckProblem> {
         }
     }
     // Backstage cards follow their own packing text and Superstar logo.
-    let packable_backstage = |def: &CardDef| {
-        let Some(s) = superstar else { return true };
-        let named = |names: &[String]| names.iter().any(|n| s.is(n));
-        (def.script.only_packed_by.is_empty() || named(&def.script.only_packed_by))
-            && !named(&def.script.not_packed_by)
-            && (def.superstar.is_none() || def.logos().any(|l| may_pack_logo(s, l)))
-    };
+    let packable_backstage = |def: &CardDef| superstar.is_none_or(|s| may_pack_backstage(s, def));
     for (i, id) in deck.backstage.iter().enumerate() {
         match db.card_by_id(id).map(|c| db.card(c)) {
             Some(def)
@@ -301,6 +295,15 @@ pub fn printed_match(def: &CardDef, filter: &CardFilter) -> bool {
 
 /// May `star` pack cards with this logo, as itself or as a Superstar it
 /// counts as?
+/// Whether `star` may put the Backstage card `def` in its Backstage Area: its
+/// packing text and Superstar logo allow it.
+pub fn may_pack_backstage(star: &SuperstarDef, def: &CardDef) -> bool {
+    let named = |names: &[String]| names.iter().any(|n| star.is(n));
+    (def.script.only_packed_by.is_empty() || named(&def.script.only_packed_by))
+        && !named(&def.script.not_packed_by)
+        && (def.superstar.is_none() || def.logos().any(|l| may_pack_logo(star, l)))
+}
+
 pub fn may_pack_logo(star: &SuperstarDef, logo: &str) -> bool {
     let slug = |name: &str| {
         let s: String = name.chars().map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();

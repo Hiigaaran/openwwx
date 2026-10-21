@@ -96,7 +96,7 @@ pub fn auto_deck_in(db: &CardDb, superstar: &str, mode: rawdeal_core::Mode) -> O
     use rawdeal_core::Trait;
     let star = db.superstar(db.superstar_by_id(superstar)?);
     let revolution = mode == rawdeal_core::Mode::Revolution;
-    let named = |names: &[String]| names.iter().any(|n| n.eq_ignore_ascii_case(&star.name));
+    let named = |names: &[String]| names.iter().any(|n| star.is(n));
     let packable = |c: &CardDef| {
         (c.script.only_packed_by.is_empty() || named(&c.script.only_packed_by))
             && !named(&c.script.not_packed_by)
@@ -117,18 +117,23 @@ pub fn auto_deck_in(db: &CardDb, superstar: &str, mode: rawdeal_core::Mode) -> O
     };
     let own = db.cards().iter().filter(usable).filter(|c| c.superstar.is_some());
     let generic = db.cards().iter().filter(usable).filter(|c| c.superstar.is_none());
+    // Pairs of titles that cannot share an Arsenal, both ways round.
+    let mut not_with = std::collections::HashSet::new();
+    for c in db.cards() {
+        for o in &c.script.not_with {
+            not_with.insert((c.title.to_lowercase(), o.to_lowercase()));
+            not_with.insert((o.to_lowercase(), c.title.to_lowercase()));
+        }
+    }
     for avoid in [Trait::Heel, Trait::Face] {
         let mut arsenal = Vec::new();
         let mut titles = std::collections::HashSet::new();
         for card in own.clone().chain(generic.clone().filter(|c| !c.has_trait(avoid) && !c.has_trait(Trait::SetUp))) {
-            let excluded = |t: &str| {
-                card.script.not_with.iter().any(|o| o.eq_ignore_ascii_case(t))
-                    || db.cards().iter().any(|c| {
-                        c.title.eq_ignore_ascii_case(t)
-                            && c.script.not_with.iter().any(|o| o.eq_ignore_ascii_case(&card.title))
-                    })
-            };
-            if titles.iter().any(|t: &String| excluded(t)) || !titles.insert(card.title.to_lowercase()) {
+            if arsenal.len() >= 60 {
+                break;
+            }
+            let title = card.title.to_lowercase();
+            if titles.iter().any(|t: &String| not_with.contains(&(title.clone(), t.clone()))) || !titles.insert(title) {
                 continue;
             }
             let copies = if card.has_trait(Trait::Unique) { 1 } else { 3 };
@@ -184,7 +189,11 @@ pub fn backstage(db: &CardDb, star: &SuperstarDef) -> Vec<String> {
         .collect();
     db.cards()
         .iter()
-        .filter(|c| c.is_backstage() && filters.iter().any(|f| rawdeal_core::printed_match(c, f)))
+        .filter(|c| {
+            c.is_backstage()
+                && rawdeal_core::may_pack_backstage(star, c)
+                && filters.iter().any(|f| rawdeal_core::printed_match(c, f))
+        })
         .map(|c| c.id.clone())
         .collect()
 }
