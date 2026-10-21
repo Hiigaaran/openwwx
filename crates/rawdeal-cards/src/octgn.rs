@@ -81,11 +81,18 @@ pub fn import_set(xml: &str, name: &str, prefix: &str, overlay: &Overlay) -> Res
         let text = prop("Card Text");
         // Two different cards with one title (V5's "Dream Street"): the later one
         // is told apart by its last logo, "Dream Street (The Legacy)".
-        if card_type != "Superstar Card" && set.cards.iter().any(|c| c.title.eq_ignore_ascii_case(&title)) {
+        // Without a logo, or if that is taken too, a number: "Trip (2)".
+        let taken = |set: &CardSet, t: &str| set.cards.iter().any(|c| slug(&c.title) == slug(t));
+        if card_type != "Superstar Card" && taken(&set, &title) {
             let logos = prop("SS Logos");
-            match logos.rsplit(',').map(str::trim).find(|l| !l.is_empty()) {
-                Some(logo) => title = format!("{title} ({logo})"),
-                None => title = format!("{title} (2)"),
+            let base = title.clone();
+            if let Some(logo) = logos.rsplit(',').map(str::trim).find(|l| !l.is_empty()) {
+                title = format!("{base} ({logo})");
+            }
+            let mut n = 2;
+            while taken(&set, &title) {
+                title = format!("{base} ({n})");
+                n += 1;
             }
         }
         let id = format!("{prefix}/{}", slug(&title));
@@ -482,7 +489,8 @@ fn parse_card_expr(expr: &str) -> Option<CardFilter> {
 
 fn parse_traits(traits: &str) -> (Vec<Trait>, Vec<String>) {
     let (mut known, mut other) = (Vec::new(), Vec::new());
-    for t in traits.split(',').map(str::trim).filter(|t| !t.is_empty()) {
+    // V15's Weight Belt Whip also writes "Foreign Object / Heel".
+    for t in traits.split([',', '/']).map(str::trim).filter(|t| !t.is_empty()) {
         match t.to_ascii_lowercase().as_str() {
             "unique" => known.push(Trait::Unique),
             "face" => known.push(Trait::Face),
@@ -596,6 +604,7 @@ const FEMALE_SUPERSTARS: &[&str] = &[
     "Beth Phoenix",
     "Bianca Belair",
     "Brie Bella",
+    "Canada's Greatest Export",
     "Carmella",
     "Charlotte",
     "Christy",
