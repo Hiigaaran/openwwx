@@ -41,6 +41,8 @@ const SET: &str = r#"(
             script: (on_play: [FlipUp(who: You, n: 1)])),
         (id: "m/stash", title: "Stash", kinds: [Action], fortitude: 0, damage: 0,
             script: (on_play: [PutUnder(from: Hand, n: 1, filter: Some(Maneuver), superstar: true)])),
+        (id: "m/coach", title: "Coach", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (while_in_ring: [(applies_to: Maneuver, damage: 1, count: Some(OpponentHandSize))])),
         (id: "m/stop", title: "Stop", kinds: [Reversal], fortitude: 0, damage: 0,
             script: (after_success: Some(()))),
         (id: "m/cancel", title: "Cancel", kinds: [Reversal], fortitude: 0, damage: 0,
@@ -231,4 +233,13 @@ fn cards_under_the_superstar_can_be_played() {
     assert!(legal.iter().any(|a| matches!(a, Action::PlayCard { card, .. } if *card == hit)), "{legal:?}");
     apply(&e, &mut s, P1, Action::PlayCard { card: hit, kind: CardKind::Maneuver(ManeuverType::Strike) });
     assert_eq!(s.player(P2).ringside.len(), 3);
+}
+
+#[test]
+fn ring_boosts_can_be_multiplied_by_a_count() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["coach", "hit"], &[]), deck("second", &[], &[]));
+    play(&e, &mut s, P1, "coach");
+    play(&e, &mut s, P1, "hit");
+    assert_eq!(s.player(P2).ringside.len(), 3 + 6, "+1D for each of the 6 cards in his hand");
 }

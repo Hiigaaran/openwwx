@@ -914,6 +914,13 @@ pub struct Boost {
     /// Reversals needed to reverse the card, at least.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub reversals_needed: u8,
+    /// Places the card cannot be reversed from (see [`CardScript::reversal_limits`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub no_reversal_from: Vec<crate::state::Zone>,
+    /// Multiply the damage, fortitude, reversal and stun amounts by this count,
+    /// counted for the boost's owner when the card is played.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<Count>,
 }
 
 fn any_card() -> CardFilter {

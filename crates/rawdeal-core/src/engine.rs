@@ -2884,15 +2884,18 @@ impl Engine {
             }
         }
         let opponent = player.opponent();
-        let mut auras: Vec<&Boost> = Vec::new();
+        let mut auras: Vec<(PlayerId, &Boost)> = Vec::new();
         for c in self.ring_cards(state, player) {
             let script = &self.def(state, c).script;
-            auras.extend(script.while_in_ring.iter().chain(&script.while_in_ring_all));
+            auras.extend(script.while_in_ring.iter().chain(&script.while_in_ring_all).map(|b| (player, b)));
         }
         for c in self.ring_cards(state, opponent) {
             let script = &self.def(state, c).script;
-            auras.extend(script.while_in_ring_all.iter().chain(&script.while_in_ring_opponent));
+            auras.extend(script.while_in_ring_all.iter().chain(&script.while_in_ring_opponent).map(|b| (opponent, b)));
         }
+        let times = |owner: PlayerId, boost: &Boost| {
+            boost.count.as_ref().map_or(1, |c| self.count(state, owner, c.clone()) as i16)
+        };
         let b = &mut played.bonus;
         b.fortitude += extra.fortitude;
         b.damage += extra.damage;
@@ -2901,9 +2904,9 @@ impl Engine {
         b.chain |= extra.chain;
         b.reversals_needed = b.reversals_needed.max(extra.reversals_needed);
         b.blocked_from |= extra.blocked_from;
-        for boost in auras {
+        for (owner, boost) in auras {
             if self.matches(state, &boost.applies_to, played) {
-                add_boost(&mut played.bonus, boost);
+                add_boost(&mut played.bonus, boost, times(owner, boost));
             }
         }
         let mut used = Vec::new();
@@ -2920,7 +2923,7 @@ impl Engine {
                 _ => {}
             }
             if applies {
-                add_boost(&mut played.bonus, boost);
+                add_boost(&mut played.bonus, boost, times(*owner, boost));
                 end_turn |= boost.end_turn;
             }
         }
@@ -3845,16 +3848,18 @@ fn mentions_trait(f: &CardFilter, t: Trait) -> bool {
     }
 }
 
-fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
-    bonus.damage += boost.damage;
-    bonus.fortitude += boost.fortitude;
-    bonus.reversal_damage += boost.reversal_damage;
-    bonus.reversal_fortitude += boost.reversal_fortitude;
+/// Adds `boost`, its amounts `k` times (see [`Boost::count`]).
+fn add_boost(bonus: &mut PlayBonus, boost: &Boost, k: i16) {
+    bonus.damage += boost.damage * k;
+    bonus.fortitude += boost.fortitude * k;
+    bonus.reversal_damage += boost.reversal_damage * k;
+    bonus.reversal_fortitude += boost.reversal_fortitude * k;
+    bonus.blocked_from |= boost.no_reversal_from.iter().map(|&z| zone_bit(z)).fold(0, |a, b| a | b);
     bonus.irreversible |= boost.irreversible;
     bonus.no_arsenal_reversal |= boost.no_arsenal_reversal;
     bonus.no_hand_reversal |= boost.no_hand_reversal;
     bonus.no_backlash_reversal |= boost.no_backlash_reversal;
-    bonus.stun_value += boost.stun_value;
+    bonus.stun_value += boost.stun_value * k;
     bonus.ignore_play_after |= boost.ignore_play_after;
     bonus.opponent_fortitude |= boost.use_opponent_fortitude;
     bonus.double_fortitude |= boost.double_fortitude;
