@@ -302,6 +302,8 @@ pub enum Ability {
     RevealEnforcers(CardFilter),
     /// Your cards matching this do not take up a Pre-match or Mid-match slot.
     NoSlotFor(CardFilter),
+    /// Your cards under your Superstar matching this can be played as if from hand.
+    PlayFromUnder(CardFilter),
     /// Hand Size is `times` your opponent's Superstar Value, at least `min`.
     HandSizeFromOpponentValue { times: u8, min: u8 },
     /// Card-drawing effects on cards your opponent plays do nothing (Stun
@@ -572,6 +574,56 @@ pub struct CardScript {
     /// or Mid-match slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frees_slots: Option<CardFilter>,
+    /// Played from hand in your opponent's turn after their card was
+    /// successfully played ("Can only be played after a successfully played
+    /// maneuver ... end his turn").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after_success: Option<AfterSuccess>,
+    /// When this card is flipped face-up in a Ring (its owner controls them).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub on_flip_up: Vec<Effect>,
+}
+
+/// See [`CardScript::after_success`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AfterSuccess {
+    /// The opponent's card it can be played after.
+    #[serde(default = "maneuver")]
+    pub filter: CardFilter,
+    #[serde(default)]
+    pub at: SuccessTime,
+    /// The rest of the opponent's card (effects or damage not yet dealt) does
+    /// not happen ("that maneuver is blank and deals no damage").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cancel: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<Effect>,
+    /// Ends the opponent's turn (default).
+    #[serde(default = "yes")]
+    pub end_turn: bool,
+    /// Where this card goes; default your Ring.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<crate::state::Zone>,
+}
+
+/// When an [`AfterSuccess`] card may be played.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SuccessTime {
+    /// Once the card can no longer be reversed, before its effects.
+    BeforeEffects,
+    /// After its effects, before its damage.
+    BeforeDamage,
+    /// After its damage.
+    #[default]
+    AfterDamage,
+}
+
+fn maneuver() -> CardFilter {
+    CardFilter::Maneuver
+}
+
+fn yes() -> bool {
+    true
 }
 
 /// See [`CardScript::reversal_limits`].
@@ -977,6 +1029,8 @@ pub enum ReversalDamage {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CardFilter {
     Any,
+    /// A face-down card.
+    FaceDown,
     Maneuver,
     ManeuverType(ManeuverType),
     Action,
@@ -1112,6 +1166,12 @@ pub enum Count {
     OpponentReversedFortitude,
     /// Cards under your cards (all of them).
     YourUnderSize,
+    /// Cards under your Superstar card.
+    YourUnderSuperstar,
+    /// Face-down cards in your Ring.
+    YourFaceDown,
+    /// Face-down cards in your opponent's Ring.
+    OpponentFaceDown,
     /// Different Targets among the cards in your Ring.
     YourRingTargets,
 }
@@ -1309,6 +1369,25 @@ pub enum Effect {
     /// the card being played). From the Arsenal the top cards go, unless there
     /// is a `filter`: then you choose matching cards (a search) and the Arsenal
     /// is shuffled. From the hand or Ringside pile you choose.
+    /// The controller flips `n` cards in `who`'s Ring face-down: they become
+    /// blank F: 0 D: 0 cards with no type until flipped face-up or moved out.
+    FlipDown {
+        who: Who,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        filter: Option<CardFilter>,
+    },
+    /// The controller flips `n` face-down cards in `who`'s Ring face-up.
+    FlipUp {
+        who: Who,
+        n: u8,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        up_to: bool,
+    },
+    /// The card whose effect this is, in a Ring, is flipped face-down.
+    FlipThisDown,
     PutUnder {
         from: crate::state::Zone,
         n: u8,
@@ -1316,6 +1395,10 @@ pub enum Effect {
         up_to: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         filter: Option<CardFilter>,
+        /// Under your Superstar card (also "under a Backstage card"), not the
+        /// card whose effect this is. Superstar abilities always use it.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        superstar: bool,
     },
     /// Move `n` cards you choose from under the card whose effect this is to
     /// `to` (Arsenal: shuffled in).
@@ -1326,10 +1409,18 @@ pub enum Effect {
         up_to: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         filter: Option<CardFilter>,
+        /// Under your Superstar card (also "under a Backstage card"), not the
+        /// card whose effect this is. Superstar abilities always use it.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        superstar: bool,
     },
     /// Every card under the card whose effect this is moves to `to`.
     AllFromUnder {
         to: crate::state::Zone,
+        /// Under your Superstar card (also "under a Backstage card"), not the
+        /// card whose effect this is. Superstar abilities always use it.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        superstar: bool,
     },
     /// The card of yours your opponent just reversed moves to `to` (on the
     /// bottom of the Arsenal with `bottom`, else shuffled in), from wherever

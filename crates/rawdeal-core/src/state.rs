@@ -66,6 +66,11 @@ pub struct CardInstance {
     /// With `zone` = `Under`, the card this one is under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub host: Option<CardId>,
+    /// A face-down card in a Ring is the blank [`crate::CardDb::face_down`]
+    /// card; this is its printed card, back when it is flipped face-up or
+    /// leaves the Ring.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face_down: Option<DefIdx>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

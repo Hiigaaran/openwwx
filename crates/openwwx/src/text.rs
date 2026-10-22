@@ -66,6 +66,7 @@ fn cards(n: u8) -> String {
 pub fn filter(f: &CardFilter) -> String {
     match f {
         CardFilter::Any => "cualquier carta".into(),
+        CardFilter::FaceDown => "carta boca abajo".into(),
         CardFilter::Maneuver => "maniobra".into(),
         CardFilter::ManeuverType(t) => maneuver(*t).into(),
         CardFilter::Action => "Acción".into(),
@@ -194,6 +195,9 @@ pub fn effect(e: &Effect) -> String {
         Effect::OverturnUntilReversal { .. } => "el rival voltea hasta encontrar un Reversal".into(),
         Effect::Boost(b) => boost(b),
         Effect::EndTurn => "termina tu turno".into(),
+        Effect::FlipDown { n, .. } => format!("pon boca abajo {} del Ring", cards(*n)),
+        Effect::FlipUp { n, .. } => format!("pon boca arriba {} del Ring", cards(*n)),
+        Effect::FlipThisDown => "pon esta carta boca abajo".into(),
         Effect::ContinueTurn => "el turno sigue después del Reversal".into(),
         Effect::ChooseEnforcer { who } => match who {
             Who::You => "eliges otro Enforcer".into(),
@@ -215,7 +219,7 @@ pub fn effect(e: &Effect) -> String {
         Effect::TakeFromUnder { to, n, .. } => {
             format!("pasa {} de debajo de esta carta a {}", cards(*n), zone(*to))
         }
-        Effect::AllFromUnder { to } => format!("pasa las cartas de debajo de esta carta a {}", zone(*to)),
+        Effect::AllFromUnder { to, .. } => format!("pasa las cartas de debajo de esta carta a {}", zone(*to)),
         Effect::ReversedCardTo { to, bottom } => {
             let place = if *bottom { "debajo del Arsenal".to_string() } else { zone(*to).to_string() };
             format!("la carta que te revirtieron pasa a {place}")
@@ -323,6 +327,9 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::ToArsenalBottom => "para poner debajo del Arsenal",
         ChoicePurpose::ToArsenalTop => "para poner encima del Arsenal",
         ChoicePurpose::PutUnder(_) => "para poner debajo de la carta",
+        ChoicePurpose::AfterSuccess(_) => "para jugar tras la maniobra",
+        ChoicePurpose::FlipDown => "para poner boca abajo",
+        ChoicePurpose::FlipUp => "para poner boca arriba",
         ChoicePurpose::MoveTo(Zone::Hand) => "para poner en la mano",
         ChoicePurpose::MoveTo(Zone::Ring) => "para poner en el Ring",
         ChoicePurpose::MoveTo(Zone::Arsenal) => "para barajar en el Arsenal",

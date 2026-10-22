@@ -1,6 +1,6 @@
 //! Scenario tests for card texts that change how a card is reversed or where
 //! it fits: conditional Multi, reversal counts and sources, counted bonuses
-//! and Pre-match slots. The cards are invented for the tests.
+//! Pre-match slots and cards played after a successful maneuver, face-down cards and cards under the Superstar. The cards are invented for the tests.
 
 use std::sync::Arc;
 
@@ -14,6 +14,7 @@ const SET: &str = r#"(
     superstars: [
         (id: "m/first", name: "First", hand_size: 5, superstar_value: 5),
         (id: "m/second", name: "Second", hand_size: 6, superstar_value: 1),
+        (id: "m/third", name: "Third", hand_size: 5, superstar_value: 5, abilities: [PlayFromUnder(Maneuver)]),
     ],
     cards: [
         (id: "m/filler", title: "Filler", kinds: [Action], fortitude: 0, damage: 0),
@@ -32,6 +33,18 @@ const SET: &str = r#"(
         (id: "m/free", title: "Free", kinds: [PreMatch(Event)], fortitude: 0, damage: 0, script: (no_slot: true)),
         (id: "m/host", title: "Host", kinds: [PreMatch(Event)], fortitude: 0, damage: 0,
             script: (frees_slots: Some(Title("Event")))),
+        (id: "m/riser", title: "Riser", kinds: [Maneuver(Strike)], fortitude: 0, damage: 3,
+            script: (on_flip_up: [Draw(who: You, n: 1)])),
+        (id: "m/flip", title: "Flip", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [FlipDown(who: You, n: 1, filter: Some(Maneuver))])),
+        (id: "m/unflip", title: "Unflip", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [FlipUp(who: You, n: 1)])),
+        (id: "m/stash", title: "Stash", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [PutUnder(from: Hand, n: 1, filter: Some(Maneuver), superstar: true)])),
+        (id: "m/stop", title: "Stop", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (after_success: Some(()))),
+        (id: "m/cancel", title: "Cancel", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (after_success: Some((at: BeforeEffects, cancel: true)))),
     ],
 )"#;
 
@@ -147,4 +160,75 @@ fn cards_that_do_not_take_up_a_pre_match_slot() {
         play_pre_match(&e, &mut s);
         assert!(s.player(P1).ring.len() > limit, "{extra}: more than the {limit} slots");
     }
+}
+
+fn play_after_success(e: &Engine, s: &mut GameState, id: &str) {
+    let card = in_hand(e, s, P2, id);
+    let Some(Decision {
+        kind: DecisionKind::ChooseCards { options, purpose: ChoicePurpose::AfterSuccess(_), .. }, ..
+    }) = &s.decision
+    else {
+        panic!("no after-success window: {:?}", s.decision);
+    };
+    assert_eq!(options, &[card]);
+    apply(e, s, P2, Action::ChooseCards(vec![card]));
+}
+
+#[test]
+fn a_card_played_after_a_successful_maneuver_ends_the_turn() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["hit"], &[]), deck("second", &["stop"], &[]));
+    play(&e, &mut s, P1, "hit");
+    assert_eq!(s.player(P2).ringside.len(), 3, "the maneuver deals its damage first");
+    play_after_success(&e, &mut s, "stop");
+    assert_eq!(s.active, P2);
+    assert_eq!(s.player(P2).ring.len(), 1);
+    assert_eq!(s.player(P1).ring.len(), 1, "the maneuver was still successful");
+}
+
+#[test]
+fn a_card_played_after_success_can_cancel_the_damage() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["hit"], &[]), deck("second", &["cancel"], &[]));
+    play(&e, &mut s, P1, "hit");
+    play_after_success(&e, &mut s, "cancel");
+    assert_eq!(s.active, P2);
+    assert!(s.player(P2).ringside.is_empty(), "no damage");
+}
+
+fn choose_first(e: &Engine, s: &mut GameState) {
+    let Some(Decision { player, kind: DecisionKind::ChooseCards { options, .. } }) = s.decision.clone() else {
+        panic!("no choice: {:?}", s.decision);
+    };
+    apply(e, s, player, Action::ChooseCards(vec![options[0]]));
+}
+
+#[test]
+fn face_down_cards_are_blank_until_flipped_face_up() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["riser", "flip", "unflip"], &[]), deck("second", &[], &[]));
+    play(&e, &mut s, P1, "riser");
+    assert_eq!(e.fortitude(&s, P1), 3);
+    play(&e, &mut s, P1, "flip");
+    choose_first(&e, &mut s);
+    assert_eq!(e.fortitude(&s, P1), 0, "a face-down card is D: 0");
+    let hand = s.player(P1).hand.len();
+    play(&e, &mut s, P1, "unflip");
+    choose_first(&e, &mut s);
+    assert_eq!(e.fortitude(&s, P1), 3);
+    assert_eq!(s.player(P1).hand.len(), hand, "Unflip left the hand and Riser drew 1");
+}
+
+#[test]
+fn cards_under_the_superstar_can_be_played() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("third", &["stash", "hit"], &[]), deck("second", &[], &[]));
+    play(&e, &mut s, P1, "stash");
+    choose_first(&e, &mut s);
+    let hit = s.player(P1).under[0];
+    assert_eq!(s.card(hit).host, None);
+    let legal = e.legal_actions(&s, P1);
+    assert!(legal.iter().any(|a| matches!(a, Action::PlayCard { card, .. } if *card == hit)), "{legal:?}");
+    apply(&e, &mut s, P1, Action::PlayCard { card: hit, kind: CardKind::Maneuver(ManeuverType::Strike) });
+    assert_eq!(s.player(P2).ringside.len(), 3);
 }

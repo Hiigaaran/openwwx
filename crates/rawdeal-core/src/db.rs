@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::card::{CardDef, SuperstarDef};
+use crate::card::{CardDef, CardScript, SuperstarDef};
 
 /// Index of a [`CardDef`] inside a [`CardDb`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -40,8 +40,8 @@ pub struct CardDb {
 }
 
 impl CardDb {
-    pub fn new(cards: Vec<CardDef>, superstars: Vec<SuperstarDef>) -> Result<Self, DbError> {
-        if cards.len() > u16::MAX as usize || superstars.len() > u16::MAX as usize {
+    pub fn new(mut cards: Vec<CardDef>, superstars: Vec<SuperstarDef>) -> Result<Self, DbError> {
+        if cards.len() >= u16::MAX as usize || superstars.len() > u16::MAX as usize {
             return Err(DbError::TooManyCards);
         }
         let mut card_index = HashMap::new();
@@ -56,6 +56,7 @@ impl CardDb {
                 return Err(DbError::DuplicateId(s.id.clone()));
             }
         }
+        cards.push(face_down_card());
         Ok(CardDb { cards, superstars, card_index, superstar_index })
     }
 
@@ -75,11 +76,39 @@ impl CardDb {
         self.superstar_index.get(id).copied()
     }
 
+    /// The printed cards (without the face-down card).
     pub fn cards(&self) -> &[CardDef] {
-        &self.cards
+        &self.cards[..self.cards.len().saturating_sub(1)]
+    }
+
+    /// The blank card a face-down Ring card is: no type, traits or text, F: 0 D: 0.
+    pub fn face_down(&self) -> DefIdx {
+        DefIdx((self.cards.len() - 1) as u16)
     }
 
     pub fn superstars(&self) -> &[SuperstarDef] {
         &self.superstars
+    }
+}
+
+pub const FACE_DOWN_ID: &str = "openwwx/face-down";
+
+fn face_down_card() -> CardDef {
+    CardDef {
+        id: FACE_DOWN_ID.into(),
+        title: "Face-down card".into(),
+        kinds: vec![],
+        fortitude: 0,
+        damage: 0,
+        stun_value: 0,
+        traits: vec![],
+        superstar: None,
+        also_superstars: vec![],
+        text: String::new(),
+        other_traits: vec![],
+        source_id: None,
+        script: CardScript::default(),
+        enforcers: vec![],
+        targets: vec![],
     }
 }

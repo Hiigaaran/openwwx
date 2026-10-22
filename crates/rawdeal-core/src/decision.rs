@@ -60,8 +60,13 @@ pub enum ChoicePurpose {
     Arrange,
     RingsideToHand,
     RingsideToArsenal,
+    /// Play after the opponent's card was successfully played (pick 0 or 1).
+    AfterSuccess(crate::card::SuccessTime),
+    FlipDown,
+    FlipUp,
     /// Put under the card (`host`).
-    PutUnder(crate::state::CardId),
+    /// `None`: under your Superstar card.
+    PutUnder(Option<crate::state::CardId>),
     /// The picked cards are removed from the game.
     RemoveFromGame,
     /// The picked cards move to this zone of their owner's.
