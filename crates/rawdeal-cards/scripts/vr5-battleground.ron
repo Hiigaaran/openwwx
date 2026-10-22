@@ -49,8 +49,18 @@
             ]),
             CannotPackMatching(TitleContains("In My Corner")),
         ],
-        // The Fortitude and damage changes counted per card in your Ring are not supported yet.
-        "Revolution Cesaro": [],
+        // The counted Fortitude and damage changes apply during your turns.
+        "Revolution Cesaro": [
+            StartOfTurn([
+                Boost((
+                    applies_to: Trait(Colossal),
+                    duration: ThisTurn,
+                    fortitude: -1,
+                    count: Some(YourRingMatching(AnyOf([Trait(Core), SuperstarSpecific]))),
+                )),
+                Boost((applies_to: Trait(Core), duration: ThisTurn, damage: 1, count: Some(YourRingMatching(Trait(Colossal))))),
+            ]),
+        ],
         "Revolution Ryback": [
             Activated(
                 cost: [
@@ -201,8 +211,23 @@
             ),
             CannotPackMatching(TitleContains("In My Corner")),
         ],
-        // The Fortitude and damage changes counted per Extreme / Assault are not supported yet.
-        "Revolution Rhyno": [],
+        // The counted Fortitude and damage changes apply during your turns.
+        "Revolution Rhyno": [
+            StartOfTurn([
+                Boost((
+                    applies_to: ManeuverType(Assault),
+                    duration: ThisTurn,
+                    fortitude: -2,
+                    count: Some(YourRingsideMatching(ManeuverType(Extreme))),
+                )),
+                Boost((
+                    applies_to: ManeuverType(Extreme),
+                    duration: ThisTurn,
+                    damage: 1,
+                    count: Some(YourRingMatching(ManeuverType(Assault))),
+                )),
+            ]),
+        ],
         // The cards in your Ring are not supported yet (only the Ringside pile).
         "Revolution Tajiri": [
             Activated(
@@ -353,8 +378,7 @@
         "Revolution Ryback Rules": (
             play_after_unless: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5)),
             momentum_when: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5)),
-            // Approximation: -8F (the whole printed F) when you have 5+ lower Fortitude.
-            bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), fortitude: -8)],
+            bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), count: Some(OpponentFortitude), fortitude: -1)],
             on_play: [Boost((applies_to: Any, duration: NextCard, momentum: true)), DrawUpTo(who: You, n: 2)],
             reverses: Some((targets: All([Not(Trait(Unique)), Antic]), effects: [DrawUpTo(who: You, n: 2)])),
         ),
@@ -559,8 +583,27 @@
                 ),
             ],
         ),
-        // The conditional Backlash reversal limit is not supported yet.
-        "Revolution Ambrose's Flying Tackle": (),
+        "Revolution Ambrose's Flying Tackle": (
+            reversal_limits: [
+                (
+                    from: [Backlash],
+                    when: AnyOf([
+                        After(AnyOf([
+                            Title("Revolution Double Shoulder Block"),
+                            Title("Revolution Double Hip Toss"),
+                            Title("Revolution Double Wrist Lock"),
+                            Title("Revolution Double Clothesline"),
+                            Title("Revolution Tandem Suplex"),
+                            Title("Revolution Tandem Face Stretch"),
+                            Title("Revolution Double Elbow Drop"),
+                            Title("Revolution Double Superkick"),
+                            Title("Revolution Spike Piledriver"),
+                        ])),
+                        Not(YouAre("Tag Team")),
+                    ]),
+                ),
+            ],
+        ),
         "Revolution Rollins' Enzuigiri": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
         "Revolution Headlock Driver": (
             bonuses: [(fortitude: -5, damage: 5)],
@@ -577,9 +620,8 @@
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true), DrawUpTo(who: You, n: 3)],
             reverses: Some((targets: Trait(Momentum), effects: [DrawUpTo(who: You, n: 3)])),
         ),
-        // Approximation: # is 4.
         "Revolution Believe in the Shield": (
-            bonuses: [(when: Superstar("Revolution The Shield"), fortitude: -4)],
+            bonuses: [(when: Superstar("Revolution The Shield"), count: Some(OpponentValueTimes(1)), fortitude: -1)],
             on_play: [
                 RingsideToHand(who: You, n: 3, up_to: true),
                 Boost((applies_to: All([Not(Trait(Unique)), Maneuver]), duration: NextMatching, momentum: true)),
@@ -588,8 +630,10 @@
 
         // The Wyatt Family
         "Revolution We're Here": (end_of_prematch: [DrawUpTo(who: You, n: 1), BuryHand(who: Opponent, then: Draw)]),
-        // The -1F per reversal in the opponent's Ring is not supported yet.
-        "Revolution Bray's Rocking Chair": (while_in_ring: [(applies_to: AnyOf([Maneuver, SuperstarSpecific]), fortitude: -5)]),
+        "Revolution Bray's Rocking Chair": (
+            bonuses: [(count: Some(OpponentRingMatching(Reversal)), fortitude: -1)],
+            while_in_ring: [(applies_to: AnyOf([Maneuver, SuperstarSpecific]), fortitude: -5)],
+        ),
         "Revolution Rowan's Splash": (on_play: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)]),
         "Revolution Harper's Lariat": (
             bonuses: [(fortitude: -9)],
@@ -637,8 +681,7 @@
         "Revolution Cesaro's Gutwrench Suplex": (on_play: [Mill(who: You, n: 1), RingsideToArsenal(who: You, n: 1, up_to: true)]),
         // Counting as a Colossal and a Core is not supported yet.
         "Revolution Cesaro Double Stomp": (),
-        // The Backlash reversal limit after a Core is not supported yet.
-        "Revolution Swiss Blade": (),
+        "Revolution Swiss Blade": (reversal_limits: [(from: [Backlash], when: After(Trait(Core)))]),
         "Revolution The Cesaro Swing": (
             on_play: [
                 Choice([
@@ -773,8 +816,10 @@
                 effects: [If(condition: Superstar("Revolution Matt Hardy"), effects: [DrawUpTo(who: You, n: 1)])],
             )),
         ),
-        // The Backlash reversal limit is not supported yet.
-        "Revolution Matt's Moonsault": (on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)]),
+        "Revolution Matt's Moonsault": (
+            reversal_limits: [(from: [Backlash], when: Superstar("Revolution Matt Hardy"))],
+            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)],
+        ),
         "Revolution The Side Effect": (
             bonuses: [(fortitude: -10)],
             on_play: [DrawUpTo(who: You, n: 1)],
@@ -832,8 +877,10 @@
                 Boost((applies_to: Any, duration: NextCard, fortitude: -10)),
             ],
         ),
-        // Approximation: only Hulk Hogan packs it, so it can never be reversed from hand (nor Backlash).
-        "Revolution Hulkamania Leg Drop": (momentum_when: Some(After(Maneuver)), no_hand_reversal: true),
+        "Revolution Hulkamania Leg Drop": (
+            momentum_when: Some(After(Maneuver)),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: Superstar("Revolution Hulk Hogan"))],
+        ),
         "Revolution The Power of Hulkamania": (
             reverses: Some((targets: AnyOf([Antic, Trait(Momentum)]), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])),
         ),
@@ -907,8 +954,13 @@
         ),
 
         // The Ultimate Warrior
-        // The -1F per Ultimate Warrior card and the Ability text are not supported yet.
-        "Revolution Putting On the Warpaint": (),
+        // Approximation: Ultimate Warrior-specific Revolution cards are Superstar-specific cards with 'Revolution' in the
+        // title; 'reversed' in the text is not checked. The Ability text is not supported yet.
+        "Revolution Putting On the Warpaint": (
+            while_in_ring: [
+                (applies_to: Maneuver, fortitude: -1, count: Some(YourRingMatching(All([SuperstarSpecific, TitleContains("Revolution")])))),
+            ],
+        ),
         // Putting it into the Ring before the first Draw Segment and using it from the Backlash are not supported yet.
         "Revolution Warrior's Dash to the Ring": (ring_ability: Some((effects: [Draw(who: You, n: 1)], sacrifice: true))),
         "Revolution Warrior's Body Slam": (bonuses: [(fortitude: -2)], reverses: Some((targets: ManeuverType(Extreme), damage: Fixed(5)))),
@@ -1024,11 +1076,11 @@
         ),
 
         // JeriShow
-        // Approximation: -10F (# is the opponent's Fortitude) and it cannot be reversed while he has 10+ Fortitude.
-        // Rewriting the Ability and the card texts is not supported yet.
+        // It is printed F: 10, so it is F: 0 (and cannot be reversed) while he has 10+ Fortitude. Rewriting the
+        // Ability and the card texts is not supported yet.
         "Revolution Crank the Walls Down": (
             mid_match_limit: 1,
-            bonuses: [(fortitude: -10)],
+            bonuses: [(count: Some(OpponentFortitude), fortitude: -1)],
             irreversible_when: Some(CountAtLeast(count: OpponentFortitude, n: 10)),
             on_play: [HandToArsenalBottom(who: Opponent, n: 2), DrawUpTo(who: You, n: 2)],
         ),
@@ -1045,8 +1097,10 @@
         ),
         // The overturn when the reversed card had no 'bulldog' or 'lariat' in the title is not supported yet.
         "Revolution Raven's Bulldog Lariat": (bonuses: [(fortitude: -10)]),
-        // The Backlash reversal limit is not supported yet.
-        "Revolution Evenflow DDT": (bonuses: [(fortitude: -5)]),
+        "Revolution Evenflow DDT": (
+            bonuses: [(fortitude: -5)],
+            reversal_limits: [(from: [Backlash], when: After(AnyOf([ManeuverType(Throw), ManeuverType(Extreme)])))],
+        ),
         // Putting the reversed card into his Ring is not supported yet.
         "Revolution Quote the Raven: 'Nevermore'": (),
 
@@ -1075,8 +1129,15 @@
         ),
 
         // Rhyno
-        // The -1F per Rhyno card is not supported yet.
+        // Approximation: Rhyno-specific cards are Superstar-specific cards.
         "Revolution The Manbeast": (
+            while_in_ring: [
+                (
+                    applies_to: AnyOf([ManeuverType(Extreme), ManeuverType(Assault), Keyword("Foreign Object")]),
+                    fortitude: -1,
+                    count: Some(YourRingMatching(SuperstarSpecific)),
+                ),
+            ],
             end_of_prematch: [
                 Choice([
                     [Draw(who: You, n: 1)],
@@ -1109,8 +1170,8 @@
         "Revolution Buzzsaw Kick": (),
         // Going to the Ring when reversing from the Arsenal is not supported yet.
         "Revolution Tajiri's Asian Mist": (),
-        // Ending the opponent's turn after a Core dealt its damage is not supported yet.
         "Revolution Japanese Buzzsaw": (
+            after_success: Some((filter: All([Maneuver, Trait(Core)]), to: Some(Ringside))),
             bonuses: [(fortitude: -7)],
             on_play: [RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("chest"), Target("head")])))],
             reverses: Some((targets: All([Maneuver, AnyOf([Target("chest"), Target("back")])]))),
@@ -1119,8 +1180,9 @@
         // Dudley Boyz
         // The Set the Table texts are not supported yet.
         "Revolution Get the Table!": (),
-        // The reversal limit after a maneuver is not supported yet.
+        // The hybrid-from-hand reversal limit is not supported yet.
         "Revolution Wazzzzzup!!": (
+            reversal_limits: [(from: [Backlash], when: After(Maneuver))],
             on_play: [DrawUpTo(who: You, n: 2), Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)],
         ),
         // Becoming a Colossal is not supported yet.

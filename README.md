@@ -164,6 +164,15 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Virtual en el menú (o `--virtual` en el CLI): Backlash de 12 Pre-match y 12 Mid-match, máximo 6 de cada en el Ring.
   Dos cartas distintas con el mismo título en un set se distinguen por su último logo ("Dream Street (The Legacy)") o
   por un número ("Trip (2)").
+- Textos que cambian cómo se revierte una carta: Multi o Chain con condición ("si es la primera carta del turno"),
+  cartas que necesitan 3 Reversals, cartas que solo se revierten desde ciertos lugares ("solo desde el Arsenal",
+  "no desde la mano"), bonos y auras multiplicados por un conteo ("-#F, donde # es el Superstar Value del rival") y
+  cartas Pre-match que no ocupan espacio en el Ring.
+- Cartas que se juegan después de una maniobra exitosa del rival (desde la mano, antes de sus efectos, antes de su
+  daño o después de él) y terminan su turno; algunas anulan lo que falta de la maniobra. Cartas boca abajo en el Ring:
+  quedan en blanco (sin tipo, rasgos ni texto, F: 0 D: 0) hasta que se dan vuelta o salen del Ring. Cartas debajo de
+  la Superstar, que algunas habilidades dejan jugar como si estuvieran en la mano ("debajo de una carta Backstage" se
+  trata igual).
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

@@ -781,8 +781,15 @@
                 ],
             )),
         ),
-        // Played after a maneuver succeeds, outside the reversal window: not supported yet.
-        "Hulkin' Up": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Not discarding cards for No Sell Maneuver while it is in your Ring is not supported yet.
+        "Hulkin' Up": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                at: BeforeEffects,
+                cancel: true,
+                effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, irreversible: true))],
+            )),
+        ),
         "Hollywood's Big Boot": (
             play_after: Some(AnyOf([Title("Irish Whip"), Title("Throw Into the Corner Turnbuckle")])),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),

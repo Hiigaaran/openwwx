@@ -226,7 +226,7 @@
             bonuses: [(per: Some(AnyOf([Title("Arm Bar"), Title("Back Breaker"), Title("Shoulder Breaker")])), damage: 1)],
         ),
         "Stump Puller": (play_after: Some(All([Maneuver, DamageAtLeast(5)]))),
-        "Claw": (no_hand_reversal: true, on_play: [MillChosen(who: Opponent, n: 1)]),
+        "Claw": (reversal_limits: [(from: [Hand])], on_play: [MillChosen(who: Opponent, n: 1)]),
         "STF": (
             bonuses: [(per: Some(AnyOf([TitleContains("suplex"), TitleContains("neck breaker")])), damage: 1)],
             on_play: [If(condition: Superstar("Chris Benoit"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],

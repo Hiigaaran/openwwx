@@ -42,7 +42,7 @@
         "Suicide Lariat": (play_after: Some(Maneuver)),
         "Atomic Knee Drop": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
             on_play: [Optional([RingsideToHand(who: You, n: 1)])],
         ),
 
@@ -74,11 +74,10 @@
             irreversible_when: Some(OpponentIs("Female")),
             on_play: [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
         ),
-        // Approximation: it also stops Reversals from the Backlash deck.
         // Moving it to the opponent's Ring when they reverse from hand is not supported yet.
         "Redemption": (
             irreversible_when: Some(InYourRing(Title("Backstage Politics"))),
-            while_in_ring_opponent: [(applies_to: Any, no_hand_reversal: true)],
+            while_in_ring_opponent: [(applies_to: Any, no_reversal_from: [Hand])],
         ),
         "You're Fired!": (
             on_play: [If(condition: YouAre("GM"), effects: [ChooseEnforcer(who: You)])],
@@ -163,8 +162,14 @@
                 Boost((applies_to: Trait(Raw), duration: NextCard, irreversible: true)),
             ],
         ),
-        // Reversing after the maneuver has done its damage is not supported yet.
-        "Undermine the Competition": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Played after the maneuver's damage (an overturned Reversal still stops it, so the card cannot follow).
+        // Missing: your opponent putting Ring maneuvers into his Ringside pile until his Fortitude is at most
+        // that maneuver's F, and Raw GM Eric Bischoff choosing them.
+        "Undermine the Competition": (
+            requires: Some(All([FortitudeBelowOpponent, CountBelow(a: HandSize, b: OpponentHandSize)])),
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((filter: All([Maneuver, Not(FortitudeAtMost(0))]))),
+        ),
         "There Can Only Be One Dominant Female in WWE": (
             requires: Some(YouAre("Female")),
             irreversible_when: Some(Superstar("Stephanie McMahon")),
@@ -203,8 +208,13 @@
                 ),
             )),
         ),
-        // Reversing after the maneuver has done its damage and keeping cards under it are not supported yet.
-        "Hitting the G-Spot": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Played after the Grapple's damage. Missing: blanking that maneuver's text (its effects still happen),
+        // putting the overturned cards on top of this card, and taking them back instead of drawing.
+        "Hitting the G-Spot": (
+            requires: Some(Not(YouAre("Male"))),
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((filter: ManeuverType(Grapple))),
+        ),
 
         // Enforcers (Raw)
         "Stone Cold, Triple H, or ... Christian?": (

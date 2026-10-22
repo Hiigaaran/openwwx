@@ -8,9 +8,12 @@
 // Enforcer cards set `enforcer_abilities`, one list per printed Enforcer, in order.
 (
     abilities: {
-        // The Chain texts are not supported yet (the engine has no "is Chain" boost). Approximation: only his own
-        // Enforcer card can be revealed.
-        "Jim Cornette": [RevealEnforcers(AnyOf([Title("Midnight Express or Yokozuna and Owen Hart?"), Title("Vader or The British Bulldog?")]))],
+        // Approximation: only his own Enforcer card can be revealed. The Chain of actions in the Arsenal / Ringside
+        // (for searches) and the overturn-instead-of-discard text are not supported yet.
+        "Jim Cornette": [
+            RevealEnforcers(AnyOf([Title("Midnight Express or Yokozuna and Owen Hart?"), Title("Vader or The British Bulldog?")])),
+            StartOfTurn([Boost((applies_to: Action, duration: NextMatching, chain: true))]),
+        ],
         // Packing as a Diva and the 'lady' title texts are not supported yet.
         "Lacey Evans": [
             Activated(
@@ -72,15 +75,16 @@
 
         // Jim Cornette
         // The first Enforcer (a Ringside High Risk played with the Grapple) and the Tag Team packing text are not
-        // supported yet. Approximation: the second Enforcer's first maneuver is -3F instead of Chain and +3F.
+        // supported yet. Approximation: the second Enforcer's first maneuver is Chain and -3F even with 'reversed' in
+        // its text.
         "Midnight Express or Yokozuna and Owen Hart?": (
             enforcer_abilities: [
                 [],
-                [StartOfTurn([Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -3))])],
+                [StartOfTurn([Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -3, chain: true))])],
             ],
         ),
-        // The 'old school' Ring slot text is not supported yet.
         "The Louisville Lip": (
+            frees_slots: Some(TitleContains("old school")),
             on_opponent_reverses: [
                 If(
                     condition: All([OpponentReversed(Action), HandAtLeast(2)]),
@@ -96,12 +100,19 @@
         ),
 
         // Lacey Evans
-        // The 'male'/'female' text and the ACE (cards under the Superstar card) are not supported yet.
+        // The 'male'/'female' text is not supported yet.
         "Act Like a Lady": (
             on_opponent_reverses: [If(condition: OpponentReversed(TitleContains("lady")), effects: [ReversedCardTo(to: Removed)])],
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("lady")]), damage: 1, count: Some(YourUnderSuperstar))],
+            ring_ability: Some((
+                requires: Some(CountAtLeast(count: YourRingMatching(All([TitleContains("lady"), Not(Trait(MidMatch))])), n: 1)),
+                effects: [PutUnder(from: Ring, n: 1, filter: Some(All([TitleContains("lady"), Not(Trait(MidMatch))])), superstar: true), Draw(who: You, n: 1)],
+            )),
         ),
-        // The pinfall with 19+ cards under the Superstar card and the shuffle from hand are not supported yet.
-        "A Woman's Right": (on_play: [Discard(who: Opponent, n: 5, pick: Chosen)]),
+        // The shuffle from hand is not supported yet.
+        "A Woman's Right": (
+            on_play: [Discard(who: Opponent, n: 5, pick: Chosen), If(condition: CountAtLeast(count: YourUnderSuperstar, n: 19), effects: [WinByPin])],
+        ),
         "Southern Charm": (
             on_play: [
                 Discard(who: Opponent, n: 2, pick: Random),

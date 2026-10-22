@@ -366,7 +366,7 @@
                         Boost((
                             applies_to: All([Trait(Core), FortitudeAtLeast(1)]),
                             duration: NextMatching,
-                            no_hand_reversal: true,
+                            no_reversal_from: [Hand],
                         )),
                     ],
                 ),

@@ -2,8 +2,9 @@
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 // Raw Deal Virtual (fan-made) set: there is no official rule sheet.
-// The Backstage Area as a place to put cards (other than Backstage cards), changing card traits ("are Multi",
-// "considered to have 'sleeper' in the title"), Pre-match Capacity on Superstars and blanking text are not supported yet.
+// The Backstage Area as a place to put cards (other than Backstage cards), Superstar abilities that change card
+// traits other than Multi / Chain ("considered to have 'sleeper' in the title"), Pre-match Capacity on Superstars and
+// blanking text are not supported yet. Superstar abilities make cards Multi or Chain with a start-of-turn Boost.
 (
     abilities: {
         // Putting cards into the Backstage Area at the end of the turn (and losing with 20+ there) and packing
@@ -58,9 +59,10 @@
             ),
             CannotPackMatching(TitleContains("BASH")),
         ],
-        // Making the opponent discard to reverse Foreign Object maneuvers, suplex Grapples becoming Chain and the
-        // packing permissions are not supported yet (the Chain rule already applies to Chain maneuvers).
+        // Making the opponent discard to reverse Foreign Object maneuvers and the packing permissions are not supported
+        // yet (the Chain rule already applies to Chain maneuvers). Suplex Grapples are Chain during your turns.
         "Saturn": [
+            StartOfTurn([Boost((applies_to: All([ManeuverType(Grapple), TitleContains("suplex")]), duration: ThisTurn, chain: true))]),
             CannotPackMatching(
                 All([
                     Maneuver,
@@ -77,9 +79,9 @@
             CannotPack("Back to Basics"),
             CannotPack("Straight-Shootin' Interview"),
         ],
-        // Making Strikes Multi is not supported yet. Approximation: cards with 'Sharmell' in the title cannot be
-        // packed at all.
+        // Approximation: cards with 'Sharmell' in the title cannot be packed at all. Strikes are Multi during your turns.
         "Harlem Heat": [
+            StartOfTurn([Boost((applies_to: ManeuverType(Strike), duration: ThisTurn, multi: true))]),
             PacksLogos(["Booker T"]),
             CannotPackMatching(TitleContains("Sharmell")),
             CannotPack("Yo Dawg, Respect the Bookerman"),
@@ -244,9 +246,8 @@
                 (applies_to: All([Maneuver, SuperstarSpecific, Holds(OpponentRingHas(filter: Maneuver, n: 1))]), fortitude: -10),
             ],
         ),
-        // "Can only be reversed from hand or Arsenal": not from the Backlash deck.
         "Sting's Black Baseball Bat": (
-            no_backlash_reversal: true,
+            reversal_limits: [(from: [Backlash, Ringside, Ring, Under])],
             irreversible_when: Some(
                 AnyOf([
                     OpponentSuperstar("The Immortal One"),
@@ -310,6 +311,8 @@
         ),
         // Approximation: the reversal limits also apply to the card played as an Action.
         "Luger's Running Forearm": (
+            reversals_needed: 2,
+            reversals_needed_when: Some(YouAre("Lex Luger")),
             not_reversed_by: Some(
                 AnyOf([
                     All([Holds(OpponentSuperstar("Lex Luger")), DamageAtLeast(1)]),
@@ -330,9 +333,22 @@
         ),
 
         // DDP
-        // Making Fan Favorite / Cheater Actions Multi and the +4D / +2 Stun Value cap are not supported yet.
-        // Approximation: the opponent can never play The Road to Victory.
-        "Self High-Five": (restricts_opponent: Some((filter: Title("The Road to Victory")))),
+        // The +4D / +2 Stun Value cap is not supported yet.
+        // Approximation: the opponent can never play The Road to Victory; the first Action counts even when it is not
+        // played from hand.
+        "Self High-Five": (
+            restricts_opponent: Some((filter: Title("The Road to Victory"))),
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        Action,
+                        AnyOf([Trait(FanFavorite), All([Trait(Cheater), FortitudeAtMost(3)])]),
+                        Not(EarlierThisTurn(filter: Action, n: 1)),
+                    ]),
+                    multi: true,
+                ),
+            ],
+        ),
         "It's Me... It's Me... It's D-D-P": (
             irreversible: true,
             on_play: [
@@ -412,9 +428,9 @@
         ),
 
         // Saturn
-        // Being Chain when played by Saturn is not supported yet.
         "The Rings of Saturn": (
             bonuses: [(when: Superstar("Saturn"), damage: 10)],
+            chain_when: Some(Superstar("Saturn")),
             on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
         ),
         "The Flock Interferes": (
@@ -435,8 +451,10 @@
         ),
 
         // The Steiner Brothers
-        // Not taking a Pre-match slot, -1F per Ringside maneuver, the reversal limits and Multi are not supported yet.
+        // Approximation: F: 0 is -4F. Not being reversed by non-Unique 5D+ Reversals is not supported yet (Multi
+        // already needs 2 Reversals).
         "University of Michigan": (
+            no_slot: true,
             while_in_ring: [
                 (
                     applies_to: All([
@@ -447,7 +465,9 @@
                         Not(Keyword("Throwback")),
                     ]),
                     fortitude: -4,
+                    multi: true,
                 ),
+                (applies_to: Maneuver, fortitude: -1, count: Some(YourRingsideMatching(Maneuver))),
             ],
         ),
         "The Steinerline": (

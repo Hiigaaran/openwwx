@@ -5,7 +5,7 @@
 // "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals of "any card that would move
 // cards from a Ringside / removed from the game", of card effects and of Activated Card Effects are not supported
-// (`targets: Not(Any)`). "Ignore 'completely'", cards under Fight Owens Fight from other cards, face-down cards
+// (`targets: Not(Any)`). "Ignore 'completely'", cards under Fight Owens Fight from other cards, flip-up triggers
 // and packing named cards from other sets are not supported yet.
 // "You cannot pack Corners" is approximated as cards with "In My Corner" in the title.
 (
@@ -17,8 +17,19 @@
                 If(condition: OpponentReversedFrom([Hand]), effects: [DrawUpTo(who: You, n: 1)]),
             ]),
         ],
-        // Approximation: only your own printed F: 10+ cards. The Fortitude reduction per D: 5+ card is not supported.
-        "Rusev": [OnPlayMatching(filter: FortitudeAtLeast(10), effects: [Optional([Dig(n: 2, take: 1)])])],
+        // Approximation: only your own printed F: 10+ cards. The -2F per D: 5+ maneuver, action or Reversal in your
+        // Ringside applies during your turns ('reversed' in the text is not checked).
+        "Rusev": [
+            OnPlayMatching(filter: FortitudeAtLeast(10), effects: [Optional([Dig(n: 2, take: 1)])]),
+            StartOfTurn([
+                Boost((
+                    applies_to: All([Maneuver, Not(Trait(Unique)), Not(Trait(Multi))]),
+                    duration: ThisTurn,
+                    fortitude: -2,
+                    count: Some(YourRingsideMatching(All([AnyOf([Maneuver, Action, Reversal]), DamageAtLeast(5)]))),
+                )),
+            ]),
+        ],
         // The overturn cost for the opponent's hand reversals and counting as Kane are not supported yet.
         "Big E": [CannotPackMatching(TitleContains("In My Corner"))],
         // The Arsenal reveal ability is not supported yet. Approximation: every Cody Rhodes card may be packed.
@@ -76,10 +87,14 @@
                 ],
             )),
         ),
-        // The Counter and Backlash reversal limits are not supported yet.
         "Kevin's Cannonball": (
             play_after: Some(All([Maneuver, DamageAtLeast(4)])),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reversal_limits: [
+                (from: [Arsenal], when: All([ReversedLastTurn(Maneuver), FirstCardThisTurn])),
+                (from: [Hand], when: All([ReversedLastTurn(Not(Maneuver)), FirstCardThisTurn])),
+                (from: [Backlash], when: After(Maneuver)),
+            ],
         ),
         "Kevin's Superkick": (
             on_play: [
@@ -87,8 +102,11 @@
                 Boost((applies_to: Any, duration: NextCard, reversal_fortitude: 6)),
             ],
         ),
-        // The Fortitude reduction, the Ringside text and doubling the Ability are not supported yet.
-        "Pumphandle Neckbreaker": (on_play: [Discard(who: Opponent, n: 2, pick: Random)]),
+        // The Ringside text and doubling the Ability are not supported yet.
+        "Pumphandle Neckbreaker": (
+            bonuses: [(count: Some(OpponentFortitude), fortitude: -1)],
+            on_play: [Discard(who: Opponent, n: 2, pick: Random)],
+        ),
         "Owens' Pop-Up Power Bomb": (
             on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)],
             reverses: Some((targets: After(Trait(SetUp)), effects: [RingsideToArsenal(who: You, n: 3, up_to: true)])),
@@ -130,9 +148,8 @@
                 sacrifice: true,
             )),
         ),
-        // Approximation: "Rusev-specific cards do not take up Pre-match slots" is one more Pre-match slot. The other
-        // texts are not supported yet.
-        "Managed by The Ravishing Russian, Lana": (pre_match_limit: 1),
+        // Approximation: Rusev-specific cards are Superstar-specific cards. The other texts are not supported yet.
+        "Managed by The Ravishing Russian, Lana": (frees_slots: Some(SuperstarSpecific)),
         // Putting the maneuver into your hand instead is not supported yet.
         "Hero of the Russian Federation": (
             end_of_prematch: [Search(filter: All([Not(Trait(Unique)), Not(Hybrid), Maneuver, DamageAtLeast(5)]))],
@@ -143,8 +160,19 @@
                 ),
             ],
         ),
-        // The -#F, the 10+ lower Fortitude rider, the reversal and the Ring texts are not supported yet.
-        "The Super Athlete": (on_play: [Optional([Dig(n: 2, take: 1)])], reverses: Some((targets: Not(Any)))),
+        // Approximation: F: 0 is -40F. The reversal and the Lana text are not supported yet.
+        "The Super Athlete": (
+            bonuses: [(count: Some(Half(OpponentFortitude)), fortitude: -1)],
+            on_play: [
+                Optional([Dig(n: 2, take: 1)]),
+                If(
+                    condition: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10),
+                    effects: [Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -40, chain: true, multi: true))],
+                ),
+            ],
+            reverses: Some((targets: Not(Any))),
+            while_in_ring: [(applies_to: All([Maneuver, SuperstarSpecific]), chain: true)],
+        ),
         // The hand text during the opponent's turn is not supported yet.
         "Bulgarian Body Block": (
             ringside_on_opponent_reverses: [
@@ -163,8 +191,12 @@
                 Boost((applies_to: Title("The Accolade"), duration: NextCard, fortitude: -10, no_backlash_reversal: true)),
             ],
         ),
-        // The reversal limit after a maneuver and the reversal part are not supported yet.
-        "Rusev's Heel Kick": (bonuses: [(fortitude: -4)], reverses: Some((targets: Not(Any)))),
+        // The reversal part is not supported yet.
+        "Rusev's Heel Kick": (
+            bonuses: [(fortitude: -4)],
+            reversal_limits: [(from: [Hand, Backlash], when: After(Maneuver))],
+            reverses: Some((targets: Not(Any))),
+        ),
         // Reversing cards played from Ringside and the Ring text are not supported yet.
         "Rusev's Swinging Side Slam": (
             bonuses: [(fortitude: -5, damage: 2)],
@@ -240,8 +272,13 @@
                 targets: AnyOf([All([FortitudeAtLeast(5), FortitudeAtMost(5)]), All([DamageAtLeast(5), DamageAtMost(5)])]),
             )),
         ),
-        // The Arsenal-only reversal after a printed F: 5 / D: 5 card is not supported yet.
         "Big E's Big Splash": (
+            reversal_limits: [
+                (
+                    from: [Hand, Backlash, Ringside, Ring, Under],
+                    when: After(AnyOf([All([FortitudeAtLeast(5), FortitudeAtMost(5)]), All([DamageAtLeast(5), DamageAtMost(5)])])),
+                ),
+            ],
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
         ),
@@ -340,8 +377,7 @@
         "Across the Fifth Dimension": (on_play: [Dig(n: 5, take: 1), RingsideToArsenal(who: You, n: 5, up_to: true)]),
 
         // Xavier Woods
-        // Approximation: the ACE ends your turn but the card is not flipped face-down. The protection text is not
-        // supported yet.
+        // The protection text is not supported yet.
         "Hailing from Angel Grove, California": (
             ring_ability: Some((
                 effects: [
@@ -352,6 +388,7 @@
                         [HandToArsenalBottom(who: You, n: 4), Draw(who: You, n: 4)],
                         [HandToArsenalBottom(who: You, n: 5), Draw(who: You, n: 5)],
                     ]),
+                    FlipThisDown,
                     EndTurn,
                 ],
             )),
@@ -377,17 +414,36 @@
         // The New Day
         // The Cheater / Heel draw and discard texts are not supported yet.
         "Clap Therapy": (),
-        // The Fortitude reduction per Cheater / Heel card and the protection text are not supported yet.
-        "Don't You Dare Be Sour...": (requires: Some(Never)),
-        // The -1F per reversal and going to the Backlash instead of the Ringside are not supported yet.
+        // Approximation: 'reversed' in the text is not checked. Cannot be blanked and the protection text are not
+        // supported yet.
+        "Don't You Dare Be Sour...": (
+            while_in_ring: [
+                (
+                    applies_to: All([Maneuver, Not(Trait(Unique))]),
+                    fortitude: -1,
+                    count: Some(YourRingMatching(AnyOf([Trait(Cheater), Trait(Heel)]))),
+                ),
+            ],
+        ),
+        // Going to the Backlash instead of the Ringside is not supported yet.
         "New... Day Rocks!": (
+            bonuses: [(count: Some(OpponentRingMatching(Reversal)), fortitude: -1)],
             on_play: [Draw(who: You, n: 1), RingsideToArsenal(who: You, n: 3, up_to: true), Mill(who: Opponent, n: 2)],
             ring_ability: Some((cost: [Mill(who: You, n: 2)], effects: [ReturnThis(to: Backlash), EndTurn])),
         ),
-        // Needing 3 reversals and the High Risk text are not supported yet.
-        "Unicorn Stampede": (bonuses: [(when: Not(YouAre("Stable")), fortitude: -3)]),
-        // Needing 3 reversals and the Arsenal reversal limit are not supported yet.
-        "The Midnight Hour": (bonuses: [(per: Some(AnyOf([Trait(Cheater), Trait(Heel)])), fortitude: -1)]),
+        // The High Risk and 'completely' texts are not supported yet.
+        "Unicorn Stampede": (
+            bonuses: [(when: Not(YouAre("Stable")), fortitude: -3)],
+            reversals_needed: 3,
+            reversals_needed_when: Some(YouAre("Stable")),
+        ),
+        // The non-Unique Arsenal reversal limit and 'completely' are not supported yet. Approximation: The New
+        // Day-specific cards are Superstar-specific cards.
+        "The Midnight Hour": (
+            bonuses: [(per: Some(AnyOf([Trait(Cheater), Trait(Heel)])), fortitude: -1)],
+            reversals_needed: 3,
+            reversals_needed_when: Some(CountAtLeast(count: YourRingMatching(AnyOf([Trait(Cheater), Trait(Heel), SuperstarSpecific])), n: 15)),
+        ),
         "The Power of Positivity": (
             on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true)],
             reverses: Some((
@@ -396,7 +452,7 @@
                 overturned_only: true,
             )),
         ),
-        // The 2 D: 0 reversals limit is not supported yet.
+        // It is printed Multi (2 Reversals); the D: 0-only part is not supported yet.
         "Sound the Trombone!": (
             play_after: Some(Maneuver),
             on_play: [

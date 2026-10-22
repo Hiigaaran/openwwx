@@ -15,16 +15,24 @@
                 ]),
             ),
         ],
-        // Stopping Arsenal reversals to his maneuvers is not supported yet.
-        "Lashley": [],
+        "Lashley": [
+            StartOfTurn([Boost((applies_to: All([Maneuver, Not(Trait(Unique))]), duration: ThisTurn, no_arsenal_reversal: true))]),
+        ],
         "Ken Kennedy": [],
         // The opponent's part of the Draw Segment rule and taking the bottom card of the Arsenal are not supported yet.
         "Mickie James": [
             StartOfTurn([MoveCards(who: You, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true), Draw(who: You, n: 1)]),
             DamageFor(filter: All([Maneuver, Holds(OpponentIs("Diva"))]), delta: 3),
         ],
-        // Discarding to ignore "Can only be played" text and the Arsenal-only reversals are not supported yet.
+        // Discarding to ignore "Can only be played" text is not supported yet.
         "Mr. Pay-Per-View": [
+            StartOfTurn([
+                Boost((
+                    applies_to: All([ManeuverType(HighRisk), Not(SuperstarSpecific)]),
+                    duration: ThisTurn,
+                    no_reversal_from: [Hand, Backlash, Ringside, Ring, Under],
+                )),
+            ]),
             OnPlayMatching(filter: ManeuverType(HighRisk), effects: [EndTurn]),
             PacksLogos(["Rob Van Dam"]),
         ],
@@ -59,8 +67,10 @@
         "The Spirit Squad": [FortitudeFor(filter: TitleContains("Give me"), delta: -5)],
         // Playing a Strike as a High Risk maneuver is not supported yet.
         "Johnny": [PacksLogos(["The Spirit Squad"])],
-        // Extra Stun Value and making maneuvers Multi are not supported yet.
-        "Kenny": [PacksLogos(["The Spirit Squad"])],
+        "Kenny": [
+            StartOfTurn([Boost((applies_to: ManeuverType(HighRisk), duration: ThisTurn, stun_value: 2, multi: true))]),
+            PacksLogos(["The Spirit Squad"]),
+        ],
         "Mikey": [
             Activated(
                 requires: Some(HandHas(Reversal)),
@@ -236,14 +246,13 @@
         ),
         // Approximation: it is used in your Main Segment while a maneuver is the last card you successfully played.
         "Leaping DDT": (ringside_ability: Some((requires: Some(After(Maneuver)), effects: [ThisToArsenal(bottom: true)]))),
-        // Making the next maneuver Multi is not supported yet.
         "Technical Monkey Flip": (
             on_play: [Optional([Search(filter: TitleContains("technical"))])],
             as_action: Some((
                 fortitude: Some(0),
                 on_play: [
                     ThisToArsenal(bottom: true),
-                    Boost((applies_to: All([Maneuver, TitleContains("technical")]), duration: NextCard, stun_value: 1)),
+                    Boost((applies_to: All([Maneuver, TitleContains("technical")]), duration: NextCard, stun_value: 1, multi: true)),
                 ],
             )),
         ),
@@ -331,8 +340,8 @@
         ),
         // Approximation: the cards for less F are discarded instead of shuffled into the Arsenal.
         "Precision Figure Four": (fortitude_discount: Some((per: 2, max: 5))),
-        // Making it Multi and its Ring effect are not supported yet.
-        "Shoot Lock-up": (not_reversed_by: Some(TitleContains("Counter"))),
+        // Its Ring effect is not supported yet. Approximation: you always make it Multi.
+        "Shoot Lock-up": (multi_when: Some(Always), not_reversed_by: Some(TitleContains("Counter"))),
         "Neck Torque": (
             before_reversal: [DiscardAll(who: You, filter: Any)],
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), Search(filter: Any), EndTurn],
@@ -480,8 +489,9 @@
             ],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("BASH")]), damage: 1)],
         ),
-        // Making Dynamic Actions Multi and changing maneuver types are not supported yet.
+        // Changing maneuver types is not supported yet.
         "Find Out How to Fight From Finlay": (
+            while_in_ring: [(applies_to: All([Action, TitleContains("Dynamic")]), multi: true)],
             restricts_opponent: Some((
                 filter: All([
                     Not(AnyOf([Maneuver, Action, Reversal])),
@@ -611,14 +621,15 @@
             reverses: Some((targets: AnyOf([All([Action, TitleContains("BASH")]), Trait(FanFavorite)]))),
         ),
         "Trevor Murdoch Is Gonna BASH Your Brains In": (on_play: [Search(filter: All([Maneuver, TitleContains("BASH")]))]),
-        // Counting the Reversals in his hand and the conditional hand reversal limit are not supported yet.
+        // Counting the Reversals in his hand is not supported yet.
         "Backfire": (
+            reversal_limits: [(from: [Hand], when: InYourRing(Keyword("Heat")))],
             on_play: [LookAtHand(who: Opponent), Counted(count: OpponentRingMatching(Reversal), effect: Mill(who: Opponent, n: 0))],
         ),
-        // Being a Multi card against a GM or Legend Superstar is not supported yet.
         // Approximation: the Manager is removed from his Ring only (a Manager is a card with "Managed by" in the
         // title).
         "A Phoenix Rising": (
+            multi_when: Some(AnyOf([OpponentIs("GM"), OpponentIs("Legend")])),
             requires: Some(FortitudeAtMostOpponent),
             bonuses: [(when: AnyOf([OpponentIs("GM"), OpponentIs("Legend")]), fortitude: -7)],
             on_play: [
@@ -668,8 +679,8 @@
         ),
 
         // Andre the Giant
-        // Needing 3 Reversals and the search depending on the discarded card's Fortitude are not supported yet.
-        "Giant Head Butt": (on_play: [Discard(who: You, n: 1, pick: Random)]),
+        // The search depending on the discarded card's Fortitude is not supported yet.
+        "Giant Head Butt": (reversals_needed: 3, on_play: [Discard(who: You, n: 1, pick: Random)]),
         "Obey": (
             reverses: Some((
                 targets: Any,
@@ -1097,7 +1108,7 @@
             not_reversed_by: Some(Title("A Revolution of the Mind")),
             on_play: [
                 Search(filter: ManeuverType(HighRisk)),
-                Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, no_hand_reversal: true)),
+                Boost((applies_to: ManeuverType(HighRisk), duration: NextCard, no_reversal_from: [Hand])),
             ],
         ),
         "Chloe: Best In Show": (
@@ -1144,7 +1155,7 @@
         "I've Seen the Light": (
             reverses: Some((
                 targets: All([Not(Trait(Unique)), EarlierThisTurn(filter: Any, n: 1)]),
-                effects: [Boost((applies_to: Maneuver, duration: NextTurnFirstCard, no_hand_reversal: true))],
+                effects: [Boost((applies_to: Maneuver, duration: NextTurnFirstCard, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under]))],
             )),
         ),
         // Approximation: any Superstar-specific card counts, not only Eugene's.
@@ -1247,9 +1258,9 @@
         "Carlito's Cool Carribean Neck Breaker": (
             ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
-        // Hand-only reversals after a DDT are not supported yet.
         "The Snakeline": (
             play_after: Some(Any),
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under], when: After(TitleContains("DDT")))],
             bonuses: [(fortitude: -20)],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
@@ -1270,11 +1281,9 @@
                 ],
             )),
         ),
-        // Needing 3 Reversals is not supported yet.
-        "The Three Amigos": (play_after: Some(Any)),
-        // Approximation: the extra damage per card in his Ring is dealt as separate damage.
+        "The Three Amigos": (play_after: Some(Any), reversals_needed: 3),
         "Funaki's Ensugiri": (
-            on_play: [Counted(count: OpponentRingMatching(Any), effect: Damage(who: Opponent, n: 0))],
+            bonuses: [(count: Some(OpponentRingMatching(Any)), damage: 1)],
             while_in_ring: [(applies_to: Title("Springboard"), ignore_play_after: true)],
         ),
         "Size Matters": (

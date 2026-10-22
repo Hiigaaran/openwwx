@@ -42,8 +42,11 @@
             OnPlayMatching(filter: Trait(Chain), effects: [Optional([Draw(who: You, n: 1)])]),
             PacksLogos(["Kurt Angle"]),
         ],
-        // Making maneuvers Multi and reversing Actions by discarding 3 cards are not supported yet.
-        "FBI": [CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))]))],
+        // Reversing Actions by discarding 3 cards is not supported yet.
+        "FBI": [
+            StartOfTurn([Boost((applies_to: Maneuver, duration: NextCard, multi: true))]),
+            CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
+        ],
         "A-Train": [
             Activated(
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
@@ -502,11 +505,12 @@
                 ),
             ],
         ),
-        // Changing Raw Roulette Wheel's text, removing cards from the game and picking who starts are not supported
-        // yet.
+        // Removing the chosen card from the game and picking who starts are not supported yet. Raw Roulette Wheel's
+        // added text (+1 Pre-match limit) is read as it not taking up a Pre-match slot.
         // Approximation: the top 3 cards are overturned into your Ringside pile, then you put 1 card from your Ringside
         // pile into your hand and remove 1 from the game (any Ringside cards, not only those 3).
         "Las Vegas, Nevada": (
+            frees_slots: Some(Title("Raw Roulette Wheel")),
             end_of_prematch: [
                 Mill(who: You, n: 3),
                 RingsideToHand(who: You, n: 1),
@@ -546,8 +550,18 @@
             end_of_prematch: [Optional([MillChosen(who: You, n: 1, filter: Some(Keyword("Heat")))])],
             while_in_ring: [(applies_to: All([Maneuver, Keyword("Heat")]), damage: 1)],
         ),
-        // Making a maneuver Multi is not supported yet.
-        "This Is Gonna Be a Rocket Buster": (requires: Some(Never)),
+        "This Is Gonna Be a Rocket Buster": (
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Boost((
+                        applies_to: All([Maneuver, Not(Trait(Unique)), Not(Trait(Multi))]),
+                        duration: NextCard,
+                        multi: true,
+                    )),
+                ],
+            )),
+        ),
         "Old School Beating": (
             while_in_ring: [(applies_to: Maneuver, damage: 1)],
             ring_ability: Some((sacrifice: true, effects: [Boost((applies_to: Maneuver, duration: NextCard, damage: 3))])),
@@ -560,7 +574,7 @@
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
-                    Boost((applies_to: Maneuver, duration: NextCard, no_hand_reversal: true)),
+                    Boost((applies_to: Maneuver, duration: NextCard, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
                     NextPlayWatch(filter: Maneuver, on_reversed: [RemoveFromRing(who: You, n: 1, filter: TitleBelt)]),
                 ],
             )),
@@ -723,16 +737,7 @@
         ),
         "My Obscenely Expensive Jeri-tron 5000": (
             while_in_ring: [
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(1))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(2))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(3))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(4))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(5))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(6))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(7))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(8))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(9))]), fortitude: -1),
-                (applies_to: All([Trait(Unique), Holds(SuperstarValueAtLeast(10))]), fortitude: -1),
+                (applies_to: Trait(Unique), fortitude: -1, count: Some(SuperstarValue)),
             ],
             in_ring_on_play: [(whose: Some(You), filter: Trait(Unique), effects: [Optional([Draw(who: You, n: 1)])])],
         ),
@@ -919,9 +924,9 @@
                 ],
             )),
         ),
-        // Approximation: only this card itself gets the +1 Pre-match limit, not your other Superstar-specific
-        // Pre-match cards.
-        "Know Your Role and Shut Your Mouth": (pre_match_limit: 1),
+        // The added text (+1 Pre-match limit) is read as your Superstar-specific Pre-match cards (this one included)
+        // not taking up a Pre-match slot.
+        "Know Your Role and Shut Your Mouth": (frees_slots: Some(All([SuperstarSpecific, Not(Trait(MidMatch))]))),
         // Approximation: your next Unique maneuver is -5F, whichever one it is.
         "Kane's Rage": (
             on_play: [
@@ -1071,9 +1076,10 @@
                 RingsideToBacklash(who: You, n: 1),
             ],
         ),
-        // Being reversible only from the Arsenal after From the Top Rope is not supported yet.
+        // Approximation: the Arsenal-only limit after From the Top Rope also applies when it is played as an Action.
         "Test's Top Rope Double Axe Handle": (
             play_after: Some(All([Maneuver, DamageAtLeast(2)])),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: After(Title("From the Top Rope")))],
             as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, Discard(who: Opponent, n: 2, pick: Chosen)])),
         ),
         // The +#D for the cards revealed for the Superstar ability is not supported yet.
@@ -1124,16 +1130,8 @@
         ),
         "Nidia's Mink Coat": (
             while_in_ring_opponent: [
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(1))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(2))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(3))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(4))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(5))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(6))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(7))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(8))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(9))]), fortitude: 1),
-                (applies_to: All([Action, Not(Trait(Unique)), Holds(SuperstarValueAtLeast(10))]), fortitude: 1),
+                // The boost's owner is this card's controller, so "his Superstar Value" is the opponent's value.
+                (applies_to: All([Action, Not(Trait(Unique))]), fortitude: 1, count: Some(OpponentValueTimes(1))),
             ],
         ),
 
@@ -1170,12 +1168,19 @@
             ],
         ),
         // Approximation: The People's Champ's maneuvers cannot be reversed from the Backlash deck from the start of
-        // your turn on; The Big Freak'n Machine's first card is your first non-Reversal card of your first turn,
-        // and it cannot be reversed from the Backlash deck either.
+        // your turn on; The Big Freak'n Machine's first card is your first non-Reversal card of your first turn.
         "The People's Champ, The Big Freak'n Machine, or The Game?": (
             enforcer_abilities: [
                 [StartOfTurn([Boost((applies_to: Maneuver, duration: ThisTurn, no_backlash_reversal: true))])],
-                [EndOfPrematch([Boost((applies_to: Not(Reversal), duration: NextTurnCards(1), no_hand_reversal: true))])],
+                [
+                    EndOfPrematch([
+                        Boost((
+                            applies_to: Not(Reversal),
+                            duration: NextTurnCards(1),
+                            no_reversal_from: [Hand, Ringside, Ring, Under],
+                        )),
+                    ]),
+                ],
                 [StartOfTurn([Arrange(who: You, n: 3)])],
             ],
         ),

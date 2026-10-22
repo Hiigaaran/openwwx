@@ -42,10 +42,10 @@
             bonuses: [(fortitude: -6, damage: 2)],
             reverses: Some((targets: TitleContains("takedown"))),
         ),
-        // Approximation: it cannot be reversed from hand at all (not even by Superplex) nor from the Backlash deck.
+        // Approximation: only from the Arsenal; Hold the Phone! and Superplex cannot reverse it from hand either.
         "Superplex": (
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(8)]), Title("Throw Into the Corner Turnbuckle")])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
             reverses: Some((
                 targets: AnyOf([
                     Title("Superplex"),
@@ -109,7 +109,7 @@
             reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]), from_hand_only: true)),
         ),
         "DDT": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
-        "Bulldog Takedown": (no_backlash_reversal: true),
+        "Bulldog Takedown": (reversal_limits: [(from: [Backlash, Ringside, Ring, Under])]),
         "Corkscrew DDT": (reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]), fortitude: Some(5)))),
 
         // Submissions
@@ -189,7 +189,7 @@
             play_after: Some(Any),
             ring_ability: Some((
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
-                effects: [Boost((applies_to: ManeuverType(HighRisk), duration: NextMatching, no_hand_reversal: true))],
+                effects: [Boost((applies_to: ManeuverType(HighRisk), duration: NextMatching, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under]))],
             )),
         ),
         "Drawing Extra Heat": (
@@ -473,16 +473,15 @@
         "Just Who in the Blue Hell Do You Think You Are?": (
             end_of_prematch: [If(condition: Superstar("The People's Champ"), effects: [Draw(who: You, n: 2)])],
         ),
-        // Approximation: any Reversal that ended the opponent's last turn counts, and Reversals from the Backlash
-        // deck are stopped too.
+        // Approximation: any Reversal that ended the opponent's last turn counts.
         "Remove the People's Elbow Pad": (
             play_after: Some(Any),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any)])),
-            on_play: [Boost((applies_to: Any, duration: ThisTurn, no_hand_reversal: true))],
+            on_play: [Boost((applies_to: Any, duration: ThisTurn, no_reversal_from: [Hand]))],
             in_ring_start_of_turn: [Optional([Mill(who: You, n: 1), ReturnThis(to: Backlash)])],
         ),
         "Get Ready ... Your Candy Ass is Next!": (
-            on_play: [Draw(who: You, n: 1), Boost((applies_to: Any, duration: NextCard, no_hand_reversal: true))],
+            on_play: [Draw(who: You, n: 1), Boost((applies_to: Any, duration: NextCard, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under]))],
         ),
 
         // Kane
@@ -516,7 +515,7 @@
         "Ayatollah of Rock 'n' Roll-a": (
             on_play: [
                 LookAtHand(who: Opponent),
-                Boost((applies_to: Maneuver, duration: ThisTurn, no_arsenal_reversal: true, no_backlash_reversal: true)),
+                Boost((applies_to: Maneuver, duration: ThisTurn, no_reversal_from: [Arsenal, Backlash, Ringside])),
             ],
         ),
         "Springboard Drop Kick": (
@@ -711,7 +710,7 @@
         ),
 
         // Lita
-        "Lita's DDT": (no_hand_reversal: true),
+        "Lita's DDT": (reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])]),
 
         // Rob Van Dam
         "Five Star Frog Splash": (
@@ -878,7 +877,7 @@
 
         // Victoria
         "Yes, I've Lost My Mind": (
-            on_play: [Boost((applies_to: Maneuver, duration: ThisTurn, no_hand_reversal: true))],
+            on_play: [Boost((applies_to: Maneuver, duration: ThisTurn, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under]))],
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), overturned_only: true)),
         ),
     },

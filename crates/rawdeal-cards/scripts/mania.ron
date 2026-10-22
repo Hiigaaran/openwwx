@@ -162,8 +162,11 @@
             on_play: [Optional([RingsideToArsenal(who: You, n: 3, up_to: true)])],
             reverses: Some((targets: AnyOf([Title("Suicide Plancha"), Title("Flying Tope")]))),
         ),
-        // The "first card of the game" part is not supported yet.
-        "Pump Kick": (requires: Some(Not(Superstar("Brothers of Destruction")))),
+        // The first card of the game is the first card played in turn 1.
+        "Pump Kick": (
+            requires: Some(Not(Superstar("Brothers of Destruction"))),
+            reversal_limits: [(from: [Hand], when: All([FirstTurnOfGame, FirstCardThisTurn]))],
+        ),
 
         // Grapples
         // Approximation: the next card may ignore any "can only be played after" text.
@@ -533,7 +536,7 @@
             )),
         ),
         "No Way Out": (
-            while_in_ring: [(applies_to: All([Maneuver, Holds(FortitudeAboveOpponent)]), no_hand_reversal: true)],
+            while_in_ring: [(applies_to: All([Maneuver, Holds(FortitudeAboveOpponent)]), no_reversal_from: [Hand])],
             in_ring_start_of_turn: [If(condition: FortitudeAtMostOpponent, effects: [SacrificeThis])],
         ),
 

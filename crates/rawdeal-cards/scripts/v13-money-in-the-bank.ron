@@ -10,7 +10,7 @@
 // Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
 // Face-down cards, cards under a Superstar or Backstage card, hiding Backstage cards during the opponent's turn,
 // "is a Trademark Finisher / High Risk instead", "cannot be blanked", "your opponent cannot respond" (except as
-// "cannot be reversed") and "can only be reversed by 2 / 3 reversals" are not supported.
+// "cannot be reversed") are not supported.
 // "Half the reversed card's Fortitude" is approximated as 3.
 (
     abilities: {
@@ -116,8 +116,15 @@
         "Fickle!": (reverses: Some((targets: Not(Maneuver), effects: [RingsideToArsenal(who: You, n: 3, up_to: true)]))),
 
         // The Great Liberator
-        // Putting cards under it and playing them is not supported yet.
-        "I'm Making a Documentary": (),
+        // Approximation: "under this card" is under the Superstar card, and its maneuvers can be played at any time
+        // (not once per turn with fewer Hand cards). The unsuccessful and same-title texts are not supported yet.
+        "I'm Making a Documentary": (
+            backstage_abilities: [PlayFromUnder(Maneuver)],
+            backstage_ability: Some((
+                requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10)),
+                effects: [PutUnder(from: Ringside, n: 1, filter: Some(Maneuver), superstar: true)],
+            )),
+        ),
         // Approximation: the opponent always plays with his hand revealed. The Fortitude text is not supported yet.
         "The Deck is Stacked Against Me!": (reveals_opponent_hand: true, in_ring_start_of_turn: [Arrange(who: You, n: 3)]),
         // The -2F and the text-copy texts are not supported yet.
@@ -135,8 +142,8 @@
             irreversible: true,
             bonuses: [(when: FortitudeAtLeast(25), damage: 10)],
         ),
-        // The 3-reversal and 'completely' texts are not supported yet.
-        "The Three Amigos": (not_packed_by: ["Los Guerreros"]),
+        // The 'completely' text is not supported yet.
+        "The Three Amigos": (not_packed_by: ["Los Guerreros"], reversals_needed: 3),
 
         // Carmella
         // Hiding it during the opponent's turn and the Promo text are not supported yet.
@@ -144,8 +151,8 @@
         // Its texts depend on Carmella's Promo, which is not tracked yet.
         "Princess of Staten Island": (),
         "Mella I$ Money": (reverses: Some((targets: Any, effects: [RingsideToArsenalBottom(who: You, n: 3)]))),
-        // Playing it from RFG and the Female reversal restriction are not supported yet.
-        "Mella's Big Kick": (),
+        // Playing it from RFG is not supported yet.
+        "Mella's Big Kick": (reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: OpponentFemale)]),
         "Mella Buster": (on_play: [RingsideToArsenalBottom(who: You, n: 2)]),
         // Approximation: your opponent shuffles half his hand (rounded down, his choice) into his Arsenal.
         "Staten Island Shuffle": (
@@ -177,8 +184,8 @@
                 Boost((applies_to: Any, duration: NextCard, irreversible: true)),
             ],
         ),
-        // Reversing a card after it was successfully played is not supported yet.
-        "Capisce": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // The Promo text is not supported yet.
+        "Capisce": (reverses: Some((targets: Not(Any))), after_success: Some((filter: Any, at: BeforeEffects, cancel: true))),
 
         // Naomi
         // The Foil reversal restrictions are not supported yet.
@@ -214,19 +221,20 @@
                 ),
             ],
         ),
-        // Approximation: as an action you draw 2 cards (not the bottom 2) or Bury this card. The Counter
-        // restriction and the Trademark Finisher change are not supported yet.
+        // Approximation: as an action you draw 2 cards (not the bottom 2) or Bury this card. The Trademark Finisher
+        // change is not supported yet.
         "Rear View": (
             bonuses: [(when: FortitudeAtLeast(25), damage: 5)],
+            reversal_limits: [(from: [Backlash], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
             as_action: Some((
                 fortitude: Some(0),
                 on_play: [Choice([[Draw(who: You, n: 2), ShuffleThisIntoArsenal], [ThisToArsenal(bottom: true), Discard(who: Opponent, n: 1, pick: Chosen)]])],
             )),
             reverses: Some((targets: All([Maneuver, After(Action)]))),
         ),
-        // Approximation: only reversals from the Backlash deck are stopped. Reversing pinfall-preventing effects is
-        // not supported yet.
-        "Slay-Mission": (no_backlash_reversal: true, reverses: Some((targets: Keyword("Foil")))),
+        // Approximation: non-Unique cards can still reverse it from the Arsenal. Reversing pinfall-preventing effects
+        // is not supported yet.
+        "Slay-Mission": (reversal_limits: [(from: [Backlash, Ringside, Ring, Under])], reverses: Some((targets: Keyword("Foil")))),
         "It's Glow Time": (
             as_action: Some((on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true, filter: Some(AnyOf([SuperstarSpecific, Keyword("Foil")])))])),
         ),
@@ -248,17 +256,19 @@
                 ]),
             ],
         ),
-        // Approximation: choose twice among the supported options (flipping cards and starting the game are not
-        // supported).
+        // Approximation: choose twice among the supported options (starting the game is not supported). Hiding
+        // this card is not supported yet.
         "Riddle's Flip-Flops": (
             backstage_abilities: [
                 EndOfPrematch([
                     Choice([
+                        [FlipDown(who: Opponent, n: 1, filter: Some(Not(SuperstarSpecific)))],
                         [BacklashToRingside(who: Opponent, n: 1, random: true)],
                         [RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Random)],
                         [RingsideToHand(who: You, n: 1)],
                     ]),
                     Choice([
+                        [FlipDown(who: Opponent, n: 1, filter: Some(Not(SuperstarSpecific)))],
                         [BacklashToRingside(who: Opponent, n: 1, random: true)],
                         [RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Random)],
                         [RingsideToHand(who: You, n: 1)],
@@ -291,8 +301,7 @@
                 effects: [Discard(who: You, n: 1, pick: Chosen), Dig(n: 2, take: 1)],
             )),
         ),
-        // Approximation: never reversed from the Backlash deck (not only after a maneuver or as a Counter).
-        "Bro Derek": (no_backlash_reversal: true),
+        "Bro Derek": (reversal_limits: [(from: [Backlash], when: AnyOf([After(Maneuver), All([ReversedLastTurn(Any), FirstCardThisTurn])]))]),
         "Final Flash": (no_arsenal_reversal: true),
         "The King of Bros": (
             as_action: Some((
@@ -320,15 +329,15 @@
                 (applies_to: All([Maneuver, PlayerRingHas(filter: Reversal, n: 3)]), damage: -1),
             ],
         ),
-        // Reversing a maneuver after it was successfully played is not supported yet.
-        "UNBESIEGBAR": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // The Counter type change and the conditional reversal restriction are not supported yet.
-        "H Bomb Elbow": (),
-        // The Counter type change and reversal restriction are not supported yet.
-        "Impetus Kick": (),
+        // "Overturn 10- cards" is taken as 0. The Ring text (Multi, 'Completely') is not supported yet.
+        "UNBESIEGBAR": (reverses: Some((targets: Not(Any))), after_success: Some((at: BeforeEffects, cancel: true))),
+        // The Counter type change is not supported yet.
+        "H Bomb Elbow": (reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: CountBelow(a: Plus(YourFortitude, Const(9)), b: OpponentFortitude))]),
+        // The Counter type change is not supported yet.
+        "Impetus Kick": (reversal_limits: [(from: [Hand], when: All([ReversedLastTurn(Any), FirstCardThisTurn, YouReversedFrom([Arsenal])]))]),
         // The Trademark Finisher change and the return-to-hand text are not supported yet.
         "Torpedo Moscow": (no_backlash_reversal: true),
-        // The 2-reversal text and the optional overturn are not supported yet.
+        // The optional overturn is not supported yet.
         "Greetings from Moscow": (
             bonuses: [(fortitude: -10)],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique)), Holds(All([ReversedLastTurn(Any), FirstCardThisTurn]))]))),
@@ -442,20 +451,19 @@
             as_action: Some((on_play: [Search(filter: ManeuverType(Strike)), ShuffleThisIntoArsenal])),
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), overturned_only: true)),
         ),
-        // The Strike, Multi, Diva and Stun Value texts are not supported yet.
-        "Jaqueline's Piledriver": (),
+        // The Strike and Stun Value texts are not supported yet.
+        "Jaqueline's Piledriver": (multi_when: Some(OpponentFemale), reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: OpponentIs("Diva"))]),
         // The face-down text is not supported yet.
         "The One and Only": (
             on_play: [ShuffleHandAndRedraw(who: You), ShuffleHandAndRedraw(who: Opponent), HandToArsenal(who: Opponent, n: 2)],
         ),
-        // Face-down cards are not supported yet.
         "Running Shooting Star Press": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            bonuses: [(fortitude: -1, count: Some(YourFaceDown)), (damage: 1, count: Some(OpponentFaceDown))],
         ),
         // Flipping cards face-down is not supported yet.
         "Blink and You'll Miss It": (while_in_ring: [(applies_to: Maneuver, stun_value: 1)]),
-        // Face-down cards are not supported yet.
-        "Recoil": (reverses: Some((targets: Not(Trait(Unique))))),
+        "Recoil": (bonuses: [(fortitude: -3, count: Some(YourFaceDown))], reverses: Some((targets: Not(Trait(Unique))))),
     },
 )

@@ -3,12 +3,11 @@
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
 (
     abilities: {
-        // Approximation: his first 2 cards are the first 2 non-Reversal cards of his first turn
-        // (not reversible from the Backlash deck either).
+        // Approximation: his first 2 cards are the first 2 non-Reversal cards of his first turn.
         "Big Freak'n Machine": [
             PacksLogos(["Kane"]),
             EndOfPrematch([
-                Boost((applies_to: Not(Reversal), duration: NextTurnCards(2), no_hand_reversal: true)),
+                Boost((applies_to: Not(Reversal), duration: NextTurnCards(2), no_reversal_from: [Hand, Ringside, Ring, Under])),
             ]),
         ],
         "The Game": [
@@ -223,9 +222,23 @@
         ),
         // Tag Team symbol card: for 2-on-2 Tag Team format matches, which this game does not have.
         "Hot Tag!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // The Stun Value Fortitude discount while in the Ring is not supported yet.
         "Back-and-Forth Action": (
             on_play: [RingsideToArsenal(who: You, n: 1, filter: Some(StunValueAtLeast(1))), Draw(who: You, n: 1)],
+            // The player with the strictly highest Stun Value in his Ring plays his Stun Value cards at -#F.
+            while_in_ring: [
+                (
+                    applies_to: All([StunValueAtLeast(1), Holds(CountBelow(a: OpponentRingStun, b: YourRingStun))]),
+                    fortitude: -1,
+                    count: Some(YourRingStun),
+                ),
+            ],
+            while_in_ring_opponent: [
+                (
+                    applies_to: All([StunValueAtLeast(1), Holds(CountBelow(a: OpponentRingStun, b: YourRingStun))]),
+                    fortitude: -1,
+                    count: Some(OpponentRingStun),
+                ),
+            ],
         ),
         "Fire Extinguisher": (
             play_after: Some(Title("Roll Out of the Ring")),
@@ -352,10 +365,9 @@
         ),
         // Reversing by discarding a card from hand is not supported yet for a Ring card.
         "Ring Psychology: Neck": (requires: Some(Never)),
-        // Approximation: it cannot be reversed from the Backlash deck either.
         "Unorthodox Style of Wrestling": (
             while_in_ring: [
-                (applies_to: All([ManeuverType(HighRisk), After(ManeuverType(Submission))]), no_hand_reversal: true),
+                (applies_to: All([ManeuverType(HighRisk), After(ManeuverType(Submission))]), no_reversal_from: [Hand]),
             ],
         ),
         "Lumberjack Match": (
@@ -577,24 +589,17 @@
 
         // Big Freak'n Machine (Kane)
         "Freaks Are Cool!": (
-            on_play: [
-                Counted(
-                    count: SuperstarValue,
-                    effect: Boost((applies_to: All([Maneuver, Not(Trait(Unique))]), duration: ThisTurn, fortitude: -1)),
-                ),
-            ],
-            in_ring_start_of_turn: [
-                Counted(
-                    count: SuperstarValue,
-                    effect: Boost((applies_to: All([Maneuver, Not(Trait(Unique))]), duration: ThisTurn, fortitude: -1)),
-                ),
-            ],
+            while_in_ring: [(applies_to: All([Maneuver, Not(Trait(Unique))]), fortitude: -1, count: Some(SuperstarValue))],
         ),
-        // Approximation: the maneuver cannot be reversed from the Backlash deck either.
         "The Fire Still Burns": (
             on_play: [
-                Counted(count: YourRingStun, effect: Boost((applies_to: Maneuver, duration: NextCard, damage: 1))),
-                Boost((applies_to: Maneuver, duration: NextCard, no_hand_reversal: true)),
+                Boost((
+                    applies_to: Maneuver,
+                    duration: NextCard,
+                    damage: 1,
+                    count: Some(YourRingStun),
+                    no_reversal_from: [Hand, Ringside, Ring, Under],
+                )),
             ],
         ),
         "Big Freak'n Uppercut": (reverses: Some((targets: ManeuverType(Strike)))),
@@ -683,12 +688,11 @@
                 effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, irreversible: true))],
             )),
         ),
-        // Approximation: any Superstar-specific maneuver counts, any reversed maneuver counts for Spine Buster,
-        // and Reversals from the Backlash deck are stopped too.
+        // Approximation: any Superstar-specific maneuver counts, and any reversed maneuver counts for Spine Buster.
         "Remove the People's Elbow Pad": (
             play_after: Some(All([Maneuver, SuperstarSpecific])),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver)])),
-            on_play: [Boost((applies_to: Any, duration: ThisTurn, no_hand_reversal: true))],
+            on_play: [Boost((applies_to: Any, duration: ThisTurn, no_reversal_from: [Hand]))],
             in_ring_start_of_turn: [Optional([ReturnThis(to: Backlash)])],
         ),
         "It Doesn't Matter What Your Name Is!": (
@@ -784,7 +788,7 @@
 
         // Cards for earlier Superstars
         "Throwin' Big Ol' Soup Bones in the Corner": (
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
             play_after: Some(AnyOf([Title("Throw Into the Corner Turnbuckle"), All([Maneuver, DamageAtLeast(4)])])),
             reverses: Some((targets: After(Title("Throw Into the Corner Turnbuckle")))),
         ),

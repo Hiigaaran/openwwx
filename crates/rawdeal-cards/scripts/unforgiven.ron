@@ -154,8 +154,7 @@
         ),
         "Body Block": (
             play_after: Some(All([Maneuver, DamageAtLeast(3)])),
-            no_arsenal_reversal: true,
-            no_backlash_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             reverses: Some((
                 targets: All([Maneuver, AnyOf([TitleContains("atomic"), After(Title("Irish Whip"))])]),
                 fortitude: Some(0),
@@ -176,8 +175,7 @@
         ),
         "Shooting Star Press": (
             play_after: Some(All([Maneuver, DamageAtLeast(8)])),
-            no_arsenal_reversal: true,
-            no_backlash_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             on_play: [Draw(who: You, n: 1)],
         ),
 
@@ -338,14 +336,26 @@
             before_reversal: [RemoveFromGame(who: You, from: Hand, n: 2)],
         ),
         "Shoot Russian Leg Sweep": (on_play: [Mill(who: You, n: 2)]),
-        // Allowing only Backlash and Arsenal reversals under a condition is not supported yet.
-        "German Suplex": (),
+        "German Suplex": (
+            reversal_limits: [
+                (
+                    from: [Hand, Ringside, Ring, Under],
+                    when: All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])]),
+                ),
+            ],
+        ),
         // Burying your hand to make it -7F is not supported yet.
         "Sit Out Powerbomb": (),
-        // Counting as a High Risk maneuver outside the Ring and the reversal limit after From the Middle
-        // Turnbuckle or From the Top Rope are not supported yet.
+        // Counting as a High Risk maneuver outside the Ring is not supported yet. Approximation: after From the
+        // Middle Turnbuckle or From the Top Rope any Reversal may still reverse it from hand, not only Unique ones.
         "Tornado DDT": (
             play_after: Some(Any),
+            reversal_limits: [
+                (
+                    from: [Backlash, Ringside, Ring, Under],
+                    when: After(AnyOf([Title("From the Middle Turnbuckle"), Title("From the Top Rope")])),
+                ),
+            ],
             reverses: Some((
                 targets: All([
                     Maneuver,
@@ -364,7 +374,7 @@
         ),
 
         // Submissions
-        "Side Headlock": (no_arsenal_reversal: true, no_backlash_reversal: true),
+        "Side Headlock": (reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])]),
         // Approximation: the cards all go back on top of the Arsenal.
         "Bear Hug": (on_play: [Arrange(who: Opponent, n: 5)]),
         "Full Nelson": (on_play: [Optional([RingsideToArsenal(who: You, n: 1)])]),
@@ -407,9 +417,13 @@
                 ),
             ],
         ),
-        "Spinning Toe Hold": (play_after: Some(All([Maneuver, DamageAtLeast(4)])), no_hand_reversal: true),
-        // Allowing only Arsenal reversals after a 4D or greater maneuver is not supported yet.
-        "Boston Crab": (),
+        "Spinning Toe Hold": (
+            play_after: Some(All([Maneuver, DamageAtLeast(4)])),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
+        ),
+        "Boston Crab": (
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: After(All([Maneuver, DamageAtLeast(4)])))],
+        ),
         // Overturning as many cards as were discarded is not supported yet.
         "Precision Leg Lock": (
             fortitude_discount: Some((per: 2, max: 5)),
@@ -585,7 +599,7 @@
         "Melina: Naughty Manager": (
             on_play: [
                 AsOpponent([Optional([Draw(who: You, n: 1)])]),
-                Boost((applies_to: Any, duration: NextCard, no_hand_reversal: true)),
+                Boost((applies_to: Any, duration: NextCard, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
             ],
         ),
         // Naming a maneuver is not supported yet.
@@ -593,8 +607,9 @@
         "Candice: Internet Icon": (on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 12, up_to: true, bottom: true)]),
 
         // Pre-match
-        // The extra Pre-match slot for Female Superstars and Val Venis is not supported yet.
+        // Its +1 Pre-match limit is read as it not taking up a Pre-match slot.
         "Hello, Ladies!": (
+            frees_slots: Some(All([Title("Hello, Ladies!"), Holds(AnyOf([YouAre("Female"), Superstar("Val Venis")]))])),
             ring_ability: Some((
                 sacrifice: true,
                 effects: [
@@ -822,7 +837,7 @@
                 effects: [
                     Counted(count: YourRingMatching(Maneuver), effect: Discard(who: Opponent, n: 0, pick: Chosen)),
                     Discard(who: Opponent, n: 3, pick: Chosen),
-                    Boost((applies_to: Maneuver, duration: NextMatching, no_hand_reversal: true)),
+                    Boost((applies_to: Maneuver, duration: NextMatching, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
                 ],
             )),
         ),
@@ -933,7 +948,7 @@
                 ],
             )),
         ),
-        "Hogan's Patented Overhand Punch": (no_backlash_reversal: true),
+        "Hogan's Patented Overhand Punch": (reversal_limits: [(from: [Backlash, Ringside, Ring, Under])]),
         "Fight for the Rights of Every Man": (
             bonuses: [
                 (when: CountAtLeast(count: YourRingsideMatching(Title("I am a Real American")), n: 1), fortitude: -5),
@@ -1287,8 +1302,7 @@
         ),
         "Flying Forearm": (
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(3)]), Title("Irish Whip")])),
-            no_arsenal_reversal: true,
-            no_backlash_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             reverses: Some((targets: All([Maneuver, After(Title("Irish Whip"))]))),
         ),
         "Uncle Eric's Karate Kick": (

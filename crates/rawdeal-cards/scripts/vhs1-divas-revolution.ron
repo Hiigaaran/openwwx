@@ -6,7 +6,8 @@
 // as 'diva' in the title. "Ignore 'completely'", Activated Card Effects as reversal targets, ACE effects used during
 // the opponent's turn and packing named cards from other sets are not supported yet.
 // "You cannot pack Corners" is approximated as cards with "In My Corner" in the title.
-// Female Superstars cannot play Multi maneuvers (engine rule), so the Multi maneuvers here are only played by others.
+// Female Superstars cannot play printed Multi maneuvers (engine rule), so the Multi maneuvers here are only played by
+// others; cards made Multi by a Superstar ability (a start-of-turn Boost) can be played.
 (
     abilities: {
         // Approximation: the Unique bury rider is not supported; neither is packing The Flair Flop.
@@ -45,12 +46,16 @@
             ),
             CannotPack("Dynamically Inclined"),
         ],
-        // Making the first 'diva' card Multi, the named packing permissions and the Nikki Bella limit are not
-        // supported yet.
-        "Brie Bella": [CannotPackMatching(TitleContains("In My Corner"))],
-        // Making the first F: 0 maneuver Multi, the named packing permissions and the Brie Bella limit are not
-        // supported yet.
-        "Nikki Bella": [CannotPackMatching(TitleContains("In My Corner"))],
+        // The named packing permissions and the Nikki Bella limit are not supported yet.
+        "Brie Bella": [
+            CannotPackMatching(TitleContains("In My Corner")),
+            StartOfTurn([Boost((applies_to: TitleContains("diva"), duration: NextMatching, multi: true))]),
+        ],
+        // The named packing permissions and the Brie Bella limit are not supported yet.
+        "Nikki Bella": [
+            CannotPackMatching(TitleContains("In My Corner")),
+            StartOfTurn([Boost((applies_to: All([Maneuver, FortitudeAtMost(0)]), duration: NextMatching, multi: true))]),
+        ],
     },
     scripts: {
         // Charlotte
@@ -62,9 +67,8 @@
                 effects: [Draw(who: You, n: 4), HandToArsenalBottom(who: You, n: 3)],
             )),
         ),
-        // Approximation: "does not take up a Pre-match slot" is one more Pre-match slot.
         "Daughter of The Nature Boy": (
-            pre_match_limit: 1,
+            no_slot: true,
             on_play: [If(condition: Not(OpponentIs("NXT")), effects: [RemoveFromGame(who: Opponent, from: Arsenal, n: 4)])],
             while_in_ring: [
                 (
@@ -100,8 +104,11 @@
             as_action: Some((on_play: [DiscardThis, MoveCards(who: You, from: Ringside, to: Arsenal, n: 8, up_to: true, bottom: true)])),
         ),
         "Figure Four Headlock": (on_play: [RingsideToArsenal(who: You, n: 4, up_to: true)]),
-        // The Counter reversal limit is not supported yet.
-        "Natural Selection": (on_play: [Discard(who: Opponent, n: 4, pick: Chosen)]),
+        // Not being reversible by When You Thought You Had All the Answers... as a Counter is not supported yet.
+        "Natural Selection": (
+            on_play: [Discard(who: Opponent, n: 4, pick: Chosen)],
+            reversal_limits: [(from: [Hand], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
+        ),
         // Approximation: the reversed card is always removed from the game (the opponent's discard option is not
         // supported).
         "Woo!": (reverses: Some((targets: Not(Maneuver), reversed_removed: true))),
@@ -116,8 +123,9 @@
                 ],
             )),
         ),
-        // Needing 3 reversals is not supported yet.
         "Beautiful Fierce Females": (
+            reversals_needed: 3,
+            reversals_needed_when: Some(OpponentIs("Diva")),
             on_play: [
                 RingsideToHand(who: You, n: 3, up_to: true),
                 RingsideToArsenal(who: You, n: 3, up_to: true),
@@ -140,8 +148,11 @@
         // Sasha Banks
         // Moving Set-up cards from the Backstage Area and the 'back' title text are not supported yet.
         "The Baddest Diva in NXT": (),
-        // The Fortitude increase per card under this card and the ACE are not supported yet.
+        // Approximation: the +2F counts every card under your cards. Cannot be blanked and the ACE are not supported yet.
         "Sky's The Limit": (
+            while_in_ring_opponent: [
+                (applies_to: AnyOf([Action, All([Reversal, Not(FortitudeAtMost(0))])]), fortitude: 2, count: Some(YourUnderSize)),
+            ],
             in_ring_on_play: [
                 (
                     whose: Some(You),
@@ -168,23 +179,26 @@
                 effects: [If(condition: AnyOf([OpponentIs("Diva"), OpponentIs("NXT")]), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
             )),
         ),
-        // The From the Top Rope reversal limit is not supported yet.
-        "Sasha's Corner Diving Knee Drop": (play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(3)]), Trait(SetUp)]))),
-        // Becoming Multi is not supported yet. Approximation: counts every card under your cards.
+        "Sasha's Corner Diving Knee Drop": (
+            play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(3)]), Trait(SetUp)])),
+            reversal_limits: [(from: [Hand, Ringside, Ring, Under], when: After(Title("From the Top Rope")))],
+        ),
+        // Approximation: counts every card under your cards.
         "The Bank Statement": (
+            multi_when: Some(After(Not(Trait(SetUp)))),
             on_play: [
                 Counted(count: YourUnderSize, effect: Discard(who: Opponent, n: 0, pick: Chosen)),
                 Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
                 NextPlayWatch(filter: Title("Maintain Hold"), on_success: [WinByPin]),
             ],
         ),
-        // Making the next Set-up card Chain is not supported yet.
         "Do it Like a Boss!": (
             reverses: Some((
                 targets: AnyOf([
                     All([Maneuver, Not(Trait(Unique))]),
                     All([Maneuver, Not(SuperstarSpecific), Holds(AnyOf([YouAre("Diva"), YouAre("NXT")]))]),
                 ]),
+                effects: [Boost((applies_to: Trait(SetUp), duration: NextTurnFirstCard, chain: true))],
             )),
         ),
         // Putting the reversed card into the opponent's hand is not supported yet.
@@ -255,8 +269,8 @@
             no_hand_reversal: true,
         ),
         "Becky's Precision Exploder Suplex": (fortitude_discount: Some((per: 4, max: 3))),
-        // Becoming Multi with 4 reversals and the shuffle when unsuccessful are not supported yet.
-        "Four-Leg Clover": (),
+        // The shuffle when unsuccessful is not supported yet.
+        "Four-Leg Clover": (multi_when: Some(Always), reversals_needed: 4),
         // Counting as 'precision' is not supported yet.
         "The Dis-Arm-Her": (
             on_play: [
@@ -285,9 +299,10 @@
         // Brie Bella
         // The Fortitude Rating and Draw Segment texts are not supported yet.
         "Beautiful Life": (only_packed_by: ["Throwback"], requires: Some(Never)),
-        // The hand reversal limit for Throwback Superstars and Brie's Running Spear becoming Multi are not supported yet.
+        // Approximation: 'diva' in the title only.
         "Brie Mode!": (
             bonuses: [(when: YouAre("Throwback"), fortitude: -10)],
+            reversal_limits: [(from: [Hand], when: YouAre("Throwback"))],
             on_play: [
                 Choice([
                     [LookAtHand(who: Opponent), Discard(who: Opponent, n: 1, pick: Controller)],
@@ -295,7 +310,10 @@
                 ]),
             ],
             reverses: Some((targets: All([Not(Trait(Unique)), Not(SuperstarSpecific), Maneuver]))),
-            while_in_ring: [(applies_to: All([Maneuver, TitleContains("diva")]), damage: 3)],
+            while_in_ring: [
+                (applies_to: All([Maneuver, TitleContains("diva")]), damage: 3),
+                (applies_to: Title("Brie's Running Spear"), multi: true),
+            ],
         ),
         // The Ringside text is not supported yet.
         "Brie's YES! Kicks": (
@@ -304,9 +322,10 @@
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
             bonuses: [(when: After(TitleContains("diva")), fortitude: -3, damage: 3)],
         ),
-        // Becoming Multi and 'can only be reversed' in the text are not supported yet.
+        // 'can only be reversed' in the text is not supported yet. Approximation: 'diva' in the title only.
         "Bella Buster": (
             requires: Some(Superstar("Brie Bella")),
+            multi_when: Some(All([YouAre("Throwback"), After(TitleContains("diva"))])),
             on_play: [DrawUpTo(who: You, n: 2), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
             reverses: Some((
                 targets: ManeuverType(HighRisk),
@@ -346,8 +365,12 @@
         ),
         // Reversals dealing no damage, the Pinfall protection and the cards under this card are not supported yet.
         "Fearless": (only_packed_by: ["Throwback"], requires: Some(Never)),
-        // The reversal limit and the Fearless text are not supported yet.
-        "Fearless Flying Kick": (only_packed_by: ["Throwback"]),
+        // The Fearless text is not supported yet.
+        "Fearless Flying Kick": (
+            only_packed_by: ["Throwback"],
+            reversals_needed: 2,
+            reversals_needed_when: Some(After(AnyOf([All([Maneuver, FortitudeAtMost(0)]), Title("Throw Into the Corner Turnbuckle")]))),
+        ),
         // Approximation: "shuffle any number of cards and draw the same number" is up to 10.
         "Nikki's Alabama Slam": (
             only_packed_by: ["Throwback"],
@@ -377,8 +400,8 @@
         ),
 
         // The Bella Twins
-        // The Tag Team Multi text is not supported yet.
         "Bella Suicide Dive": (
+            multi_when: Some(YouAre("Tag Team")),
             play_after: Some(All([Maneuver, DamageAtLeast(4)])),
             play_after_unless: Some(All([Not(YouAre("Tag Team")), ReversedLastTurn(Any), FirstCardThisTurn])),
         ),

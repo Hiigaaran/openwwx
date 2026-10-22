@@ -352,9 +352,10 @@
                 ],
             ),
         ],
-        // The added text on 'Funaki' Pre-match cards is not supported yet. Hybrids with two maneuver types are not
-        // caught by the packing limit.
+        // The added text (+1 Pre-match limit) of his 'Funaki' Pre-match cards is read as them not taking up a
+        // Pre-match slot. Hybrids with two maneuver types are not caught by the packing limit.
         "Funaki": [
+            NoSlotFor(All([TitleContains("Funaki"), Not(AnyOf([Maneuver, Action, Reversal, Trait(MidMatch)]))])),
             CannotPackMatching(AnyOf([All([Maneuver, Action]), All([Maneuver, Reversal]), All([Action, Reversal])])),
             OpponentCannotPlay("SmackDown! #1 Announcer Funaki"),
         ],
@@ -509,7 +510,7 @@
         ),
         // Approximation: you always name 5, and he puts as many cards as he can (up to 5) on the bottom.
         "Precision Kick": (
-            no_arsenal_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             bonuses: [(fortitude: -10)],
             before_reversal: [RingsideToArsenalBottom(who: Opponent, n: 5)],
             on_play: [Discard(who: You, n: 1, pick: Chosen)],
@@ -777,7 +778,7 @@
         // Approximation: you always name 5.
         "Precision Sleeper": (
             play_after: Some(Any),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
             bonuses: [(fortitude: -10)],
             before_reversal: [MoveCards(who: Opponent, from: Ringside, to: Backlash, n: 5, up_to: true, filter: Some(Trait(MidMatch)))],
         ),
@@ -904,8 +905,7 @@
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true, filter: Some(TitleContains("precision")))],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("precision")]), stun_value: 1)],
         ),
-        // Making the next card a Multi card is not supported yet.
-        "...And the Crowd Roars": (on_play: [Draw(who: You, n: 2)]),
+        "...And the Crowd Roars": (on_play: [Draw(who: You, n: 2), Boost((applies_to: Any, duration: NextCard, multi: true))]),
         "By Any Means Necessary": (
             on_play: [
                 Discard(who: Opponent, n: 2, pick: Random),
@@ -1402,7 +1402,7 @@
                 RingsideToHand(who: You, n: 3, up_to: true),
             ],
         ),
-        "Girly Choke": (no_arsenal_reversal: true, on_play: [Search(filter: SuperstarSpecific)]),
+        "Girly Choke": (reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])], on_play: [Search(filter: SuperstarSpecific)]),
         "Don't Call Me A...": (
             reverses: Some((
                 targets: AnyOf([All([Maneuver, Not(Trait(Unique))]), All([Action, SuperstarSpecific])]),
@@ -1444,8 +1444,15 @@
         ),
 
         // Funaki
-        // Only being reversible from hand after the listed cards is not supported yet.
-        "The Rising Sun": (play_after: Some(Any)),
+        "The Rising Sun": (
+            play_after: Some(Any),
+            reversal_limits: [
+                (
+                    from: [Arsenal, Backlash, Ringside, Ring, Under],
+                    when: After(AnyOf([Title("From the Top Rope"), Title("From the Middle Turnbuckle"), Title("Springboard")])),
+                ),
+            ],
+        ),
         "Japanese Flying Bulldog": (
             play_after: Some(Any),
             on_play: [Search(filter: Trait(Unique)), Search(filter: Title("Springboard"))],
@@ -1493,11 +1500,11 @@
         ),
         "Crazy Moonsault": (
             play_after: Some(AnyOf([Title("From the Middle Turnbuckle"), Title("From the Top Rope")])),
-            no_arsenal_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
         ),
         "Psychotic Guillotine Leg Drop": (
             play_after: Some(AnyOf([Title("From the Middle Turnbuckle"), Title("From the Top Rope")])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
         ),
         "Mexi-Leg-Lace Powerbomb": (before_reversal: [Mill(who: You, n: 3)]),
 
@@ -1534,7 +1541,7 @@
         ),
         "Take It Like a Man": (
             play_after: Some(Maneuver),
-            no_arsenal_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             on_play: [BacklashToRingside(who: Opponent, n: 50)],
         ),
         // Its card type is not Reversal, so the reversal part is not supported yet.
@@ -1566,7 +1573,7 @@
                         Title("Sledgehammer Shot"),
                         PlayerRingHas(filter: Title("Bring the Hammer Down"), n: 3),
                     ]),
-                    no_hand_reversal: true,
+                    no_reversal_from: [Hand],
                 ),
             ],
         ),
@@ -1713,8 +1720,14 @@
                 (applies_to: All([Maneuver, Holds(Not(HandAtLeast(1)))]), damage: 1),
             ],
         ),
-        // Only being reversible from the Arsenal under those conditions is not supported yet.
-        "The Ego Cutter": (),
+        "The Ego Cutter": (
+            reversal_limits: [
+                (
+                    from: [Hand, Backlash, Ringside, Ring, Under],
+                    when: AnyOf([After(Title("Ego Boost")), InYourRing(Title("European Uppercut")), OpponentIs("Legend")]),
+                ),
+            ],
+        ),
         "Hold On, Hotshot!": (on_play: [Search(filter: Maneuver)], reverses: Some((targets: Trait(Unique)))),
         "Shelton's Lunging Lariat": (
             bonuses: [(fortitude: -7)],
@@ -1722,8 +1735,13 @@
             reverses: Some((targets: AnyOf([ManeuverType(Submission), ManeuverType(HighRisk)]))),
         ),
         "Dernier Slam": (on_play: [Search(filter: Maneuver)]),
-        // The Arsenal-only reversal when your Fortitude is 0 and his is 10 or more is not supported yet.
         "Unleashed Bomb": (
+            reversal_limits: [
+                (
+                    from: [Hand, Backlash, Ringside, Ring, Under],
+                    when: All([CountAtMost(count: YourFortitude, n: 0), CountAtLeast(count: OpponentFortitude, n: 10)]),
+                ),
+            ],
             bonuses: [
                 (when: All([CountAtMost(count: YourFortitude, n: 0), CountAtLeast(count: OpponentFortitude, n: 10)]), fortitude: -6),
             ],

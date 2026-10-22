@@ -4,9 +4,10 @@
 // "Counter" = you reversed a card to end your opponent's last turn and this is your first card this turn.
 // "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals of card effects and of Activated
-// Card Effects are not supported. "Can only be reversed by N reversals / by D: 0 cards", Stun Value changes,
-// Pre-match / Mid-match Capacity per card, Heat, face-down cards, cards played from the Backstage Area or "as if
-// from hand" from the Ringside, and packing named cards from other sets are not supported yet.
+// Card Effects are not supported. "Can only be reversed by D: 0 / non-Unique / hybrid cards", Stun Value changes,
+// Pre-match Capacity per card, Heat, playing cards face-down, cards played "as if from hand" from the Ringside, and
+// packing named cards from other sets are not supported yet. Cards under a Backstage card (and maneuvers kept in the
+// Backstage Area to be played from there) are approximated as cards under your Superstar card.
 // "When played from hand" on maneuvers is read as "not played from Ringside".
 // "When you are unsuccessful" texts on cards use the card's Ringside trigger, checking that this card was the one
 // reversed.
@@ -22,9 +23,14 @@
                 ),
             ]),
         ],
-        // Putting maneuvers in the Backstage Area and playing them from there are not supported yet. Only
+        // Approximation: the Backstage Area maneuvers are put under your Superstar card at the end of the Pre-match
+        // phase and can be played from there without the discard (different titles are not checked). Only
         // non-Revolution CM Punk cards may be packed.
         "The Best Wrestler In The World": [
+            EndOfPrematch([
+                PutUnder(from: Arsenal, n: 5, up_to: true, filter: Some(All([Maneuver, Not(Keyword("RMS"))])), superstar: true),
+            ]),
+            PlayFromUnder(Maneuver),
             PacksLogos(["CM Punk"]),
             CannotPackMatching(All([SuperstarSpecific, TitleContains("Revolution")])),
         ],
@@ -35,16 +41,15 @@
             CannotPackMatching(Keyword("BASH")),
             CannotPackMatching(TitleContains("In My Corner")),
         ],
-        // Approximation: the next maneuver is -5F (you shuffled at least 5 cards).
         "Drew McIntyre": [
             Activated(
                 cost: [],
                 effects: [
+                    Counted(count: HandSize, effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -1))),
                     MoveCards(who: You, from: Hand, to: Arsenal, n: 30),
                     Draw(who: You, n: 4),
                     MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true),
                     Mill(who: Opponent, n: 1),
-                    Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -5)),
                 ],
                 requires: Some(HandAtLeast(5)),
             ),
@@ -71,8 +76,16 @@
                 ],
             ),
         ],
-        // Making the next Grapple or Submission Multi and the extra packing texts are not supported yet.
-        "Natalya": [CannotPack("There Is No Escape")],
+        // Approximation: the 'reversed' text exception is not checked. The extra packing texts are not supported yet.
+        "Natalya": [
+            Activated(
+                cost: [Discard(who: You, n: 2, pick: Chosen)],
+                effects: [
+                    Boost((applies_to: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]), duration: NextCard, multi: true)),
+                ],
+            ),
+            CannotPack("There Is No Escape"),
+        ],
         // Approximation: the overturn when the opponent plays a maneuver and the single-reversal limit are not
         // supported yet; only the Title Belt packing rule is scripted.
         "Gallows and Anderson": [CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))]))],
@@ -101,8 +114,8 @@
                 ],
             )),
         ),
-        // Needing 3 reversals and going to the Backlash are not supported yet.
-        "AJ's Phenomenal Combination": (mid_match_limit: 1),
+        // Going to the Backlash is not supported yet.
+        "AJ's Phenomenal Combination": (mid_match_limit: 1, reversals_needed: 3),
         // Ignoring the opponent's 'psychology' cards is not supported yet.
         "Ain't Nobody Breakin' This Redneck": (reverses: Some((targets: AnyOf([TitleContains("break"), Not(Maneuver)])))),
         // The Backlash discard to reverse it is not supported yet.
@@ -130,9 +143,12 @@
         ),
         // The 2 D: 0 reversals limit and the Maintain Hold text are not supported yet.
         "Calf Crusher": (),
-        // Approximation: "ignore any reversal restrictions" reverses cards that cannot be reversed. The Ringside and
-        // Arsenal-limit texts are not supported yet.
-        "Styles Clash": (reverses: Some((targets: TitleContains("rana"), ignores_irreversible: true))),
+        // Approximation: "ignore any reversal restrictions" reverses cards that cannot be reversed. The Ringside text
+        // is not supported yet.
+        "Styles Clash": (
+            reversal_limits: [(from: [Arsenal], when: CountAtLeast(count: YourRingMatching(ManeuverType(TrademarkFinisher)), n: 2))],
+            reverses: Some((targets: TitleContains("rana"), ignores_irreversible: true)),
+        ),
         // The removed-from-the-game text is not supported yet.
         "I Am Phenomenal": (reverses: Some((targets: Any))),
 
@@ -174,23 +190,27 @@
                 targets: AnyOf([TitleContains("BASH"), TitleContains("precision"), TitleContains("shoot"), TitleContains("technical")]),
             )),
         ),
-        // The Counter reversal limit and reversing Activated Card Effects are not supported yet.
+        // Approximation: as a Counter any 2 reversals (not only D: 0 ones). Reversing Activated Card Effects is not
+        // supported yet.
         "Punk's Shoot Knee Strike": (
             not_packed_by: ["New Nexus"],
+            reversals_needed: 2,
+            reversals_needed_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
             bonuses: [(fortitude: -5)],
             reverses: Some((targets: ManeuverType(Strike))),
         ),
-        // Approximation: never played from the Backstage Area, so it cannot be reversed from hand (nor Backlash).
+        // Approximation: never played from the Backstage Area, so it cannot be reversed from hand.
         "Punk's Springboard Lariat": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand])],
         ),
-        // The Arsenal-only reversal and the hand text are not supported yet.
+        // The hand text is not supported yet.
         "Savage Flying Elbow Drop": (
             not_packed_by: ["New Nexus"],
             play_after: Some(All([Maneuver, DamageAtLeast(6)])),
             play_after_unless: Some(All([ReversedLastTurn(DamageAtLeast(5)), FirstCardThisTurn])),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: After(AnyOf([Maneuver, Title("From the Top Rope")])))],
         ),
         // The Rock-specific cards and the ACE are not supported yet.
         "Your Arms Are Just Too Short to Box With God": (
@@ -221,8 +241,16 @@
             ],
             backstage_ability: Some((requires: Some(After(All([Maneuver, DamageAtLeast(8)]))), effects: [Dig(n: 4, take: 1)], sacrifice: true)),
         ),
-        // The No Sell Maneuver, Counter -#F and win-replacement texts are not supported yet.
-        "Sister Abigail's Black Sheep": (),
+        // Cannot be blanked, the No Sell Maneuver and win-replacement texts are not supported yet.
+        "Sister Abigail's Black Sheep": (
+            while_in_ring: [
+                (
+                    applies_to: All([Maneuver, Holds(All([ReversedLastTurn(Any), FirstCardThisTurn]))]),
+                    fortitude: -1,
+                    count: Some(YourRingStun),
+                ),
+            ],
+        ),
         "Braun's Lariat": (
             bonuses: [(fortitude: -6)],
             not_reversed_by: Some(DamageAtLeast(1)),
@@ -230,9 +258,9 @@
         ),
         // The Counter reversal limit is not supported yet.
         "Braun's Big Beal Toss": (reverses: Some((targets: After(Trait(SetUp))))),
-        // Being Multi as a Counter is not supported yet.
         "Strowman's Strong Strike to the Chest": (
             bonuses: [(fortitude: -5)],
+            multi_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]), from_hand_only: true)),
             ringside_on_opponent_reverses: [
                 If(
@@ -347,9 +375,8 @@
         ),
         // Playing it from the Ringside pile is not supported yet.
         "Don't Hinder Jinder": (reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), from_hand_only: true))),
-        // Approximation: "cannot be reversed from hand" also stops the Backlash.
         "The Punjabi Nightmare": (
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand], when: YouAre("Jinder Mahal"))],
             bonuses: [(fortitude: -6)],
             on_play: [
                 RingsideToArsenal(who: You, n: 4, up_to: true),
@@ -359,8 +386,30 @@
         ),
 
         // Bayley
-        // Face-down cards and the cards under it are not supported yet.
-        "Bayley's Headband": (),
+        // Approximation: the cards under it are under your Superstar card; the flip-and-Promo only happens during your
+        // turn.
+        "Bayley's Headband": (
+            backstage_abilities: [
+                OnPlayMatching(
+                    filter: AnyOf([Maneuver, Keyword("NXT")]),
+                    effects: [
+                        If(
+                            condition: CountAtLeast(count: Minus(YourRingSize, YourFaceDown), n: 2),
+                            effects: [Optional([FlipDown(who: You, n: 1), Dig(n: 2, take: 1)])],
+                        ),
+                    ],
+                ),
+                OnOpponentPlayMatching(
+                    filter: All([Not(Reversal), DamageAtLeast(1)]),
+                    effects: [Optional([PutUnder(from: Ring, n: 1, up_to: true, filter: Some(FaceDown), superstar: true)])],
+                ),
+            ],
+            backstage_ability: Some((
+                requires: Some(CountAtLeast(count: YourUnderSuperstar, n: 1)),
+                cost: [TakeFromUnder(to: Ringside, n: 1, superstar: true)],
+                effects: [LookAtHand(who: Opponent), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true)],
+            )),
+        ),
         // It works with face-down cards and Bayley's Headband, which are not supported yet.
         "Turn It Up and Give Me Some More": (),
         // The protection texts and the ACE (which needs the hand comparison) are partly scripted.
@@ -397,25 +446,30 @@
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
         ),
-        // Approximation: "can only be reversed from Backlash or Arsenal" is "cannot be reversed from hand" (the
-        // engine's flag also stops the Backlash).
         "Bayley's Exploder Suplex": (
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Ringside, Ring, Under])],
             reverses: Some((
                 targets: AnyOf([ManeuverType(Strike), ManeuverType(Assault), ManeuverType(Extreme)]),
                 effects: [RingsideToArsenal(who: You, n: 2, up_to: true)],
             )),
         ),
-        // Approximation: -4F (no cards under Bayley's Headband), so you put up to 4 cards on the bottom.
+        // Approximation: the cards under Bayley's Headband are the cards under your Superstar card.
         "Bayleycanrana": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
-            bonuses: [(fortitude: -4)],
+            bonuses: [(fortitude: -4), (count: Some(YourUnderSuperstar), fortitude: -2)],
             irreversible: true,
-            on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)],
+            on_play: [
+                Counted(
+                    count: Plus(Const(4), Plus(YourUnderSuperstar, YourUnderSuperstar)),
+                    effect: MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true),
+                ),
+            ],
         ),
-        // Counting as a High Risk and the reversal limit after From the Top Rope or a 'hug' card are not supported yet.
-        "Bayley-to-Belly Hugplex": (),
+        // Counting as a High Risk for From the Top Rope is not supported yet.
+        "Bayley-to-Belly Hugplex": (
+            reversal_limits: [(from: [Hand, Ringside, Ring, Under], when: After(AnyOf([Title("From the Top Rope"), TitleContains("hug")])))],
+        ),
         // Approximation: he discards 3 random cards (the choice to discard 2 reversals is not supported yet).
         "I'm a Hugger": (reverses: Some((targets: Maneuver, effects: [Discard(who: Opponent, n: 3, pick: Random)]))),
         "There Ain't No Stoppin' Us Now": (
@@ -446,21 +500,22 @@
         ),
         // Not being reversed by hybrid cards as a Counter is not supported yet.
         "Natalya's German Suplex": (),
-        // The 2-reversal limit is not supported yet.
+        // Approximation: it is printed Multi, so it always needs 2 reversals.
         "Natalya's Abdominal Stretch": (
             bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), fortitude: -8)],
         ),
         // Choosing Multi or Chain and the Pin-Up Strong text are not supported yet.
         "The Pin-Up Strong Hold": (),
-        // Becoming Chain or a Trademark Finisher is not supported yet.
+        // Becoming a Trademark Finisher is not supported yet.
         "Natalya's Discus Clothesline": (
             bonuses: [(fortitude: -10)],
+            chain_when: Some(Always),
             reverses: Some((
                 targets: AnyOf([Trait(Chain), Keyword("Heat"), Trait(Multi), Keyword("Volley")]),
             )),
         ),
-        // Becoming Chain and the ACE are not supported yet.
-        "Natalya's Sharpshooter": (),
+        // The Maintain Hold text and the ACE are not supported yet.
+        "Natalya's Sharpshooter": (chain_when: Some(Always)),
         // Approximation: the draw is "draw up to 1".
         "The Era of The Pretty Little Diva is Over!": (
             while_in_ring: [(applies_to: Maneuver, fortitude: -4, damage: 2)],

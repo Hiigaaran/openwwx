@@ -133,7 +133,9 @@
             bonuses: [(when: After(Title("Stun Gun")), reversal_fortitude: 15)],
             on_play: [Discard(who: Opponent, n: 2, pick: Chosen)],
         ),
-        "Running Clothesline": (no_hand_reversal: true, irreversible_when: Some(Not(After(Title("Irish Whip"))))),
+        "Running Clothesline": (
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: After(Title("Irish Whip")))],
+        ),
 
         // Grapples
         "Scoop Slam": (on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)]),
@@ -232,13 +234,30 @@
                 effects: [Discard(who: You, n: 2, pick: Chosen)],
             )),
         ),
-        // Played after a maneuver succeeds, outside the reversal window: not supported yet.
+        // The maneuver's text and damage are blanked; you overturn cards equal to its printed D instead.
+        // The cards that say "your opponent cannot play Over Sell Maneuver immediately after this card" are
+        // listed in the filter.
         "Over Sell Maneuver": (
             not_packed_by: [
                 "Stone Cold Steve Austin", "Undertaker", "Deadman Inc", "Kane", "Tazz", "Two Man Power Trip",
                 "The Rattlesnake", "Big Poppa Pump", "Gene Snitsky", "Heidenreich",
             ],
             reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: All([
+                    Maneuver,
+                    Not(
+                        AnyOf([
+                            Title("Hollywood Leg Drop"), Title("Shoot Aerial 360-Degree Kick"), Title("Shoot Punch"),
+                            Title("Shoot Slam"), Title("Shoot Headlock"), Title("Girly Punch"), Title("European Uppercut"),
+                            Title("Rest Hold"), Title("Girly Slap"), Title("Girly Grab"), Title("Handcuffed"),
+                        ]),
+                    ),
+                ]),
+                at: BeforeEffects,
+                cancel: true,
+                effects: [Counted(count: InPlayDamage, effect: Mill(who: You, n: 0)), DrawUpTo(who: You, n: 2)],
+            )),
         ),
         "Kissing Up to the Stinkin' Fans": (
             reverses: Some((
@@ -509,7 +528,7 @@
                 requires: Some(FortitudeBelowOpponent),
             )),
         ),
-        "Dirty Low Blow": (requires: Some(FortitudeBelowOpponent), no_hand_reversal: true),
+        "Dirty Low Blow": (requires: Some(FortitudeBelowOpponent), reversal_limits: [(from: [Hand])]),
         "Small Concealed Foreign Object": (
             play_after: Some(ManeuverType(Strike)),
             on_play: [Draw(who: You, n: 1)],

@@ -116,7 +116,7 @@
         ),
         // Played as a Strike or as a Grapple.
         "Throttled Within an Inch of Your Life": (
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand])],
             on_play: [OverturnUntilReversal(who: Opponent, n: 2, keep: 1)],
         ),
 

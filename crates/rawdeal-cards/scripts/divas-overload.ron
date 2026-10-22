@@ -124,7 +124,7 @@
             not_reversed_by: Some(Not(DamageAtMost(0))),
         ),
         "Boot Lace": (
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand])],
             requires: Some(All([ReversedLastTurn(Any), YouReversedFrom([Hand, Arsenal]), FirstCardThisTurn])),
             as_action: Some((on_play: [DiscardThis, Draw(who: You, n: 1)])),
         ),
@@ -165,9 +165,9 @@
             )),
             ringside_ability: Some((cost: [Discard(who: You, n: 1, pick: Chosen)], effects: [ReturnThis(to: Hand), EndTurn])),
         ),
-        // Playing it from hand after the opponent's successful Double Clothesline Takedown is not supported yet.
         "Double Clothesline Takedown": (
             reverses: Some((targets: Title("Double Clothesline Takedown"), overturned_only: true)),
+            after_success: Some((filter: Title("Double Clothesline Takedown"))),
         ),
         "Atomic Lariat": (not_reversed_by: Some(Not(AnyOf([Trait(Unique), Maneuver, Action])))),
         "Hurricane Clothesline": (
@@ -178,7 +178,7 @@
         // Grapples
         // Keeping the opponent from modifying Fortitude is not supported yet.
         "Chest Lock Drop": (),
-        "Wheelbarrow Slam": (no_arsenal_reversal: true, on_play: [Mill(who: Opponent, n: 1)]),
+        "Wheelbarrow Slam": (reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])], on_play: [Mill(who: Opponent, n: 1)]),
         "Running Spinebuster": (bonuses: [(when: FortitudeBelowOpponent, fortitude: -5)]),
         "Gut Buster On Top Rope": (
             irreversible_when: Some(InYourRing(Title("Gut Buster"))),
@@ -404,7 +404,7 @@
                     n: 1,
                     options: [
                         [Draw(who: Opponent, n: 1), Discard(who: Opponent, n: 3, pick: Chosen)],
-                        [Boost((applies_to: Maneuver, duration: NextCard, no_hand_reversal: true))],
+                        [Boost((applies_to: Maneuver, duration: NextCard, no_reversal_from: [Hand]))],
                     ],
                 ),
             ],
@@ -679,8 +679,20 @@
         ),
 
         // Mid-match
-        // Ending the opponent's turn after his successful maneuver is not supported yet.
-        "Took That on the Chin": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Approximation: played after the maneuver's damage, so the "reversed from your Arsenal" case cannot happen.
+        "Took That on the Chin": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: All([Maneuver, DamageAtLeast(8)]),
+                end_turn: false,
+                effects: [
+                    If(
+                        condition: HandHas(Trait(MidMatch)),
+                        effects: [Optional([DiscardMatching(who: You, n: 1, filter: Trait(MidMatch), pick: Chosen), EndTurn])],
+                    ),
+                ],
+            )),
+        ),
         // Its text names nothing to reverse. The BASH packing limit is not supported yet.
         "Skirt the Issue": (
             only_packed_by: ["Diva"],
@@ -696,11 +708,14 @@
                 MillChosen(who: You, n: 2, filter: Some(Title("Table! Table! Table!"))),
             ],
         ),
-        // Lowering the F of Face Actions while it is in the Ring is not supported yet.
-        "Teaser Mode": (on_play: [Search(filter: Trait(Face)), EndTurn]),
+        // Approximation: two copies in the Ring both lower the F (the text says they are not cumulative).
+        "Teaser Mode": (
+            on_play: [Search(filter: Trait(Face)), EndTurn],
+            while_in_ring: [(applies_to: All([Action, Trait(Face)]), fortitude: -1, count: Some(YourRingMatching(Trait(Face))))],
+        ),
         "Victory Roll": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
-            no_arsenal_reversal: true,
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
             on_play: [WinByPin],
         ),
         // Blanking cards is not supported yet.
@@ -763,7 +778,10 @@
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
         ),
         "Who's Next?": (
-            on_play: [Draw(who: You, n: 1), Boost((applies_to: Maneuver, duration: NextMatching, no_hand_reversal: true))],
+            on_play: [
+                Draw(who: You, n: 1),
+                Boost((applies_to: Maneuver, duration: NextMatching, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
+            ],
         ),
         "Believe the Hype": (
             on_play: [Draw(who: You, n: 1), RingsideToArsenal(who: You, n: 7, up_to: true), Discard(who: Opponent, n: 3, pick: Chosen)],
@@ -952,7 +970,7 @@
             on_play: [
                 RevealHand(who: You),
                 DiscardAll(who: You, filter: Not(Maneuver)),
-                Boost((applies_to: Maneuver, duration: ThisTurn, no_hand_reversal: true)),
+                Boost((applies_to: Maneuver, duration: ThisTurn, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
             ],
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), overturned_only: true)),
         ),
@@ -1053,8 +1071,9 @@
         ),
 
         // Chris Benoit
-        // Being reversed only from the Backlash deck and Arsenal with Series of Suplexes is not supported yet.
-        "Benoit's German Suplex": (),
+        "Benoit's German Suplex": (
+            reversal_limits: [(from: [Hand, Ringside, Ring, Under], when: InYourRing(Title("Series of Suplexes")))],
+        ),
 
         // Eddie Guerrero
         // Keeping Backlash! from reversing Eddie's Roll Up is not supported yet.
@@ -1064,8 +1083,11 @@
         ),
 
         // Dudley Boyz
-        // Being irreversible from hand as the first card of the game is not supported yet.
-        "Beatings from Dudleyville": (on_play: [Discard(who: You, n: 1, pick: Chosen)]),
+        // Approximation: only the first card of turn 1 counts, so the second player's first card is not protected.
+        "Beatings from Dudleyville": (
+            reversal_limits: [(from: [Hand], when: All([FirstTurnOfGame, FirstCardThisTurn]))],
+            on_play: [Discard(who: You, n: 1, pick: Chosen)],
+        ),
 
         // Matt Hardy
         "Side Effect": (
@@ -1074,14 +1096,19 @@
         ),
 
         // Big Show
-        // Ending the opponent's turn after his successful Action is not supported yet.
-        "Showdown!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Showdown!": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: Action,
+                effects: [Boost((applies_to: Any, duration: NextTurnFirstCard, reversal_fortitude: 8))],
+            )),
+        ),
 
         // Rob Van Dam
         "Mr. Monday Night": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand, Backlash])])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
         ),
 
         // Booker T
@@ -1107,8 +1134,14 @@
         ),
 
         // Ric Flair
-        // Blanking the maneuver and finishing its damage are not supported yet.
-        "The Flair Flop": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Played after the maneuver's damage. Missing: blanking that maneuver's text (its effects still happen).
+        "The Flair Flop": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: All([Maneuver, DamageAtLeast(4)]),
+                effects: [RingsideToHand(who: You, n: 60, up_to: true, filter: Some(Title("Over Sell Maneuver")))],
+            )),
+        ),
 
         // Trish Stratus
         "Puppy Power!": (
@@ -1133,7 +1166,10 @@
 
         // Tajiri
         // Repeating its damage by discarding 2 cards is not supported yet.
-        "Series of Kicks": (play_after: Some(TitleContains("kick")), no_hand_reversal: true),
+        "Series of Kicks": (
+            play_after: Some(TitleContains("kick")),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
+        ),
 
         // Hurricane
         // Approximation: the extra starting hand cards are drawn at the end of the Pre-match phase.
@@ -1143,7 +1179,10 @@
         "You Will Never Forget the Name of...": (on_play: [Search(filter: Maneuver, n: 2, up_to: true)]),
 
         // Brock Lesnar
-        "Brock Block": (no_arsenal_reversal: true, on_play: [Optional([Search(filter: Title("Series of Back Breakers"))])]),
+        "Brock Block": (
+            reversal_limits: [(from: [Arsenal, Backlash, Ringside, Ring, Under])],
+            on_play: [Optional([Search(filter: Title("Series of Back Breakers"))])],
+        ),
 
         // Rey Mysterio
         // It is printed only as a High Risk maneuver, so its "As an action" part cannot be used.

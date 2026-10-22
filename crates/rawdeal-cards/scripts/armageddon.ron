@@ -12,9 +12,13 @@
             ),
         ],
         "JBL": [],
-        // Packing 4 copies, the one-logo packing rule and the extra Pre-match slot of his Superstar-specific
-        // Pre-match cards are not supported yet.
-        "The Phenom": [PacksLogos(["Undertaker", "Deadman Inc"]), CannotPack("I'm the Biggest Dog on this Block!")],
+        // Packing 4 copies and the one-logo packing rule are not supported yet. The added text (+1 Pre-match limit)
+        // of his Superstar-specific Pre-match cards is read as them not taking up a Pre-match slot.
+        "The Phenom": [
+            PacksLogos(["Undertaker", "Deadman Inc"]),
+            CannotPack("I'm the Biggest Dog on this Block!"),
+            NoSlotFor(All([SuperstarSpecific, Not(Trait(MidMatch))])),
+        ],
         // Ego Boost and European Uppercut are not made Set-up cards.
         "Randy Orton": [
             CannotBeReversedBy(played: Title("Ego Boost"), reversal: Any),
@@ -81,8 +85,9 @@
         ),
         "Suicide Plancha": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
-            no_hand_reversal: true,
-            not_reversed_by: Some(Trait(MidMatch)),
+            reversal_limits: [
+                (from: [Hand, Backlash, Ringside, Ring, Under], when: After(All([Maneuver, After(Title("Irish Whip"))]))),
+            ],
             bonuses: [(when: After(All([Maneuver, After(Title("Irish Whip"))])), damage: 5)],
         ),
 
@@ -219,7 +224,7 @@
             play_after: Some(Any),
             bonuses: [(per: Some(All([Maneuver, Keyword("Throwback")])), damage: 1)],
         ),
-        "Figure Four Leg Lock": (play_after: Some(Maneuver), not_reversed_by: Some(Trait(MidMatch))),
+        "Figure Four Leg Lock": (play_after: Some(Maneuver), reversal_limits: [(from: [Backlash, Ringside, Ring, Under])]),
 
         // Reversals
         "Anything and Hate It": (
@@ -290,8 +295,7 @@
             requires: Some(AnyOf([FortitudeBelowOpponent, CountAtLeast(count: OpponentHandExcess, n: 5)])),
             on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
         ),
-        // Making a maneuver count as a Multi is not supported yet.
-        "J.R. Style Action": (requires: Some(Never)),
+        "J.R. Style Action": (on_play: [Boost((applies_to: Maneuver, duration: NextCard, multi: true))]),
         // Removing cards from the game as the cost of the Reversal is not supported yet.
         "Volley This!": (
             on_play: [DiscardThis, Search(filter: Keyword("Volley"))],
@@ -649,9 +653,9 @@
         // Approximation: the limit of all players is always increased by 1 (naming 1, 2 or 3 and reducing it
         // are not supported).
         "Mean Streets of Greenwich, CT": (pre_match_limit: 1, opponent_pre_match_limit: 1),
-        // Only its own added text is applied: giving the added text to your other Superstar-specific Pre-match
-        // and Mid-match cards is not supported yet.
-        "Dudleyville, USA": (pre_match_limit: 1),
+        // The added text (+1 Pre-match or Mid-match limit) is read as your Superstar-specific Pre-match and
+        // Mid-match cards (this one included) not taking up a slot.
+        "Dudleyville, USA": (frees_slots: Some(SuperstarSpecific)),
         "Pago Pago, American Samoa": (
             on_play: [
                 Search(filter: All([Maneuver, Not(Trait(Unique))])),
@@ -775,19 +779,7 @@
             ],
         ),
         "The Legend Killer": (
-            // -1F for each point of the opponent's Superstar Value.
-            bonuses: [
-                (when: OpponentSuperstarValueAtLeast(1), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(2), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(3), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(4), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(5), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(6), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(7), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(8), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(9), fortitude: -1),
-                (when: OpponentSuperstarValueAtLeast(10), fortitude: -1),
-            ],
+            bonuses: [(count: Some(OpponentValueTimes(1)), fortitude: -1)],
             on_play: [
                 Choice([
                     [RingsideToArsenal(who: You, n: 5, up_to: true)],

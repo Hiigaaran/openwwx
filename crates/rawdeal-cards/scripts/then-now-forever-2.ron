@@ -68,8 +68,8 @@
         "The Big Shot": (backstage_abilities: [ReduceDamage(1), DamageFor(filter: Maneuver, delta: 1)]),
         // Doubling the Ability draws, the reversal restriction and the ACE are not supported yet.
         "How Do Ya Like Me Now?": (requires: Some(Never)),
-        // The -#F for RFG cards, the RFG cost to reverse and revealing it from hand are not supported yet.
-        "Alabama Slam": (),
+        // The RFG cost to reverse and revealing it from hand are not supported yet.
+        "Alabama Slam": (bonuses: [(when: FortitudeAtLeast(15), count: Some(YourRemoved), fortitude: -1)]),
 
         // ---------------------------------------------------------------- Harley Race
         // Approximation: the 'Classic' maneuver goes from Ringside to your hand instead of being played. Turning
@@ -87,15 +87,30 @@
             not_with: ["There Is No Escape"],
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("Classic")]), fortitude: -2, damage: 1)],
         ),
-        // The "only reversed from Arsenal" text is not supported yet.
+        // The "5+ lower Fortitude and F: 0" case of the Arsenal-only restriction is not supported yet.
         "Harley's Knee Drop": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: After(All([Maneuver, DamageAtLeast(5)])))],
         ),
 
         // ---------------------------------------------------------------- Ember Moon
-        // Cards under this card and playing Pre-match cards from Ringside are not supported yet.
-        "Moonrise": (),
+        // Approximation: "under this card" is under the Superstar card; 1 card moves to Ringside and 3 Ringside cards
+        // are Buried, whatever the maneuver's reversal restrictions. Playing Pre-match cards from Ringside and the
+        // protection are not supported yet.
+        "Moonrise": (
+            backstage_abilities: [
+                OnPlayMatching(
+                    filter: All([Maneuver, Not(EarlierThisTurn(filter: Maneuver, n: 1))]),
+                    effects: [
+                        If(
+                            condition: CountAtLeast(count: YourUnderSuperstar, n: 1),
+                            effects: [Optional([TakeFromUnder(to: Ringside, n: 1, superstar: true), RingsideToArsenalBottom(who: You, n: 3)])],
+                        ),
+                    ],
+                ),
+            ],
+        ),
         // Putting cards under Moonrise is not supported yet.
         "One Ember Sparks a Fire": (in_ring_on_play: [(whose: Some(You), filter: Maneuver, effects: [Mill(who: Opponent, n: 1)])]),
         // The Moonrise reversal restrictions are not supported yet.
@@ -129,8 +144,19 @@
         ),
 
         // ---------------------------------------------------------------- Brian Pillman
-        // Cards under this card and the 'Shoot' title are not supported yet.
-        "The Loose Cannon": (),
+        // Approximation: "under this card" is under the Superstar card, and the card taken from under it is
+        // shuffled into the Arsenal (not put on the bottom). Playing a card from under it, the 'Shoot' title and the
+        // Straight-Shootin' Interview text are not supported yet.
+        "The Loose Cannon": (
+            backstage_ability: Some((
+                effects: [
+                    Choice([
+                        [PutUnder(from: Ringside, n: 1, superstar: true)],
+                        [RemoveFromGame(who: You, from: Ringside, n: 1), TakeFromUnder(to: Arsenal, n: 1, superstar: true)],
+                    ]),
+                ],
+            )),
+        ),
         // The Pre-match Capacity and the revealed-card texts are not supported yet.
         "The Rogue Horseman": (),
         // Approximation: the Hand card is removed from the game instead of going under The Loose Cannon. Playing

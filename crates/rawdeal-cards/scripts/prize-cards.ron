@@ -7,7 +7,7 @@
 // Changing the Starting Hand Size is approximated: +N is a draw of N at the end of the Pre-match phase (after the
 // starting hands), -N for a player puts N random cards from his hand on top of his Arsenal.
 // "You cannot play any title belt except the Tag Team Title Belts" / "when you can pack the Tag Team Title Belts" is
-// the Tag Team trait. "Does not take up a Pre-match slot" and "start the game regardless of Superstar Value" are not
+// the Tag Team trait. A conditional free Pre-match slot and "start the game regardless of Superstar Value" are not
 // supported.
 // "When you are a Revolution Superstar of the same name" is read as that Revolution Superstar.
 // Duplicate titles in this set: the second printing (Throwback) is imported as "<Title> (2)".
@@ -737,7 +737,6 @@
             ],
             value_bonus: 1,
         ),
-        // The free Pre-match / Mid-match slots for Superstar-specific cards are not supported yet.
         "WWE Undisputed Heavyweight Title Belt (2)": (
             requires: Some(
                 Not(
@@ -750,6 +749,7 @@
             restricts_self: Some((filter: AnyOf([Title("First of All"), All([TitleBelt, AnyOf([TitleContains("Heavyweight"), TitleContains("WWE")])])]))),
             restricts_opponent: Some((filter: Title("I'm Gonna Break You"))),
             value_bonus: 4,
+            frees_slots: Some(SuperstarSpecific),
         ),
         // Moving to the opponent's Ring after his Foreign Object maneuver or Trademark Finisher is not supported yet.
         "World Wrestling Federation Hardcore Title Belt (2)": (

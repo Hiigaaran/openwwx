@@ -208,8 +208,10 @@
             on_play: [Boost((applies_to: Any, duration: NextCard, irreversible: true))],
             reverses: Some((targets: AnyOf([Trait(Unique), SuperstarSpecific]))),
         ),
-        // Giving the McMahon Pre-match cards a larger Pre-match limit is not supported yet.
+        // The added text (+1 Pre-match limit) of your McMahon Pre-match cards is read as them not taking up a
+        // Pre-match slot.
         "The First Family of Professional Wrestling": (
+            frees_slots: Some(All([TitleContains("McMahon"), Not(AnyOf([Maneuver, Action, Reversal, Trait(MidMatch)]))])),
             end_of_prematch: [Optional([RemoveFromRing(who: Opponent, n: 1, filter: Not(Trait(Unique)))])],
             ring_ability: Some((sacrifice: true, effects: [Search(filter: SuperstarSpecific)])),
         ),

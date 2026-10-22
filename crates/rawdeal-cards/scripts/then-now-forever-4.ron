@@ -6,8 +6,7 @@
 // "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Packing permissions printed on
 // Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
-// Face-down cards, "does not take up a Ring slot" (approximated as +1 Pre-match / Mid-match capacity) and
-// "cannot be blanked" are not supported.
+// Face-down cards and "cannot be blanked" are not supported.
 (
     abilities: {
         // Approximation: when your maneuver is reversed while you have lower Fortitude you may put it into your
@@ -35,8 +34,16 @@
             ]),
             CannotPackMatching(All([Action, Not(Hybrid)])),
         ],
-        // Halving both Fortitude Ratings and flipping cards face-down are not supported yet.
-        "Joe Gacy": [],
+        // Approximation: before your Draw Segment 1 face-down card in his Ring (not only that one) is flipped face-up.
+        // Halving both Fortitude Ratings and the packing permissions are not supported yet.
+        "Joe Gacy": [
+            Activated(
+                requires: Some(HandAtLeast(2)),
+                cost: [HandToArsenalBottom(who: You, n: 2)],
+                effects: [If(condition: FortitudeAboveOpponent, effects: [FlipDown(who: Opponent, n: 1, filter: Some(Not(Maneuver)))])],
+            ),
+            StartOfTurn([FlipUp(who: Opponent, n: 1, up_to: true)]),
+        ],
         // Approximation: the +5F is a -5F boost to your next maneuver. The Bionic Elbow / Figure Four texts are
         // not supported yet; he may pack every Cody Rhodes card ('Mask' maneuvers included).
         "The American Nightmare": [
@@ -82,17 +89,13 @@
                 ],
             )),
         ),
-        // Approximation: -1F for each card in your Ring with Stun Value, -1F more for Stun Value 2+. The reversal
-        // cost and the Bury-from-hand text are not supported yet.
+        // The reversal cost and the Bury-from-hand text are not supported yet.
         "747 Splash": (
             requires: Some(AnyOf([
                 All([ReversedLastTurn(All([Maneuver, StunValueAtLeast(1)])), FirstCardThisTurn]),
                 CountAtLeast(count: YourRingStun, n: 10),
             ])),
-            bonuses: [
-                (per: Some(StunValueAtLeast(1)), fortitude: -1),
-                (per: Some(StunValueAtLeast(2)), fortitude: -1),
-            ],
+            bonuses: [(count: Some(YourRingStun), fortitude: -1)],
         ),
 
         // Kamala
@@ -140,9 +143,8 @@
                 RingsideToArsenalBottom(who: You, n: 2),
             ],
         ),
-        // Approximation: "do not take up Ring slots" is +1 Pre-match and +1 Mid-match capacity. The Rhodes Family
-        // Values, logo and Counter texts are not supported yet.
-        "Wrestling Has More Than One Royal Family": (pre_match_limit: 1, mid_match_limit: 1),
+        // The Rhodes Family Values, logo and Counter texts are not supported yet.
+        "Wrestling Has More Than One Royal Family": (frees_slots: Some(SuperstarSpecific)),
 
         // Bruno Sammartino
         // Approximation: the maneuver is not reduced to D:0. Burying overturned maneuvers is not supported yet.
@@ -163,9 +165,12 @@
             backstage_abilities: [EndOfPrematch([Search(filter: All([Maneuver, Not(Trait(Unique))]))])],
         ),
         // Approximation: your non-Superstar-specific 'Moonsault' maneuvers may always ignore their "can only be
-        // played after" text (not only as a Counter). Its other texts are not supported yet.
+        // played after" text (not only as a Counter). Its blanking, Raw, High Risk and title texts are not supported yet.
         "From the Land of the Rising Sun": (
-            while_in_ring: [(applies_to: All([Maneuver, TitleContains("Moonsault"), Not(SuperstarSpecific)]), ignore_play_after: true)],
+            while_in_ring: [
+                (applies_to: All([Maneuver, TitleContains("Moonsault"), Not(SuperstarSpecific)]), ignore_play_after: true),
+                (applies_to: Title("Knee Lift"), multi: true),
+            ],
         ),
         "Muta's Legendary Moonsault": (
             play_after: Some(Any),

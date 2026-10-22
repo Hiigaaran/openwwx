@@ -6,6 +6,7 @@
 // "Heenan Family Member": The Heenan Family in your Ring, or Ravishing Rick Rude.
 // "Million Dollar Corporation Member": The Million Dollar Corporation in your Ring.
 // "When your logo is printed on <Faction>" bonuses and ACE effects used during the opponent's turn are not supported.
+// Superstar abilities make cards Multi or Chain with a start-of-turn Boost for that turn (not in the opponent's turn).
 (
     abilities: {
         // Approximation: not limited to once per turn; Hulk Hogan / Macho Man cards are not limited to Unique ones.
@@ -51,8 +52,9 @@
                 ],
             ),
         ],
-        // Flying Body Press and Chicken Wing becoming Multi Trademark Finishers is not supported yet.
+        // Flying Body Press and Chicken Wing becoming Trademark Finishers is not supported yet.
         "Ricky 'The Dragon' Steamboat": [
+            StartOfTurn([Boost((applies_to: AnyOf([Title("Flying Body Press"), Title("Chicken Wing")]), duration: ThisTurn, multi: true))]),
             Activated(
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
                 effects: [
@@ -116,8 +118,13 @@
                 ),
             ]),
         ],
-        // "-1F for each of your opponent's cards removed from the game" is not supported yet.
-        "Irwin R. Schyster": [],
+        // The -1F per removed card and the Not According to the Fine Print text apply during your turns.
+        "Irwin R. Schyster": [
+            StartOfTurn([
+                Boost((applies_to: All([Maneuver, Not(Trait(Unique))]), duration: ThisTurn, fortitude: -1, count: Some(OpponentRemoved))),
+                Boost((applies_to: Title("Not According to the Fine Print"), duration: ThisTurn, ignore_play_after: true)),
+            ]),
+        ],
         // Approximation: not limited to once per turn, nor to maneuvers not reversed from the Arsenal.
         "Razor Ramon": [
             OnPlayMatching(
@@ -154,7 +161,7 @@
             CannotPackTrait(FanFavorite),
             CannotPackTrait(Cheater),
         ],
-        // Approximation: the 'Classic' maneuvers are -5F (not -#F) when the opponent has 5+ Reversals in his Ring.
+        // The -#F applies during your turns.
         "Brutus 'The Barber' Beefcake": [
             PacksLogos(["Brutus Beefcake"]),
             OnOpponentReverses([
@@ -163,10 +170,14 @@
                     effects: [DrawUpTo(who: You, n: 1), RingsideToArsenalBottom(who: You, n: 1)],
                 ),
             ]),
-            FortitudeFor(
-                filter: All([Maneuver, TitleContains("Classic"), Holds(OpponentRingHas(filter: Reversal, n: 5))]),
-                delta: -5,
-            ),
+            StartOfTurn([
+                Boost((
+                    applies_to: All([Maneuver, TitleContains("Classic"), Holds(OpponentRingHas(filter: Reversal, n: 5))]),
+                    duration: ThisTurn,
+                    fortitude: -1,
+                    count: Some(OpponentRingMatching(Reversal)),
+                )),
+            ]),
         ],
         // The Chain search restriction is not supported yet.
         "Nikolai Volkoff": [
@@ -181,8 +192,9 @@
             ),
             CannotBeReversedBy(played: Title("Drawing Extra Heat"), reversal: AnyOf([Trait(Unique), DamageAtLeast(1)])),
         ],
-        // Making 'Classic' and Tag maneuvers Chain is not supported yet. Approximation: all Bret Hart cards.
+        // Making Tag logo maneuvers Chain and packing them are not supported yet. Approximation: all Bret Hart cards.
         "Hart Foundation": [
+            StartOfTurn([Boost((applies_to: All([Maneuver, TitleContains("classic")]), duration: ThisTurn, chain: true))]),
             PacksLogos(["Bret Hart"]),
             CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
@@ -199,8 +211,9 @@
             CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
             CannotPack("Back Splash"),
         ],
-        // Making the searched Propel Partner unanswerable is not supported yet.
+        // Making the searched Propel Partner unanswerable and Tag logo cards Multi are not supported yet.
         "The Rockers": [
+            StartOfTurn([Boost((applies_to: All([Maneuver, After(Title("Propel Partner"))]), duration: ThisTurn, multi: true))]),
             OnPlayMatching(filter: Maneuver, effects: [Search(filter: Title("Propel Partner"), ringside: true)]),
             CannotPackMatching(All([TitleBelt, Not(TitleContains("Tag Team"))])),
         ],
@@ -266,8 +279,8 @@
             ],
         ),
         "Classic Abdominal Stretch": (on_play: [Search(filter: AnyOf([TitleContains("leverage"), TitleContains("maintain")]))]),
-        // Not reversible from the Ringside and removing an overturned card are not supported yet.
-        "Classic Claw": (no_hand_reversal: true, no_backlash_reversal: true),
+        // Removing an overturned card is not supported yet.
+        "Classic Claw": (reversal_limits: [(from: [Hand, Backlash, Ringside])]),
 
         // High Risk
         // The +1 Stun Value is not supported yet.
@@ -281,10 +294,13 @@
         "What a Maneuver!": (bonuses: [(per: Some(ManeuverType(TrademarkFinisher)), damage: -5)]),
 
         // Actions
-        // Getting the 'chop' card Multi is not supported. The ACE from the Ring and Ringside returns it to hand.
+        // Blocking Restricted Use In This Area is not supported. The ACE from the Ring and Ringside returns it to hand.
         "On the Warpath": (
             not_packed_by: ["The Home Team"],
-            on_play: [Search(filter: TitleContains("chop"))],
+            on_play: [
+                Search(filter: TitleContains("chop")),
+                Boost((applies_to: AnyOf([TitleContains("chop"), TitleContains("samoan drop"), TitleContains("war")]), duration: NextCard, multi: true)),
+            ],
             ring_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
             ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
@@ -338,13 +354,15 @@
         ),
 
         // Reversals
-        // Approximation: played as a Reversal to the maneuver (it deals no damage) instead of after it.
         "Ole!": (
             not_packed_by: ["The Home Team"],
-            reverses: Some((
-                targets: All([Maneuver, Not(Trait(Unique)), Not(SuperstarSpecific)]),
-                damage: None,
-                effects: [Discard(who: You, n: 1, pick: Chosen), RingsideToArsenal(who: You, n: 7, up_to: true), ContinueTurn],
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: All([Maneuver, Not(Trait(Unique)), Not(SuperstarSpecific)]),
+                at: BeforeEffects,
+                cancel: true,
+                end_turn: false,
+                effects: [Discard(who: You, n: 1, pick: Chosen), RingsideToArsenal(who: You, n: 7, up_to: true)],
             )),
         ),
         "You're a Jive Soul Bro!": (
@@ -552,8 +570,12 @@
                 requires: Some(HandHas(All([Maneuver, TitleContains("classic")]))),
             )),
         ),
-        // The Starting Hand Size cap and making 'classic' maneuvers Chain are not supported yet.
-        "Mother Russia": (not_with: ["There is No Escape"], restricts_opponent: Some((filter: Title("Evening Up the Odds")))),
+        // The Starting Hand Size cap, the Pre-match draw ban and The Soviet Flag are not supported yet.
+        "Mother Russia": (
+            not_with: ["There is No Escape"],
+            restricts_opponent: Some((filter: Title("Evening Up the Odds"))),
+            while_in_ring: [(applies_to: All([Maneuver, TitleContains("classic"), Holds(FirstCardThisTurn)]), chain: true)],
+        ),
         "Singing the Russian National Anthem": (
             in_ring_on_play: [
                 (
@@ -573,8 +595,29 @@
         "Building a Strong Foundation": (end_of_prematch: [Search(filter: All([Maneuver, Trait(Chain)]))]),
         // Approximation: only the second choice (the opponent discards 1 Backlash card).
         "The Million Dollar Man Always Gets His Way": (end_of_prematch: [BacklashToRingside(who: Opponent, n: 1)]),
-        // Making the first card Multi and F: 0 is not supported yet.
-        "Here Comes the Ax, Here Comes the Smasher": (),
+        // Approximation: F: 0 is -40F. Cannot be blanked is not supported yet.
+        "Here Comes the Ax, Here Comes the Smasher": (
+            while_in_ring: [
+                (
+                    applies_to: All([
+                        AnyOf([
+                            Title("Punch"),
+                            Title("Kick"),
+                            Title("Running Lariat"),
+                            Title("Body Slam"),
+                            Title("Double Axe Handle"),
+                            Title("Back Breaker"),
+                            Title("Shoulder Breaker"),
+                        ]),
+                        Not(Keyword("Throwback")),
+                        Holds(FirstCardThisTurn),
+                    ]),
+                    fortitude: -40,
+                    multi: true,
+                    reversals_needed: 3,
+                ),
+            ],
+        ),
         "You Can't Prepare For These Disasters": (
             ring_ability: Some((
                 requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5)),
@@ -650,8 +693,11 @@
             while_in_ring: [(applies_to: SuperstarSpecific, fortitude: -5)],
             on_reversed_from_hand: [ReturnThis(to: Backlash), Discard(who: Opponent, n: 1, pick: Chosen)],
         ),
-        // "Requires 3 reversals" and the Giant Bear Hug discount are not supported yet.
-        "Giant Choke Hold": (reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)])))),
+        // The Giant Bear Hug discount is not supported yet.
+        "Giant Choke Hold": (
+            reversals_needed: 3,
+            reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))),
+        ),
         // Approximation: always played from the Backlash (-20F).
         "The Iron Sheik's Humbling Camel Clutch": (
             bonuses: [(fortitude: -20)],
@@ -745,8 +791,11 @@
                 MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Controller, bottom: true),
             ],
         ),
-        // "-#F for your non-unique maneuvers" is not supported yet.
-        "Freaks Are Still Cool!": (not_with: ["Freaks Are Cool!"], on_play: [Discard(who: You, n: 1, pick: Chosen)]),
+        "Freaks Are Still Cool!": (
+            not_with: ["Freaks Are Cool!"],
+            on_play: [Discard(who: You, n: 1, pick: Chosen)],
+            while_in_ring: [(applies_to: All([Maneuver, Not(Trait(Unique))]), fortitude: -1, count: Some(SuperstarValue))],
+        ),
         "Ready to Fight": (
             bonuses: [(when: FortitudeBelowOpponent, fortitude: -8)],
             on_play: [RingsideToArsenal(who: You, n: 4, up_to: true)],
@@ -791,8 +840,9 @@
         ),
 
         // Macho Man / Hulk Hogan
-        // The Multi and 'blindside' texts are not supported yet.
+        // The 'blindside' Unique-reversal limit is not supported yet. Approximation: it is also Multi as an Action.
         "Savage Double Axe Handle": (
+            multi_when: Some(YouAre("Macho Man Randy Savage")),
             play_after: Some(Maneuver),
             on_play: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Action, SuperstarSpecific])))],
             as_action: Some((
@@ -843,8 +893,9 @@
         ),
 
         // Diesel
-        // The nWo trait and "only reversed from Arsenal" are not supported yet.
+        // The nWo trait is not supported yet.
         "Big Sexy's Big Boot": (
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: All([YouAre("Diesel"), FortitudeBelowOpponent]))],
             bonuses: [(when: YouAre("Diesel"), fortitude: -12)],
             momentum_when: Some(OpponentRingHas(filter: TitleContains("Revolution"), n: 1)),
             reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))),
@@ -990,8 +1041,8 @@
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 5, up_to: true),
             ],
         ),
-        // "Your cards are -1F for every card removed from the game" is not supported yet.
         "Pay Your Taxes, or Else...": (
+            while_in_ring: [(applies_to: Any, fortitude: -1, count: Some(BothRemoved))],
             on_play: [
                 Choice([
                     [RingsideToHand(who: You, n: 1, up_to: true)],
@@ -1101,8 +1152,8 @@
             ])),
             extra_draw: 1,
         ),
-        // "Multi" after Irish Whip is not supported yet.
         "Boss Man Slam": (
+            multi_when: Some(After(Title("Irish Whip"))),
             play_after: Some(Any),
             play_after_unless: Some(AnyOf([InYourRing(Title("Lockdown!")), All([ReversedLastTurn(Any), FirstCardThisTurn])])),
             bonuses: [(when: After(Title("Irish Whip")), fortitude: -10)],
@@ -1138,10 +1189,15 @@
         ),
 
         // Nikolai Volkoff
-        // Becoming Multi/Chain after a card is not supported yet.
-        "Volkoff's Russian Slam": (bonuses: [(when: YouAre("Nikolai Volkoff"), fortitude: -9)]),
-        // The discard-2-to-reverse rule and the Chain trait are not supported yet.
+        // The non-Unique hand / Backlash reversal limit after a maneuver is not supported yet.
+        "Volkoff's Russian Slam": (
+            bonuses: [(when: YouAre("Nikolai Volkoff"), fortitude: -9)],
+            multi_when: Some(All([YouAre("Nikolai Volkoff"), After(Any)])),
+            chain_when: Some(All([YouAre("Nikolai Volkoff"), After(Trait(Chain))])),
+        ),
+        // The discard-2-to-reverse rule is not supported yet. Approximation: it is also Chain as an Action.
         "The Russian Bear Hug": (
+            chain_when: Some(YouAre("Nikolai Volkoff")),
             as_action: Some((
                 fortitude: Some(5),
                 on_play: [ThisToArsenal(bottom: true), RingsideToHand(who: You, n: 1, up_to: true), RevealHand(who: Opponent)],
@@ -1310,8 +1366,8 @@
         ),
 
         // Unbranded Throwback maneuvers
-        // "-#F (# = opponent's Fortitude)" and becoming a Trademark Finisher are not supported yet.
-        "Let Me Get a Shot In": (),
+        // Becoming a Trademark Finisher is not supported yet.
+        "Let Me Get a Shot In": (bonuses: [(count: Some(OpponentFortitude), fortitude: -1)]),
         // The F: 25 is not supported yet.
         "Blatant Chokehold": (
             on_play: [Search(filter: ManeuverType(TrademarkFinisher), ringside: true), Discard(who: You, n: 1, pick: Chosen)],
@@ -1321,8 +1377,10 @@
             only_packed_by: ["Male"],
             on_play: [Counted(count: YourRingMatching(Trait(Unique)), effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
         ),
-        // The conditional reversal limit is not supported yet.
-        "Modified Suplex": (not_with: ["German Suplex"]),
+        "Modified Suplex": (
+            not_with: ["German Suplex"],
+            reversal_limits: [(from: [Hand, Ringside, Ring, Under], when: All([FirstCardThisTurn, ReversedLastTurn(Any), YouReversedFrom([Hand])]))],
+        ),
         // Being reversible by the listed cards is not supported yet.
         "Shoot Action": (),
 

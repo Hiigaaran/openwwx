@@ -396,9 +396,13 @@
         ),
         // Checking what the opponent attempted last turn is not supported yet.
         "Hey, Whatcha Doin'?": (requires: Some(Never)),
-        // Approximation: the extra F only counts the 'shoot' cards in your own Ring.
         "Crowd Pleaser": (
-            bonuses: [(per: Some(TitleContains("shoot")), fortitude: 1)],
+            bonuses: [
+                (
+                    count: Some(Plus(YourRingMatching(TitleContains("shoot")), OpponentRingMatching(TitleContains("shoot")))),
+                    fortitude: 1,
+                ),
+            ],
             on_play: [
                 Counted(count: YourRingMatching(TitleContains("shoot")), effect: DrawUpTo(who: You, n: 0)),
                 Counted(count: OpponentRingMatching(TitleContains("shoot")), effect: DrawUpTo(who: You, n: 0)),
@@ -621,16 +625,7 @@
         ),
         "Dance, Coach, Dance!": (
             while_in_ring: [
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 1)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 2)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 3)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 4)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 5)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 6)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 7)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 8)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 9)]), fortitude: -1),
-                (applies_to: All([Not(Trait(Unique)), Trait(Raw), PlayerRingHas(filter: Trait(Raw), n: 10)]), fortitude: -1),
+                (applies_to: All([Not(Trait(Unique)), Trait(Raw)]), fortitude: -1, count: Some(YourRingMatching(Trait(Raw)))),
             ],
         ),
         // Changing the text of the Ring Psychology cards is not supported yet.
@@ -794,8 +789,11 @@
                 effects: [MillUntil(who: You, filter: Keyword("Tag")), MillUntil(who: You, filter: Keyword("Tag"))],
             )),
         ),
-        // Changing the F of your Reversals is not supported yet.
-        "You Make Me Sick!": (requires: Some(Never)),
+        // Approximation: written as "Reversals to your opponent's cards need #F less", so it also lowers the F
+        // of unique Reversals and of Reversals overturned from your Arsenal.
+        "You Make Me Sick!": (
+            while_in_ring_opponent: [(applies_to: Any, reversal_fortitude: -1, count: Some(OpponentValueTimes(1)))],
+        ),
         "Do Something!": (
             in_ring_start_of_turn: [If(condition: OpponentHandAtLeast(8), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
         ),
@@ -1142,7 +1140,10 @@
             reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]), from_hand_only: true)),
         ),
         "Don't Hunt What You Can't Kill": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))])))),
-        "Top Rope Elbow Drop": (play_after: Some(Title("From the Top Rope")), no_hand_reversal: true),
+        "Top Rope Elbow Drop": (
+            play_after: Some(Title("From the Top Rope")),
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
+        ),
         "The Heart Break Kid": (
             on_play: [
                 Counted(count: OpponentValueTimes(1), effect: Mill(who: Opponent, n: 0)),
@@ -1153,8 +1154,10 @@
         // Chris Benoit
         // Ending the opponent's turn from a Ring card after damage is not supported yet.
         "There's No Holding Me Back": (requires: Some(Never)),
-        // Played after a maneuver succeeds, outside the reversal window: not supported yet.
-        "Toothless Aggression": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        "Toothless Aggression": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((at: BeforeEffects, cancel: true)),
+        ),
         "Cripple Opponent": (
             on_play: [
                 LookAtHand(who: Opponent),
@@ -1285,7 +1288,9 @@
             reverses: Some((targets: Maneuver)),
         ),
         "Extreme Warfare": (
-            while_in_ring_all: [(applies_to: All([Maneuver, Holds(FirstCardThisTurn)]), no_hand_reversal: true)],
+            while_in_ring_all: [
+                (applies_to: All([Maneuver, Holds(FirstCardThisTurn)]), no_reversal_from: [Hand, Backlash, Ringside, Ring, Under]),
+            ],
         ),
         // Changing Rhyno's ability is not supported yet.
         "Rhyno's Garbage Can": (requires: Some(Never)),
@@ -1304,7 +1309,10 @@
         // Blanking a Stipulation is not supported yet.
         "Screw the Rules!": (requires: Some(Never), not_packed_by: ["Two-Man Power Trip"]),
         "Get Ready ... Your Candy Ass is Next!": (
-            on_play: [DrawUpTo(who: You, n: 2), Boost((applies_to: Any, duration: NextCard, no_hand_reversal: true))],
+            on_play: [
+                DrawUpTo(who: You, n: 2),
+                Boost((applies_to: Any, duration: NextCard, no_reversal_from: [Hand, Backlash, Ringside, Ring, Under])),
+            ],
         ),
         "Big Freak'n Powerslam": (on_play: [Discard(who: Opponent, n: 2, pick: Chosen)]),
         "I'm the King of the World": (
@@ -1318,9 +1326,10 @@
         "Makin' a Difference": (
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true), RingsideToHand(who: You, n: 1, filter: Some(Maneuver))],
         ),
-        // Needing 3 Reversals to stop it is not supported yet.
         "Dudleyz3": (
             extra_traits: [Multi],
+            reversals_needed: 3,
+            reversals_needed_when: Some(InYourRing(Title("Brothers from Another Mother"))),
             bonuses: [
                 (
                     when: YouAre("Tag Team"),
@@ -1384,15 +1393,7 @@
             )),
         ),
         "I Live for My Hulkamaniacs...": (
-            bonuses: [
-                (when: SuperstarValueAtLeast(1), fortitude: 1),
-                (when: SuperstarValueAtLeast(2), fortitude: 1),
-                (when: SuperstarValueAtLeast(3), fortitude: 1),
-                (when: SuperstarValueAtLeast(4), fortitude: 1),
-                (when: SuperstarValueAtLeast(5), fortitude: 1),
-                (when: SuperstarValueAtLeast(6), fortitude: 1),
-                (when: SuperstarValueAtLeast(7), fortitude: 1),
-            ],
+            bonuses: [(count: Some(SuperstarValue), fortitude: 1)],
             on_play: [Counted(count: SuperstarValue, effect: RingsideToArsenal(who: You, n: 0, up_to: true))],
         ),
         "You're Going to Space Mountain": (on_play: [RemoveFromGame(who: Opponent, from: Arsenal, n: 4)]),
@@ -1430,7 +1431,7 @@
         ),
         "West Coast Bronco Buster": (
             play_after: Some(AnyOf([Maneuver, Title("Throw Into the Corner Turnbuckle")])),
-            no_hand_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
         ),
         // Approximation: any 3 random Backlash cards are discarded, not only Pre-match ones. "Your opponent cannot play
         // any Title Belt except the Tag Team Title Belts" is an opponent with the Tag Team trait. Putting the Raw

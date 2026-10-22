@@ -32,13 +32,30 @@
                 effects: [Draw(who: You, n: 1), If(condition: HandLargerBy(1), effects: [HandToArsenalTop(who: You, n: 1)])],
             ),
         ],
-        // Approximation: the Ring card goes to your Ringside pile instead of being Flipped face-down. Flipping
-        // cards, High-Flying Style in the Backstage and the packing permissions are not supported yet.
+        // Approximation: "Flip 1- of your Ring cards" flips up to 1 face-down card face-up. High-Flying Style in the
+        // Backstage and the packing permissions are not supported yet.
         "Ricochet": [
             Activated(
-                requires: Some(CountAtLeast(count: YourRingSize, n: 1)),
-                cost: [RemoveFromRing(who: You, n: 1, filter: Any)],
+                requires: Some(CountBelow(a: YourFaceDown, b: YourRingSize)),
+                cost: [FlipDown(who: You, n: 1)],
                 effects: [Boost((applies_to: ManeuverType(HighRisk), duration: NextMatching, ignore_play_after: true))],
+            ),
+            OnPlayMatching(
+                filter: ManeuverType(HighRisk),
+                effects: [
+                    Choice([
+                        [FlipUp(who: You, n: 1, up_to: true)],
+                        [
+                            If(
+                                condition: CountBelow(a: YourFaceDown, b: YourRingSize),
+                                effects: [
+                                    FlipDown(who: You, n: 1),
+                                    FlipDown(who: Opponent, n: 1, filter: Some(All([Not(FortitudeAtMost(0)), Not(Trait(Unique))]))),
+                                ],
+                            ),
+                        ],
+                    ]),
+                ],
             ),
         ],
     },
@@ -58,10 +75,9 @@
             ],
             ringside_ability: Some((cost: [Mill(who: You, n: 3)], effects: [ReturnThis(to: Backlash), EndTurn])),
         ),
-        // Approximation: +1D for each maneuver in your Ring (not Ringside). The Unique reversal restriction is not
-        // supported yet.
+        // The D:30+ Unique reversal restriction is not supported yet.
         "Orndorff's Wonderful Piledriver": (
-            bonuses: [(per: Some(Maneuver), damage: 1)],
+            bonuses: [(count: Some(YourRingsideMatching(Maneuver)), damage: 1)],
             as_action: Some((
                 fortitude: Some(5),
                 on_play: [
@@ -86,12 +102,10 @@
         // ---------------------------------------------------------------- Ricochet
         // Flipping cards face-up is not supported yet.
         "The Future of Flight is Here": (),
-        // Approximation: the opponent's Ring cards go to his Ringside pile instead of being Flipped face-down.
         "630°": (
             play_after: Some(AnyOf([Title("From the Top Rope"), All([Maneuver, DamageAtLeast(6)])])),
-            on_play: [RemoveFromRing(who: Opponent, n: 3, filter: Any), DiscardAll(who: Opponent, filter: Any)],
+            on_play: [FlipDown(who: Opponent, n: 3, up_to: true), DiscardAll(who: Opponent, filter: Any)],
         ),
-        // Flipping cards face-up is not supported yet.
-        "King Ricochet": (),
+        "King Ricochet": (on_flip_up: [Optional([ThisToArsenal(bottom: true), Discard(who: You, n: 2, pick: Chosen)])]),
     },
 )

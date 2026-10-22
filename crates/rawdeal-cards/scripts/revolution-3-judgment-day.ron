@@ -427,9 +427,10 @@
                 effects: [Boost((applies_to: All([Antic, Trait(FollowUp)]), duration: NextTurnFirstCard, ignore_play_after: true))],
             )),
         ),
-        // Ending the opponent's turn after a Trademark dealt its damage is not supported yet. The Antic part's
-        // -7F is in `as_action` (engine change pending); until then the Antic play needs the printed F:7.
+        // The Antic part's -7F is in `as_action` (engine change pending); until then the Antic play needs the
+        // printed F:7.
         "Revolution Head-to-Toe Defense": (
+            after_success: Some((filter: ManeuverType(Trademark), to: Some(Ringside))),
             on_play: [
                 RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("head"), Target("leg")]))),
             ],
@@ -439,9 +440,9 @@
             )),
             reverses: Some((targets: All([Maneuver, AnyOf([Target("head"), Target("leg")])]))),
         ),
-        // Ending the opponent's turn after a non-Unique Colossal dealt its damage is not supported yet. The Antic
-        // part's -7F is in `as_action` (engine change pending).
+        // The Antic part's -7F is in `as_action` (engine change pending).
         "Revolution Centered Defense": (
+            after_success: Some((filter: All([Maneuver, Trait(Colossal), Not(Trait(Unique))]), to: Some(Ringside))),
             on_play: [
                 RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("chest"), Target("neck")]))),
             ],
@@ -451,9 +452,9 @@
             )),
             reverses: Some((targets: All([Maneuver, AnyOf([Target("chest"), Target("neck")])]))),
         ),
-        // Ending the opponent's turn after a non-Unique Mean dealt its damage is not supported yet. The Antic
-        // part's -7F is in `as_action` (engine change pending).
+        // The Antic part's -7F is in `as_action` (engine change pending).
         "Revolution Lateral Flank Defense": (
+            after_success: Some((filter: All([Maneuver, Trait(Mean), Not(Trait(Unique))]), to: Some(Ringside))),
             on_play: [
                 RingsideToArsenal(who: You, n: 2, up_to: true, filter: Some(AnyOf([Target("arm"), Target("back")]))),
             ],
@@ -1093,9 +1094,9 @@
                 ),
             ],
         ),
-        // Ending the opponent's turn after a Maneuver dealt its damage is not supported yet.
         "Revolution Undying Attitude": (
             requires: Some(InYourRing(Title("Revolution Attitude Adjusters"))),
+            after_success: Some((to: Some(Ringside))),
             on_play: [
                 DrawUpTo(who: You, n: 1),
                 If(

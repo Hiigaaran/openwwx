@@ -255,8 +255,8 @@
                 Counted(count: YourRingsideSize, effect: RingsideToHand(who: You, n: 0)),
             ],
         ),
-        // The Multi rule for William Regal, The Mystery Wrestler, Chairmen and GMs is not supported yet.
         "Commission-er Rules!": (
+            multi_when: Some(AnyOf([Superstar("William Regal"), Superstar("The Mystery Wrestler"), YouAre("Chairman"), YouAre("GM")])),
             on_play: [
                 LookAtHand(who: Opponent),
                 DiscardMatching(who: Opponent, n: 1, filter: Reversal, pick: Controller),
@@ -392,11 +392,20 @@
         ),
         // Disregarding modifications is not supported yet.
         "Restricted Use in This Area": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Approximation: it reverses the Mid-match card as it is played, instead of blanking it after it succeeds.
-        // Making an opponent with 15 or more cards discard down to 6 is not supported yet.
         "The Road to Victory": (
             on_play: [DiscardThis, Draw(who: You, n: 1)],
-            reverses: Some((targets: All([Trait(MidMatch), Not(Trait(Unique))]))),
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((
+                filter: All([Trait(MidMatch), Not(Trait(Unique))]),
+                at: BeforeEffects,
+                cancel: true,
+                effects: [
+                    If(
+                        condition: OpponentHandAtLeast(15),
+                        effects: [Counted(count: Minus(OpponentHandSize, Const(6)), effect: Discard(who: Opponent, n: 0, pick: Chosen))],
+                    ),
+                ],
+            )),
         ),
         // Reversing from the Arsenal into the Ring and its Faction effect are not supported yet.
         "Revolution Death-Defying Maniac": (

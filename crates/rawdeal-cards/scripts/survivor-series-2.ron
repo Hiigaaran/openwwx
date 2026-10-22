@@ -21,7 +21,10 @@
         "Psychedelic Dance Fever": (
             on_play: [HandToArsenal(who: You, n: 3), DrawUpTo(who: You, n: 6), EndTurn],
         ),
-        "The Love Handle": (no_hand_reversal: true, after_damage: [EndTurn]),
+        "The Love Handle": (
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
+            after_damage: [EndTurn],
+        ),
         // Revealing a hidden Superstar is not supported yet.
         "Split Personalities Have Benefits": (requires: Some(Never)),
         "Get Softcore!": (while_in_ring_all: [(applies_to: Maneuver, damage: -3)]),
