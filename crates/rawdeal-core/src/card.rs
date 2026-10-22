@@ -300,6 +300,8 @@ pub enum Ability {
     /// cards and choose 1 Enforcer": before the match you reveal the matching
     /// Enforcer cards packed in your Backstage Area and choose 1 Enforcer.
     RevealEnforcers(CardFilter),
+    /// Your cards matching this do not take up a Pre-match or Mid-match slot.
+    NoSlotFor(CardFilter),
     /// Hand Size is `times` your opponent's Superstar Value, at least `min`.
     HandSizeFromOpponentValue { times: u8, min: u8 },
     /// Card-drawing effects on cards your opponent plays do nothing (Stun
@@ -543,6 +545,41 @@ pub struct CardScript {
     /// Storyline cards: while in your Ring, these replace your Superstar Ability.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub storyline: Vec<Ability>,
+    /// The card is Multi when this holds as you play it ("when played as a
+    /// Counter, this card is Multi").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub multi_when: Option<Condition>,
+    /// The card is Chain when this holds as you play it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chain_when: Option<Condition>,
+    /// Reversals needed to reverse the card ("requires 3 reversals", "can only
+    /// be reversed by 2 reversal cards"); 0 is the usual 1 (2 for Multi).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub reversals_needed: u8,
+    /// `reversals_needed` only while this holds as you play it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reversals_needed_when: Option<Condition>,
+    /// Places the card cannot be reversed from, each while its condition holds
+    /// as you play it ("when played as a Counter, this card cannot be reversed
+    /// from hand"; "can only be reversed from the Arsenal": `[Hand, Backlash,
+    /// Ringside, Ring, Under]`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reversal_limits: Vec<ReversalLimit>,
+    /// The card does not take up a Pre-match (or Mid-match) slot in your Ring.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub no_slot: bool,
+    /// While in your Ring: your cards matching this do not take up a Pre-match
+    /// or Mid-match slot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frees_slots: Option<CardFilter>,
+}
+
+/// See [`CardScript::reversal_limits`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReversalLimit {
+    pub from: Vec<crate::state::Zone>,
+    #[serde(default)]
+    pub when: Condition,
 }
 
 /// Effects of a card in the Ring when someone successfully plays a card.
@@ -619,6 +656,10 @@ pub struct Bonus {
     /// Multiply the bonus by the number of other cards in your hand.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub per_hand: bool,
+    /// Multiply the bonus by this count ("-#F, where # is your opponent's
+    /// Superstar Value").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<Count>,
     #[serde(default)]
     pub damage: i16,
     #[serde(default)]
@@ -812,6 +853,15 @@ pub struct Boost {
     /// The card has Momentum.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub momentum: bool,
+    /// The card is Multi.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub multi: bool,
+    /// The card is Chain.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub chain: bool,
+    /// Reversals needed to reverse the card, at least.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub reversals_needed: u8,
 }
 
 fn any_card() -> CardFilter {

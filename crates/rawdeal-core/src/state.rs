@@ -189,6 +189,21 @@ pub struct PlayBonus {
     pub no_backlash_reversal: bool,
     #[serde(default)]
     pub momentum: bool,
+    #[serde(default)]
+    pub multi: bool,
+    #[serde(default)]
+    pub chain: bool,
+    /// Reversals needed, if more than usual.
+    #[serde(default)]
+    pub reversals_needed: u8,
+    /// Zones it cannot be reversed from, as [`zone_bit`] flags.
+    #[serde(default)]
+    pub blocked_from: u8,
+}
+
+/// The [`PlayBonus::blocked_from`] flag of a zone.
+pub fn zone_bit(zone: Zone) -> u8 {
+    1 << (zone as u8)
 }
 
 /// What a player's next card this turn has to be.

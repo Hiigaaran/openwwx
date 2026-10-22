@@ -18,7 +18,7 @@ use crate::deck::{DeckList, DeckProblem};
 use crate::event::Event;
 use crate::state::{
     CardId, CardInstance, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, PlayerState, Source, Watch,
-    WinMethod, Zone,
+    WinMethod, Zone, zone_bit,
 };
 use crate::view::PlayerView;
 
@@ -634,12 +634,12 @@ impl Engine {
                 }
             }
             (DecisionKind::Reversal { .. }, Action::ReverseByVolley) => self.volley_reverse(state, p, events),
-            (DecisionKind::Reversal { card: attacker, .. }, Action::Reverse { card }) => {
+            (DecisionKind::Reversal { .. }, Action::Reverse { card }) => {
                 if state.card(card).zone == Zone::Ringside && !self.ringside_by_script(state, p, card) {
                     state.heat_used[p.index()] = true;
                 }
                 state.pending.push(Step::ReverseFromHand { defender: p, reversal: card });
-                if self.def(state, attacker).has_trait(Trait::Chain) {
+                if state.in_play.is_some_and(|played| self.is_chain(state, played)) {
                     // Reversing a Chain card from hand or Backlash costs 2 discards.
                     let options: Vec<CardId> = state.player(p).hand.iter().copied().filter(|&c| c != card).collect();
                     state.decision = Some(Decision {
@@ -1031,7 +1031,7 @@ impl Engine {
                 let played = state.in_play.expect("card in play");
                 let defender = played.player.opponent();
                 let me = state.player(defender);
-                let chain = self.def(state, played.card).has_trait(Trait::Chain);
+                let chain = self.is_chain(state, played);
                 let ring = self.ring_cards(state, defender);
                 let from_ringside = |c: &CardId| {
                     self.ringside_by_script(state, defender, *c) || self.heat_playable(state, defender, *c)
@@ -1305,7 +1305,7 @@ impl Engine {
             }
             Step::ChainSearch => {
                 let played = state.in_play.expect("card in play");
-                if self.def(state, played.card).has_trait(Trait::Chain) && state.player(played.player).hand.len() >= 2 {
+                if self.is_chain(state, played) && state.player(played.player).hand.len() >= 2 {
                     state.decision = Some(Decision {
                         player: played.player,
                         kind: DecisionKind::YesNo { purpose: YesNoPurpose::ChainSearch },
@@ -1546,9 +1546,23 @@ impl Engine {
         }
     }
 
-    /// A Multi card that has not been reversed yet needs another Reversal.
+    /// A Multi card that has not been reversed yet needs another Reversal, and
+    /// some cards need more.
     fn needs_more_reversals(&self, state: &GameState, played: Played) -> bool {
-        self.def(state, played.card).has_trait(Trait::Multi) && played.reversals == 0
+        played.reversals + 1 < self.reversals_needed(state, played)
+    }
+
+    fn reversals_needed(&self, state: &GameState, played: Played) -> u8 {
+        let multi = if self.is_multi(state, played) { 2 } else { 1 };
+        played.bonus.reversals_needed.max(multi)
+    }
+
+    fn is_multi(&self, state: &GameState, played: Played) -> bool {
+        self.def(state, played.card).has_trait(Trait::Multi) || played.bonus.multi
+    }
+
+    fn is_chain(&self, state: &GameState, played: Played) -> bool {
+        self.def(state, played.card).has_trait(Trait::Chain) || played.bonus.chain
     }
 
     fn reverse_from_hand(&self, state: &mut GameState, defender: PlayerId, reversal: CardId, events: &mut Vec<Event>) {
@@ -1558,7 +1572,7 @@ impl Engine {
             // the defender gets another chance to reverse.
             events.push(Event::PartialReversal { player: defender, reversal, card: played.card });
             self.move_card(state, reversal, Zone::Ring, events);
-            state.in_play = Some(Played { reversals: 1, ..played });
+            state.in_play = Some(Played { reversals: played.reversals + 1, ..played });
             state.pending.push(Step::ReversalWindow);
             return;
         }
@@ -2544,8 +2558,8 @@ impl Engine {
                 && !(def.superstar.is_some()
                     && def.logos().any(|l| crate::deck::may_pack_logo(self.db.superstar(state.player(player).superstar), l))))
             && !(from_backlash
-                && self.count_in_ring(state, player, |d| d.has_trait(Trait::MidMatch))
-                    >= self.ring_limit(state, player, true)))
+                && self.takes_slot(state, player, card)
+                && self.slots_used(state, player, true) >= self.ring_limit(state, player, true)))
         {
             return false;
         }
@@ -2755,6 +2769,9 @@ impl Engine {
                 if bonus.per_hand {
                     times *= state.player(player).hand.iter().filter(|&&c| c != card).count() as i16;
                 }
+                if let Some(count) = &bonus.count {
+                    times *= self.count(state, player, count.clone()) as i16;
+                }
                 b.damage += bonus.damage * times;
                 b.fortitude += bonus.fortitude * times;
                 b.reversal_damage += bonus.reversal_damage * times;
@@ -2788,6 +2805,17 @@ impl Engine {
         if def.script.irreversible_when.as_ref().is_some_and(|c| self.holds(state, c, player)) {
             extra.irreversible = true;
         }
+        let holds = |c: &Option<Condition>| c.as_ref().is_some_and(|c| self.holds(state, c, player));
+        extra.multi = holds(&def.script.multi_when);
+        extra.chain = holds(&def.script.chain_when);
+        if def.script.reversals_needed_when.as_ref().is_none_or(|c| self.holds(state, c, player)) {
+            extra.reversals_needed = def.script.reversals_needed;
+        }
+        for limit in &def.script.reversal_limits {
+            if self.holds(state, &limit.when, player) {
+                extra.blocked_from |= limit.from.iter().map(|&z| zone_bit(z)).fold(0, |a, b| a | b);
+            }
+        }
         let opponent = player.opponent();
         let mut auras: Vec<&Boost> = Vec::new();
         for c in self.ring_cards(state, player) {
@@ -2802,6 +2830,10 @@ impl Engine {
         b.fortitude += extra.fortitude;
         b.damage += extra.damage;
         b.irreversible |= extra.irreversible;
+        b.multi |= extra.multi;
+        b.chain |= extra.chain;
+        b.reversals_needed = b.reversals_needed.max(extra.reversals_needed);
+        b.blocked_from |= extra.blocked_from;
         for boost in auras {
             if self.matches(state, &boost.applies_to, played) {
                 add_boost(&mut played.bonus, boost);
@@ -2983,15 +3015,30 @@ impl Engine {
         state.player(p).ring.iter().filter(|&&c| self.matches_def(state, f, c, p)).count()
     }
 
+    /// Pre-match (or Mid-match) cards in `p`'s Ring that take up a slot.
+    fn slots_used(&self, state: &GameState, p: PlayerId, mid_match: bool) -> usize {
+        let kind = |d: &CardDef| if mid_match { d.has_trait(Trait::MidMatch) } else { d.is_pre_match() };
+        state.player(p).ring.iter().filter(|&&c| kind(self.def(state, c)) && self.takes_slot(state, p, c)).count()
+    }
+
+    /// Does `card` take up a Pre-match or Mid-match slot in `p`'s Ring?
+    fn takes_slot(&self, state: &GameState, p: PlayerId, card: CardId) -> bool {
+        let def = self.def(state, card);
+        if def.script.no_slot {
+            return false;
+        }
+        let freed = |f: &CardFilter| self.matches_def(state, f, card, p);
+        !self.ring_cards(state, p).iter().any(|&c| self.def(state, c).script.frees_slots.as_ref().is_some_and(freed))
+            && !self.abilities(state, p).iter().any(|a| matches!(a, Ability::NoSlotFor(f) if freed(f)))
+    }
+
     fn count_in_ring(&self, state: &GameState, p: PlayerId, f: impl Fn(&CardDef) -> bool) -> usize {
         state.player(p).ring.iter().filter(|&&c| f(self.def(state, c))).count()
     }
 
     /// Pre-match cards `p` may play from their Backlash deck in `step`.
     pub fn pre_match_options(&self, state: &GameState, p: PlayerId, step: u8) -> Vec<(CardId, CardKind)> {
-        if self.count_in_ring(state, p, CardDef::is_pre_match) >= self.ring_limit(state, p, false) {
-            return vec![];
-        }
+        let full = self.slots_used(state, p, false) >= self.ring_limit(state, p, false);
         let venue_in_play = [PlayerId::ONE, PlayerId::TWO]
             .into_iter()
             .any(|q| self.count_in_ring(state, q, |d| d.kinds.contains(&CardKind::PreMatch(PreMatchType::Venue))) > 0);
@@ -3013,6 +3060,7 @@ impl Engine {
                     ),
                 };
                 if step_ok
+                    && !(full && self.takes_slot(state, p, card))
                     && def.script.requires.as_ref().is_none_or(|c| self.holds(state, c, p))
                     && !(t == PreMatchType::Venue && venue_in_play)
                     && !(def.has_trait(Trait::PayPerView) && ppv_in_ring)
@@ -3202,6 +3250,8 @@ impl Engine {
                 && !hand_targets.is_some_and(reverses_momentum))
             && !(irreversible && !spec.ignores_irreversible)
             && !(from_hand && played.bonus.no_hand_reversal)
+            && played.bonus.blocked_from & zone_bit(if from_hand { state.card(reversal).zone } else { Zone::Arsenal })
+                == 0
             && !((played.bonus.no_backlash_reversal || pdef.script.no_backlash_reversal)
                 && state.card(reversal).zone == Zone::Backlash)
             && !(!from_hand && pdef.script.no_arsenal_reversal)
@@ -3295,6 +3345,8 @@ impl Engine {
             }
             CardFilter::Antic => played.kind == CardKind::Antic,
             CardFilter::Trait(Trait::Momentum) => self.has_momentum(state, played),
+            CardFilter::Trait(Trait::Multi) => self.is_multi(state, played),
+            CardFilter::Trait(Trait::Chain) => self.is_chain(state, played),
             CardFilter::Keyword(_)
             | CardFilter::TitleBelt
             | CardFilter::Target(_)
@@ -3657,6 +3709,9 @@ fn add_boost(bonus: &mut PlayBonus, boost: &Boost) {
     bonus.double_fortitude |= boost.double_fortitude;
     bonus.double_damage |= boost.double_damage;
     bonus.momentum |= boost.momentum;
+    bonus.multi |= boost.multi;
+    bonus.chain |= boost.chain;
+    bonus.reversals_needed = bonus.reversals_needed.max(boost.reversals_needed);
 }
 
 /// The on-play effects of `def` when played as `kind`.
