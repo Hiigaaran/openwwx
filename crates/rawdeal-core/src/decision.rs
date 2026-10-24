@@ -64,6 +64,8 @@ pub enum ChoicePurpose {
     AfterSuccess(crate::card::SuccessTime),
     FlipDown,
     FlipUp,
+    /// Reverse the Activated Card Effect of `Some(card)` (`None`: a Backstage card's).
+    ReverseAce(Option<crate::state::CardId>),
     /// Put under the card (`host`).
     /// `None`: under your Superstar card.
     PutUnder(Option<crate::state::CardId>),

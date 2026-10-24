@@ -330,6 +330,7 @@ pub fn purpose(p: ChoicePurpose) -> &'static str {
         ChoicePurpose::AfterSuccess(_) => "para jugar tras la maniobra",
         ChoicePurpose::FlipDown => "para poner boca abajo",
         ChoicePurpose::FlipUp => "para poner boca arriba",
+        ChoicePurpose::ReverseAce(_) => "para revertir el efecto activado",
         ChoicePurpose::MoveTo(Zone::Hand) => "para poner en la mano",
         ChoicePurpose::MoveTo(Zone::Ring) => "para poner en el Ring",
         ChoicePurpose::MoveTo(Zone::Arsenal) => "para barajar en el Arsenal",

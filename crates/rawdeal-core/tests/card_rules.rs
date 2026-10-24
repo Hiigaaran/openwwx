@@ -43,6 +43,16 @@ const SET: &str = r#"(
             script: (on_play: [PutUnder(from: Hand, n: 1, filter: Some(Maneuver), superstar: true)])),
         (id: "m/coach", title: "Coach", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
             script: (while_in_ring: [(applies_to: Maneuver, damage: 1, count: Some(OpponentHandSize))])),
+        (id: "m/double", title: "Double", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses: Some((targets: Maneuver, counts_as: 2)))),
+        (id: "m/picky", title: "Picky", kinds: [Maneuver(Strike)], fortitude: 0, damage: 3,
+            script: (reversal_limits: [(by: Some(Not(Title("Block"))))])),
+        (id: "m/kickout", title: "Kickout", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (ring_after_success: Some(()))),
+        (id: "m/gadget", title: "Gadget", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (ring_ability: Some((effects: [Draw(who: You, n: 2)])))),
+        (id: "m/nullify", title: "Nullify", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses_ace: Some((ace_to: Some(Ringside))))),
         (id: "m/stop", title: "Stop", kinds: [Reversal], fortitude: 0, damage: 0,
             script: (after_success: Some(()))),
         (id: "m/cancel", title: "Cancel", kinds: [Reversal], fortitude: 0, damage: 0,
@@ -242,4 +252,74 @@ fn ring_boosts_can_be_multiplied_by_a_count() {
     play(&e, &mut s, P1, "coach");
     play(&e, &mut s, P1, "hit");
     assert_eq!(s.player(P2).ringside.len(), 3 + 6, "+1D for each of the 6 cards in his hand");
+}
+
+#[test]
+fn a_reversal_can_count_as_two() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["opener"], &[]), deck("second", &["double"], &[]));
+    play(&e, &mut s, P1, "opener");
+    let card = in_hand(&e, &s, P2, "double");
+    apply(&e, &mut s, P2, Action::Reverse { card });
+    assert_eq!(s.active, P2, "one Double stops the Multi card");
+}
+
+#[test]
+fn a_card_can_keep_out_some_reversals() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["picky"], &[]), deck("second", &["block", "double"], &[]));
+    play(&e, &mut s, P1, "picky");
+    assert_eq!(reversal_options(&s), 1, "only Block can reverse it");
+}
+
+#[test]
+fn a_ring_card_can_end_the_turn_after_a_successful_maneuver() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["hit"], &[]), deck("second", &["kickout"], &[]));
+    apply(&e, &mut s, P1, Action::EndTurn);
+    play(&e, &mut s, P2, "kickout");
+    apply(&e, &mut s, P2, Action::EndTurn);
+    play(&e, &mut s, P1, "hit");
+    let Some(Decision {
+        kind: DecisionKind::ChooseCards { options, purpose: ChoicePurpose::AfterSuccess(_), .. }, ..
+    }) = s.decision.clone()
+    else {
+        panic!("no after-success window: {:?}", s.decision);
+    };
+    apply(&e, &mut s, P2, Action::ChooseCards(options));
+    assert_eq!(s.active, P2);
+    assert!(s.player(P2).ring.is_empty(), "Kickout went to the Ringside pile");
+}
+
+#[test]
+fn an_activated_card_effect_can_be_reversed() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["gadget"], &[]), deck("second", &["nullify"], &[]));
+    play(&e, &mut s, P1, "gadget");
+    let gadget = s.player(P1).ring[0];
+    let hand = s.player(P1).hand.len();
+    apply(&e, &mut s, P1, Action::UseRingCard { card: gadget });
+    let Some(Decision {
+        kind: DecisionKind::ChooseCards { options, purpose: ChoicePurpose::ReverseAce(_), .. }, ..
+    }) = s.decision.clone()
+    else {
+        panic!("no ACE reversal window: {:?}", s.decision);
+    };
+    apply(&e, &mut s, P2, Action::ChooseCards(options));
+    assert_eq!(s.player(P1).hand.len(), hand, "no draw");
+    assert_eq!(s.active, P2);
+    assert_eq!(s.card(gadget).zone, Zone::Ringside);
+}
+
+#[test]
+fn an_activated_card_effect_happens_when_not_reversed() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["gadget"], &[]), deck("second", &["nullify"], &[]));
+    play(&e, &mut s, P1, "gadget");
+    let gadget = s.player(P1).ring[0];
+    let hand = s.player(P1).hand.len();
+    apply(&e, &mut s, P1, Action::UseRingCard { card: gadget });
+    apply(&e, &mut s, P2, Action::ChooseCards(vec![]));
+    assert_eq!(s.player(P1).hand.len(), hand + 2);
+    assert_eq!(s.active, P1);
 }

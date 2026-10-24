@@ -107,6 +107,20 @@ pub(crate) enum Step {
     ReversalWindow,
     /// The defender may play an [`crate::card::AfterSuccess`] card.
     SuccessWindow(SuccessTime),
+    /// `player` just used the Activated Card Effect of `card` (`None`: a
+    /// Backstage card): the opponent may reverse it before `effects`.
+    AceWindow {
+        player: PlayerId,
+        card: Option<CardId>,
+        effects: Vec<Effect>,
+        source: Source,
+    },
+    /// The effects of an ACE that was not reversed.
+    AceResolve {
+        player: PlayerId,
+        effects: Vec<Effect>,
+        source: Source,
+    },
     ResolveEffects,
     DealCardDamage,
     /// After the card in play dealt its damage without being reversed.
@@ -297,6 +311,7 @@ impl Engine {
             refused_count_out: [false; 2],
             decision: None,
             boosts: vec![],
+            in_play_limits: vec![],
             end_of_turn: vec![],
             skip_turn: [false; 2],
             start_after: [None; 2],
@@ -550,8 +565,9 @@ impl Engine {
                     self.move_card(state, card, Zone::Ringside, events);
                 }
                 state.pending.push(Step::Main);
-                let all: Vec<Effect> = ability.cost.iter().chain(&ability.effects).cloned().collect();
-                schedule_effects(state, &all, p, Source::Card(card));
+                let source = Source::Card(card);
+                state.pending.push(Step::AceWindow { player: p, card: Some(card), effects: ability.effects, source });
+                schedule_effects(state, &ability.cost, p, source);
             }
             (DecisionKind::Main, Action::UseBackstageCard { card }) => {
                 let ability = self.db.card(card).script.backstage_ability.clone().expect("validated");
@@ -561,8 +577,9 @@ impl Engine {
                     events.push(Event::BackstageHidden { player: p, card });
                 }
                 state.pending.push(Step::Main);
-                let all: Vec<Effect> = ability.cost.iter().chain(&ability.effects).cloned().collect();
-                schedule_effects(state, &all, p, Source::Superstar(p));
+                let source = Source::Superstar(p);
+                state.pending.push(Step::AceWindow { player: p, card: None, effects: ability.effects, source });
+                schedule_effects(state, &ability.cost, p, source);
             }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 let pay_k = self.fortitude_payment(state, p, card, kind).unwrap_or(0);
@@ -586,6 +603,14 @@ impl Engine {
                 let after = state.last_played.map(|l| l.card);
                 let played = Played { after, bonus, from_ringside, ..Played::new(card, p, kind) };
                 state.in_play = Some(played);
+                state.in_play_limits = self
+                    .def(state, card)
+                    .script
+                    .reversal_limits
+                    .iter()
+                    .filter(|l| self.holds(state, &l.when, p))
+                    .filter_map(|l| Some((l.from.iter().map(|&z| zone_bit(z)).fold(0, |a, b| a | b), l.by.clone()?)))
+                    .collect();
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
                 state.in_play_bottom = None;
@@ -731,6 +756,11 @@ impl Engine {
             ChoicePurpose::AfterSuccess(_) => {
                 for c in chosen {
                     self.play_after_success(state, p, c, events);
+                }
+            }
+            ChoicePurpose::ReverseAce(ace) => {
+                for c in chosen {
+                    self.reverse_ace(state, p, c, ace, events);
                 }
             }
             ChoicePurpose::FlipDown => {
@@ -1082,6 +1112,30 @@ impl Engine {
                     });
                 }
             }
+            Step::AceWindow { player, card, effects, source } => {
+                state.pending.push(Step::AceResolve { player, effects, source });
+                let defender = player.opponent();
+                let me = state.player(defender);
+                let options: Vec<CardId> = me
+                    .hand
+                    .iter()
+                    .chain(&me.ring)
+                    .copied()
+                    .filter(|&c| self.can_reverse_ace(state, defender, c, card))
+                    .collect();
+                if !options.is_empty() {
+                    state.decision = Some(Decision {
+                        player: defender,
+                        kind: DecisionKind::ChooseCards {
+                            options,
+                            min: 0,
+                            max: 1,
+                            purpose: ChoicePurpose::ReverseAce(card),
+                        },
+                    });
+                }
+            }
+            Step::AceResolve { player, effects, source } => schedule_effects(state, &effects, player, source),
             Step::SuccessWindow(at) => {
                 let played = state.in_play.expect("card in play");
                 let defender = played.player.opponent();
@@ -1089,6 +1143,7 @@ impl Engine {
                     .player(defender)
                     .hand
                     .iter()
+                    .chain(&state.player(defender).ring)
                     .copied()
                     .filter(|&c| self.can_play_after_success(state, defender, c, played, at))
                     .collect();
@@ -1237,12 +1292,12 @@ impl Engine {
                 }
                 let p = state.active;
                 let (now, later): (Vec<_>, Vec<_>) =
-                    std::mem::take(&mut state.end_of_turn).into_iter().partition(|(c, _)| *c == p);
+                    std::mem::take(&mut state.end_of_turn).into_iter().partition(|(c, _, _)| *c == p);
                 state.end_of_turn = later;
                 if !now.is_empty() {
                     state.pending.push(Step::EndTurn);
-                    for (controller, effect) in now.into_iter().rev() {
-                        state.pending.push(Step::Effect { effect, controller, source: Source::Superstar(controller) });
+                    for (controller, effect, source) in now.into_iter().rev() {
+                        state.pending.push(Step::Effect { effect, controller, source });
                     }
                     return;
                 }
@@ -1554,9 +1609,10 @@ impl Engine {
             .and_then(|src| state.in_play.filter(|p| p.card == src))
             .filter(|played| !played.bonus.no_arsenal_reversal)
             .filter(|&played| self.can_reverse(state, player, card, played, false));
-        if let Some(played) = stopping.filter(|&p| self.needs_more_reversals(state, p)) {
+        let weight = self.reversal_weight(state, card);
+        if let Some(played) = stopping.filter(|&p| self.needs_more_reversals(state, p, weight)) {
             events.push(Event::PartialReversal { player, reversal: card, card: played.card });
-            state.in_play = Some(Played { reversals: played.reversals + 1, ..played });
+            state.in_play = Some(Played { reversals: played.reversals + weight, ..played });
             if remaining > 1 {
                 state.pending.push(Step::Overturn { player, remaining: remaining - 1, source });
             }
@@ -1590,8 +1646,13 @@ impl Engine {
 
     /// A Multi card that has not been reversed yet needs another Reversal, and
     /// some cards need more.
-    fn needs_more_reversals(&self, state: &GameState, played: Played) -> bool {
-        played.reversals + 1 < self.reversals_needed(state, played)
+    fn needs_more_reversals(&self, state: &GameState, played: Played, weight: u8) -> bool {
+        played.reversals + weight < self.reversals_needed(state, played)
+    }
+
+    /// How many reversals `reversal` counts as ([`ReverseSpec::counts_as`]).
+    fn reversal_weight(&self, state: &GameState, reversal: CardId) -> u8 {
+        self.def(state, reversal).script.reverses.as_ref().map_or(1, |s| s.counts_as.max(1))
     }
 
     fn reversals_needed(&self, state: &GameState, played: Played) -> u8 {
@@ -1609,12 +1670,13 @@ impl Engine {
 
     fn reverse_from_hand(&self, state: &mut GameState, defender: PlayerId, reversal: CardId, events: &mut Vec<Event>) {
         let played = state.in_play.expect("card in play");
-        if self.needs_more_reversals(state, played) {
+        let weight = self.reversal_weight(state, reversal);
+        if self.needs_more_reversals(state, played, weight) {
             // The first Reversal lands in the Ring without effect or damage;
             // the defender gets another chance to reverse.
             events.push(Event::PartialReversal { player: defender, reversal, card: played.card });
             self.move_card(state, reversal, Zone::Ring, events);
-            state.in_play = Some(Played { reversals: played.reversals + 1, ..played });
+            state.in_play = Some(Played { reversals: played.reversals + weight, ..played });
             state.pending.push(Step::ReversalWindow);
             return;
         }
@@ -1959,7 +2021,9 @@ impl Engine {
                 state.pending.push(Step::PickEnforcer { who: target(who), decider: controller, change: true })
             }
             Effect::SkipNextTurn { who } => state.skip_turn[target(who).index()] = true,
-            Effect::AtEndOfTurn(effects) => state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e))),
+            Effect::AtEndOfTurn(effects) => {
+                state.end_of_turn.extend(effects.into_iter().map(|e| (controller, e, source)))
+            }
             Effect::DiscardThis => state.in_play_to = Some(Zone::Ringside),
             Effect::RemoveThis => state.in_play_to = Some(Zone::Removed),
             Effect::ThisToArsenal { bottom } => {
@@ -2878,7 +2942,7 @@ impl Engine {
         if def.script.reversals_needed_when.as_ref().is_none_or(|c| self.holds(state, c, player)) {
             extra.reversals_needed = def.script.reversals_needed;
         }
-        for limit in &def.script.reversal_limits {
+        for limit in def.script.reversal_limits.iter().filter(|l| l.by.is_none()) {
             if self.holds(state, &limit.when, player) {
                 extra.blocked_from |= limit.from.iter().map(|&z| zone_bit(z)).fold(0, |a, b| a | b);
             }
@@ -3320,8 +3384,17 @@ impl Engine {
                 && !hand_targets.is_some_and(reverses_momentum))
             && !(irreversible && !spec.ignores_irreversible)
             && !(from_hand && played.bonus.no_hand_reversal)
-            && played.bonus.blocked_from & zone_bit(if from_hand { state.card(reversal).zone } else { Zone::Arsenal })
-                == 0
+            && (spec.ignores_limits
+                || played.bonus.blocked_from
+                    & zone_bit(if from_hand { state.card(reversal).zone } else { Zone::Arsenal })
+                    == 0)
+            && !(state.in_play.is_some_and(|p| p.card == played.card)
+                && !spec.ignores_limits
+                && state.in_play_limits.iter().any(|(zones, f)| {
+                    (*zones == 0
+                        || zones & zone_bit(if from_hand { state.card(reversal).zone } else { Zone::Arsenal }) != 0)
+                        && self.matches_def(state, f, reversal, player)
+                }))
             && !((played.bonus.no_backlash_reversal || pdef.script.no_backlash_reversal)
                 && state.card(reversal).zone == Zone::Backlash)
             && !(!from_hand && pdef.script.no_arsenal_reversal)
@@ -3372,20 +3445,90 @@ impl Engine {
         at: SuccessTime,
     ) -> bool {
         let def = self.def(state, card);
-        let Some(spec) = &def.script.after_success else { return false };
+        let Some(spec) = self.after_success_spec(state, card) else { return false };
+        let in_ring = state.card(card).zone == Zone::Ring;
         played.player != player
             && spec.at == at
+            && !(in_ring && state.lapsed.contains(&card))
             && self.matches(state, &spec.filter, played)
-            && def.script.requires.as_ref().is_none_or(|c| self.holds(state, c, player))
+            && (in_ring || def.script.requires.as_ref().is_none_or(|c| self.holds(state, c, player)))
             && !self.banned_by_opponent(state, player, def)
-            && self.fortitude(state, player) as i32 >= def.fortitude as i32
+            && (in_ring || self.fortitude(state, player) as i32 >= def.fortitude as i32)
+    }
+
+    fn ace_reversal<'a>(&'a self, state: &GameState, card: CardId) -> Option<&'a crate::card::AceReversal> {
+        let script = &self.def(state, card).script;
+        match state.card(card).zone {
+            Zone::Ring => script.ring_reverses_ace.as_ref(),
+            Zone::Hand => script.reverses_ace.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Can `player` reverse the ACE of `ace` (`None`: a Backstage card's) with `card`?
+    fn can_reverse_ace(&self, state: &GameState, player: PlayerId, card: CardId, ace: Option<CardId>) -> bool {
+        let Some(spec) = self.ace_reversal(state, card) else { return false };
+        let def = self.def(state, card);
+        let in_ring = state.card(card).zone == Zone::Ring;
+        let target_ok = match ace {
+            Some(a) => self.matches_def(state, &spec.filter, a, player.opponent()),
+            None => spec.filter == CardFilter::Any,
+        };
+        target_ok
+            && !(in_ring && state.lapsed.contains(&card))
+            && (in_ring || def.script.requires.as_ref().is_none_or(|c| self.holds(state, c, player)))
+            && !self.banned_by_opponent(state, player, def)
+            && (in_ring || self.fortitude(state, player) as i32 >= def.fortitude as i32)
+    }
+
+    fn reverse_ace(
+        &self,
+        state: &mut GameState,
+        p: PlayerId,
+        card: CardId,
+        ace: Option<CardId>,
+        events: &mut Vec<Event>,
+    ) {
+        let spec = self.ace_reversal(state, card).cloned().expect("ACE reversal");
+        if let Some(Step::AceResolve { .. }) = state.pending.last() {
+            state.pending.pop();
+        }
+        if state.card(card).zone == Zone::Ring {
+            self.move_card(state, card, Zone::Ringside, events);
+        } else {
+            let kind = self.def(state, card).kinds.first().copied().unwrap_or(CardKind::Reversal);
+            events.push(Event::CardPlayed { player: p, card, kind });
+            self.move_card(state, card, Zone::Ring, events);
+        }
+        if let (Some(a), Some(to)) = (ace, spec.ace_to)
+            && matches!(state.card(a).zone, Zone::Ring | Zone::Ringside)
+        {
+            self.move_card(state, a, to, events);
+        }
+        if spec.end_turn {
+            state.end_turn_after_play = true;
+        }
+        schedule_effects(state, &spec.effects, p, Source::Card(card));
+    }
+
+    /// The card's [`crate::AfterSuccess`]: from hand, or `ring_after_success` in the Ring.
+    fn after_success_spec<'a>(&'a self, state: &GameState, card: CardId) -> Option<&'a crate::card::AfterSuccess> {
+        let script = &self.def(state, card).script;
+        match state.card(card).zone {
+            Zone::Ring => script.ring_after_success.as_ref(),
+            _ => script.after_success.as_ref(),
+        }
     }
 
     fn play_after_success(&self, state: &mut GameState, p: PlayerId, card: CardId, events: &mut Vec<Event>) {
-        let spec = self.def(state, card).script.after_success.clone().expect("after_success card");
-        let kind = self.def(state, card).kinds.first().copied().unwrap_or(CardKind::Reversal);
-        events.push(Event::CardPlayed { player: p, card, kind });
-        self.move_card(state, card, spec.to.unwrap_or(Zone::Ring), events);
+        let spec = self.after_success_spec(state, card).cloned().expect("after_success card");
+        if state.card(card).zone == Zone::Ring {
+            self.move_card(state, card, spec.to.unwrap_or(Zone::Ringside), events);
+        } else {
+            let kind = self.def(state, card).kinds.first().copied().unwrap_or(CardKind::Reversal);
+            events.push(Event::CardPlayed { player: p, card, kind });
+            self.move_card(state, card, spec.to.unwrap_or(Zone::Ring), events);
+        }
         if spec.cancel {
             state.pending.retain(|s| {
                 !matches!(

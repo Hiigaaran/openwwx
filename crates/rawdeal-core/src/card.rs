@@ -579,6 +579,17 @@ pub struct CardScript {
     /// maneuver ... end his turn").
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after_success: Option<AfterSuccess>,
+    /// The same, used from your Ring ("When this card is in your Ring, you may
+    /// put it into your Ringside pile after ..."); `to` defaults to Ringside.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ring_after_success: Option<AfterSuccess>,
+    /// Played from hand to reverse an Activated Card Effect (a Ring, Ringside
+    /// or Backstage card's ability) your opponent just used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reverses_ace: Option<AceReversal>,
+    /// The same from your Ring: this card goes to your Ringside pile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ring_reverses_ace: Option<AceReversal>,
     /// When this card is flipped face-up in a Ring (its owner controls them).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_flip_up: Vec<Effect>,
@@ -606,6 +617,24 @@ pub struct AfterSuccess {
     pub to: Option<crate::state::Zone>,
 }
 
+/// See [`CardScript::reverses_ace`]. The ACE's cost stays paid; its effects
+/// do not happen.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AceReversal {
+    /// The card whose ACE it can reverse (a Backstage card matches only `Any`).
+    #[serde(default = "any_card")]
+    pub filter: CardFilter,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effects: Vec<Effect>,
+    /// Ends the opponent's turn (default).
+    #[serde(default = "yes")]
+    pub end_turn: bool,
+    /// Where the card with the reversed ACE goes ("put that card into your
+    /// opponent's Ringside pile"), if it is in its owner's Ring or Ringside.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ace_to: Option<crate::state::Zone>,
+}
+
 /// When an [`AfterSuccess`] card may be played.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SuccessTime {
@@ -629,9 +658,15 @@ fn yes() -> bool {
 /// See [`CardScript::reversal_limits`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReversalLimit {
+    /// Empty with `by`: every zone.
+    #[serde(default)]
     pub from: Vec<crate::state::Zone>,
     #[serde(default)]
     pub when: Condition,
+    /// Only Reversals matching this are kept out ("cannot be reversed by
+    /// non-Unique cards": `Not(Trait(Unique))`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<CardFilter>,
 }
 
 /// Effects of a card in the Ring when someone successfully plays a card.
@@ -992,6 +1027,14 @@ pub struct ReverseSpec {
     /// Neither earlier card deals damage and your turn goes on.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reverses_reversals: bool,
+    /// Counts as this many Reversals against Multi cards and cards that need
+    /// more than one ("counts as 2 reversals"); 0 is 1.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub counts_as: u8,
+    /// Ignores the played card's limits on where it can be reversed from
+    /// ("ignore reversal restrictions").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignores_limits: bool,
 }
 
 impl ReverseSpec {
@@ -1015,6 +1058,8 @@ impl ReverseSpec {
             reversed_to_arsenal: false,
             fortitude_when: None,
             reverses_reversals: false,
+            counts_as: 0,
+            ignores_limits: false,
         }
     }
 }

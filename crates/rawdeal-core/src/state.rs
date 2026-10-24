@@ -269,8 +269,12 @@ pub struct GameState {
     pub decision: Option<Decision>,
     /// Active boosts and the player whose cards they change.
     pub boosts: Vec<(PlayerId, Boost)>,
-    /// Effects waiting for the end of the turn, with their controller.
-    pub end_of_turn: Vec<(PlayerId, Effect)>,
+    /// [`crate::ReversalLimit`]s with `by` of the card in play: zone bits
+    /// (0 = all) and the Reversals they keep out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub in_play_limits: Vec<(u8, CardFilter)>,
+    /// Effects waiting for the end of the turn, with their controller and source.
+    pub end_of_turn: Vec<(PlayerId, Effect, Source)>,
     /// Players who skip their next turn.
     pub skip_turn: [bool; 2],
     /// Card each player's first card next turn counts as played after.

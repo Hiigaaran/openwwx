@@ -193,6 +193,9 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 - Una carta híbrida jugada como Acción no hace daño (Chop, Undertaker's Tombstone Piledriver).
 - Jockeying for Position: el +4D o el +8F se elige al jugar la carta.
 - Disqualification! solo revierte maniobras HEEL.
+- Una carta boca abajo en el Ring es una carta en blanco: sin tipo, rasgos ni texto, F: 0 y D: 0 (confirmado por
+  Simon el 2026-10-24).
+- "Debajo de una carta Backstage" se trata igual que debajo de la Superstar (confirmado por Simon el 2026-10-24).
 
 ## Pendiente
 
