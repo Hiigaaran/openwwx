@@ -416,6 +416,8 @@ pub fn refusal(why: rawdeal_net::Refusal) -> String {
         Full => "El servidor no tiene lugar para más partidas.",
         NotFriends => "Solo puedes invitar a tus amigos.",
         NoMatch => "Esa partida ya no está en el servidor.",
+        TooManyDecks => "Tu cuenta ya tiene 100 mazos. Borra alguno para guardar otro.",
+        BadDeck => "El mazo necesita un nombre de hasta 60 caracteres.",
     }
     .into()
 }

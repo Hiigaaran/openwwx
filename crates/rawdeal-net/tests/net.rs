@@ -9,7 +9,7 @@ use rawdeal_ai::RandomBot;
 use rawdeal_core::{Mode, Outcome, PlayerId, RevolutionRules, WinMethod};
 use rawdeal_net::{
     APP_VERSION, Accounts, ClientMsg, Connection, Friend, FromPlayer, HostCore, HostHandle, MatchInfo, Notice,
-    Presence, Refusal, Rejection, Role, ServerMsg, Stats, Update, relay, secure,
+    Presence, Refusal, Rejection, Role, SavedDeck, ServerMsg, Stats, Update, relay, secure,
 };
 
 fn core() -> HostCore {
@@ -154,6 +154,33 @@ fn accounts_reserve_names() {
     assert_eq!(rawdeal_net::tcp::refusal(&refused), Some(Refusal::NotLoggedIn));
     let c = Connection::join_on_server(server, 1, "nope", &pin).unwrap();
     assert_eq!(next(&c), ServerMsg::Rejected(Rejection::NotLoggedIn));
+}
+
+#[test]
+fn decks_are_kept_in_the_account() {
+    let (server, dir) = server();
+    let pin = secure::pin(None);
+    let ana = relay::register(server, &pin, "Ana", "secreto1").unwrap().unwrap();
+    let deck = |name: &str, code: &str, saved: u64| SavedDeck { name: name.into(), code: code.into(), saved };
+    let save = |d: SavedDeck| relay::save_deck(server, &pin, &ana.token, d).unwrap();
+    assert_eq!(relay::decks(server, &pin, &ana.token).unwrap(), Ok(vec![]));
+    assert_eq!(save(deck("Rudo", "OWX1-abc", 10)), Ok(()));
+    assert_eq!(save(deck("Técnico", "OWX1-def", 10)), Ok(()));
+    // A newer save replaces it; an older one is ignored.
+    assert_eq!(save(deck("Rudo", "OWX1-new", 20)), Ok(()));
+    assert_eq!(save(deck("Rudo", "OWX1-old", 15)), Ok(()));
+    // Deleting leaves a mark, so other computers delete it too.
+    assert_eq!(save(deck("Técnico", "", 30)), Ok(()));
+    assert_eq!(save(deck("", "OWX1-x", 1)), Err(Refusal::BadDeck));
+    assert_eq!(save(deck("Raro", "hola", 1)), Err(Refusal::BadDeck));
+    assert_eq!(relay::save_deck(server, &pin, "nope", deck("Rudo", "OWX1-x", 99)).unwrap(), Err(Refusal::NotLoggedIn));
+    let want = vec![deck("Rudo", "OWX1-new", 20), deck("Técnico", "", 30)];
+    assert_eq!(relay::decks(server, &pin, &ana.token).unwrap(), Ok(want.clone()));
+    assert_eq!(Accounts::open(dir.join("accounts.json")).unwrap().decks("ana"), want);
+    for i in 0..99 {
+        assert_eq!(save(deck(&format!("Mazo {i}"), "OWX1-x", 1)), Ok(()));
+    }
+    assert_eq!(save(deck("Uno más", "OWX1-x", 1)), Err(Refusal::TooManyDecks));
 }
 
 #[test]

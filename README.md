@@ -92,6 +92,11 @@ como el juego en línea; si falta alguna carta, el mazo se importa sin ella y se
 se guarda y se abre un mazo de OCTGN (`.o8d`): las cartas se reconocen por su id de OCTGN, el mismo que usan las
 imágenes.
 
+Con la sesión abierta en un servidor común (ver [En línea](#en-línea)), los mazos guardados también quedan en tu
+cuenta: al entrar con la cuenta en otra computadora, o al abrir el constructor, los mazos se sincronizan por nombre y
+gana el último guardado. Borrar un mazo lo borra también en las otras computadoras. Cada cuenta guarda hasta 100
+mazos, y los mazos locales siguen funcionando sin cuenta.
+
 ### En línea
 
 En la sección "En línea" del menú se juega contra otra persona:

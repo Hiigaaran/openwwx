@@ -41,7 +41,34 @@ struct User {
     /// Who asked to be friends, by lowercase name.
     #[serde(default)]
     requests: Vec<String>,
+    /// Saved decks, and deleted ones as [`SavedDeck::deleted`] marks.
+    #[serde(default)]
+    decks: Vec<SavedDeck>,
 }
+
+/// A deck kept in an account, by name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SavedDeck {
+    pub name: String,
+    /// The deck's share code (`OWX1-…`); empty once deleted, so other
+    /// computers delete their copy too.
+    pub code: String,
+    /// When it was saved or deleted, in seconds since 1970, by the clock of
+    /// the computer that did it.
+    pub saved: u64,
+}
+
+impl SavedDeck {
+    pub fn deleted(&self) -> bool {
+        self.code.is_empty()
+    }
+}
+
+/// Decks an account can keep.
+pub const MAX_DECKS: usize = 100;
+/// Longest deck name and code the server keeps.
+pub const MAX_DECK_NAME: usize = 60;
+pub const MAX_DECK_CODE: usize = 8192;
 
 #[derive(Default, Serialize, Deserialize)]
 struct Store {
@@ -167,6 +194,7 @@ impl Accounts {
             created: now(),
             friends: vec![],
             requests: vec![],
+            decks: vec![],
         };
         inner.store.users.insert(key(name), user);
         inner.sessions.insert(token.clone(), key(name));
@@ -277,6 +305,43 @@ impl Accounts {
             }
         }
         self.save(&inner.store);
+    }
+
+    /// `name`'s decks, deleted ones included.
+    pub fn decks(&self, name: &str) -> Vec<SavedDeck> {
+        self.lock().store.users.get(&key(name)).map(|u| u.decks.clone()).unwrap_or_default()
+    }
+
+    /// Keeps `deck` in `name`'s account in place of the one with its name, if
+    /// it is newer. A deck with no code marks the deck deleted.
+    pub fn put_deck(&self, name: &str, deck: SavedDeck) -> Result<(), Refusal> {
+        let title = deck.name.trim();
+        let code_ok = deck.code.is_empty() || (deck.code.starts_with("OWX") && deck.code.len() <= MAX_DECK_CODE);
+        if title.is_empty() || title.chars().count() > MAX_DECK_NAME || !code_ok {
+            return Err(Refusal::BadDeck);
+        }
+        let deck = SavedDeck { name: title.to_string(), ..deck };
+        let mut inner = self.lock();
+        let Some(user) = inner.store.users.get_mut(&key(name)) else { return Err(Refusal::NotLoggedIn) };
+        match user.decks.iter_mut().find(|d| d.name == deck.name) {
+            Some(old) if old.saved > deck.saved => return Ok(()),
+            Some(old) => *old = deck,
+            None => {
+                if !deck.deleted() && user.decks.iter().filter(|d| !d.deleted()).count() >= MAX_DECKS {
+                    return Err(Refusal::TooManyDecks);
+                }
+                user.decks.push(deck);
+            }
+        }
+        // Keeps the newest deletion marks only.
+        let mut marks: Vec<u64> = user.decks.iter().filter(|d| d.deleted()).map(|d| d.saved).collect();
+        if marks.len() > MAX_DECKS {
+            marks.sort_unstable();
+            let oldest_kept = marks[marks.len() - MAX_DECKS];
+            user.decks.retain(|d| !d.deleted() || d.saved >= oldest_kept);
+        }
+        self.save(&inner.store);
+        Ok(())
     }
 
     /// Sets a new password for `name` and ends its sessions. For the

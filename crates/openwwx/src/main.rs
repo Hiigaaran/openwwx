@@ -12,6 +12,7 @@ mod cards;
 mod game;
 mod o8c;
 mod social;
+mod sync;
 mod table;
 mod text;
 

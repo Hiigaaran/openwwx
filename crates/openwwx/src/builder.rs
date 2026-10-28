@@ -13,6 +13,7 @@ use rawdeal_core::{
 
 use crate::analysis::{self, AXES, Analysis};
 use crate::cards::{self, Look, Preview};
+use crate::sync::{self, Account};
 use crate::text;
 
 /// Where saved decks live, one `.ron` file each.
@@ -176,6 +177,12 @@ pub struct Builder {
     test_order: Vec<String>,
     drawn: usize,
     share: Option<Share>,
+    ctx: egui::Context,
+    /// The account decks are kept in too, when logged in to a server.
+    account: Option<Account>,
+    /// A sync or upload running in the background.
+    job: Option<sync::Outcome>,
+    synced: bool,
 }
 
 /// The open Exportar or Importar window.
@@ -195,7 +202,14 @@ enum Tab {
 }
 
 impl Builder {
-    pub fn new(db: Arc<CardDb>, sets: Vec<(String, String)>, mode: Mode, superstar: Option<String>) -> Builder {
+    pub fn new(
+        ctx: &egui::Context,
+        db: Arc<CardDb>,
+        sets: Vec<(String, String)>,
+        mode: Mode,
+        superstar: Option<String>,
+        account: Option<Account>,
+    ) -> Builder {
         let superstar = superstar
             .filter(|s| db.superstar_by_id(s).is_some())
             .or_else(|| db.superstars().first().map(|s| s.id.clone()))
@@ -226,6 +240,10 @@ impl Builder {
             test_order: vec![],
             drawn: 0,
             share: None,
+            ctx: ctx.clone(),
+            account,
+            job: None,
+            synced: false,
             deleting: None,
         };
         b.check();
@@ -384,6 +402,10 @@ impl Builder {
                 self.saved = saved_decks();
                 let legal = if self.problems.is_empty() { "" } else { " Todavía no es legal para jugar." };
                 self.message = Some((format!("Mazo «{stem}» guardado.{legal}"), false));
+                if let Some(account) = self.account.clone() {
+                    let deck = self.deck.clone();
+                    self.job = Some(sync::spawn(&self.ctx, move || sync::push(&account, &stem, Some(&deck))));
+                }
             }
             Err(e) => self.message = Some((format!("No se pudo guardar: {e}"), true)),
         }
@@ -400,6 +422,34 @@ impl Builder {
             self.saved_as = None;
         }
         self.saved = saved_decks();
+        if let Some(account) = self.account.clone() {
+            let name = name.to_string();
+            self.job = Some(sync::spawn(&self.ctx, move || sync::push(&account, &name, None)));
+        }
+    }
+
+    /// Syncs with the account once, and shows how background work ended.
+    fn poll_account(&mut self) {
+        if let Some(job) = &self.job {
+            let done = job.lock().ok().and_then(|mut j| j.take());
+            match done {
+                Some(result) => {
+                    self.job = None;
+                    self.saved = saved_decks();
+                    self.message = Some(match result {
+                        Ok(m) => (m, false),
+                        Err(e) => (e, true),
+                    });
+                }
+                None => return,
+            }
+        }
+        if !self.synced
+            && let Some(account) = self.account.clone()
+        {
+            self.synced = true;
+            self.job = Some(sync::spawn(&self.ctx, move || sync::sync(&account)));
+        }
     }
 
     /// Filters the catalog again if a filter changed.
@@ -442,6 +492,7 @@ impl Builder {
 
     pub fn ui(&mut self, ui: &mut Ui) -> Exit {
         let mut exit = Exit::Stay;
+        self.poll_account();
         self.share_window(ui.ctx());
         egui::Panel::top("builder-top").show(ui, |ui| {
             ui.add_space(6.0);
@@ -536,7 +587,12 @@ impl Builder {
                     self.check();
                 }
             });
-            if let Some((msg, bad)) = &self.message {
+            if self.job.is_some() {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(RichText::new("Sincronizando con tu cuenta…").weak());
+                });
+            } else if let Some((msg, bad)) = &self.message {
                 let color = if *bad { Color32::from_rgb(240, 110, 110) } else { Color32::from_rgb(120, 200, 120) };
                 ui.colored_label(color, msg);
             }

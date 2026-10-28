@@ -6,8 +6,8 @@
 //!
 //! Connections are encrypted ([`crate::secure`]). A connection's first line
 //! says what it is for ([`ToServer`]):
-//! - `Register`, `Login`, `Logout`, `List`, `Ranking`, `History`: the
-//!   server answers once and closes.
+//! - `Register`, `Login`, `Logout`, `List`, `Ranking`, `History`, `Decks`,
+//!   `SaveDeck`: the server answers once and closes.
 //! - `Host`: the server answers `Result<Hosted, Refusal>`, then sends
 //!   [`HostIn`] lines and takes [`HostOut`] lines.
 //! - `Join`: from then on the connection is a guest's link to that match,
@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 
 use rawdeal_core::{Outcome, PlayerId, WinMethod};
 
-use crate::accounts::{Accounts, Session};
+use crate::accounts::{Accounts, SavedDeck, Session};
 use crate::host::ConnId;
 use crate::pump::{Writer, parse, pump};
 use crate::secure::{self, Pin};
@@ -76,6 +76,11 @@ pub enum ToServer {
     History { name: String },
     /// Stay connected as the session's player; see [`Notice`].
     Presence { session: String },
+    /// Ask for the account's decks; answered with `Result<Vec<SavedDeck>, Refusal>`.
+    Decks { session: String },
+    /// Keep a deck in the account, or with no code delete it; answered
+    /// with `Result<(), Refusal>`.
+    SaveDeck { session: String, deck: SavedDeck },
 }
 
 /// What a logged-in app asks on its presence connection.
@@ -136,6 +141,10 @@ pub enum Refusal {
     NotFriends,
     /// No such match, or not one you host.
     NoMatch,
+    /// The account has [`crate::accounts::MAX_DECKS`] decks already.
+    TooManyDecks,
+    /// A deck with no name, or a name or code too long.
+    BadDeck,
 }
 
 /// The server's answer to [`ToServer::Host`].
@@ -211,6 +220,22 @@ pub fn ranking(addr: impl ToSocketAddrs, pin: &Pin) -> io::Result<Vec<Standing>>
 /// `name`'s rating and latest matches on the server at `addr`.
 pub fn history(addr: impl ToSocketAddrs, pin: &Pin, name: &str) -> io::Result<PlayerHistory> {
     ask(addr, pin, &ToServer::History { name: name.into() })
+}
+
+/// The decks in the account `session` belongs to, deleted ones included.
+pub fn decks(addr: impl ToSocketAddrs, pin: &Pin, session: &str) -> io::Result<Result<Vec<SavedDeck>, Refusal>> {
+    ask(addr, pin, &ToServer::Decks { session: session.into() })
+}
+
+/// Keeps `deck` in the account `session` belongs to; a deck with no code
+/// deletes the account's deck by that name.
+pub fn save_deck(
+    addr: impl ToSocketAddrs,
+    pin: &Pin,
+    session: &str,
+    deck: SavedDeck,
+) -> io::Result<Result<(), Refusal>> {
+    ask(addr, pin, &ToServer::SaveDeck { session: session.into(), deck })
 }
 
 /// A logged-in app's live link to the server: friends and invitations.
@@ -422,6 +447,14 @@ fn serve_one(server: &Server, stream: secure::Tls<rustls::ServerConnection>) {
                 w.send(&Err::<Hosted, _>(Refusal::NotLoggedIn));
             }
         },
+        ToServer::Decks { session } => {
+            w.send(&accounts.session(&session).map(|name| accounts.decks(&name)).ok_or(Refusal::NotLoggedIn));
+        }
+        ToServer::SaveDeck { session, deck } => {
+            w.send(
+                &accounts.session(&session).ok_or(Refusal::NotLoggedIn).and_then(|name| accounts.put_deck(&name, deck)),
+            );
+        }
         ToServer::Presence { session } => match accounts.session(&session) {
             Some(name) => return serve_presence(server, pump, name),
             None => {

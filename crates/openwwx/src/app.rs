@@ -371,6 +371,13 @@ impl App {
         self.settings.server_session.as_ref().filter(|s| s.addr == addr)
     }
 
+    /// Where your decks are kept too, when you are logged in to a server.
+    fn account(&mut self) -> Option<crate::sync::Account> {
+        let session = self.session()?.clone();
+        let pin = self.pin(&session.addr);
+        Some(crate::sync::Account { addr: session.addr, pin, token: session.token, name: session.name })
+    }
+
     /// Says why talking to the server at `addr` failed.
     fn server_error(&mut self, addr: &str, e: &std::io::Error) -> String {
         if e.to_string().contains(secure::CHANGED) {
@@ -562,6 +569,10 @@ impl App {
             Ok(Ok(session)) => {
                 self.login_password.clear();
                 self.settings.server_session = Some(SavedSession { addr, name: session.name, token: session.token });
+                // Brings the account's decks to this computer for the menu.
+                if let Some(account) = self.account() {
+                    crate::sync::spawn(&self.ctx, move || crate::sync::sync(&account));
+                }
             }
             Ok(Err(why)) => self.error = Some(text::refusal(why)),
             Err(e) => self.error = Some(self.server_error(&addr, &e)),
@@ -1228,8 +1239,15 @@ impl App {
             }
             ui.add_space(16.0);
             if ui.button(RichText::new("Construir mazos").size(20.0)).clicked() {
-                let mut builder =
-                    Builder::new(self.db.clone(), self.sets.clone(), self.mode(), self.settings.superstars[0].clone());
+                let account = self.account();
+                let mut builder = Builder::new(
+                    &self.ctx,
+                    self.db.clone(),
+                    self.sets.clone(),
+                    self.mode(),
+                    self.settings.superstars[0].clone(),
+                    account,
+                );
                 // Opens the deck "Tu Superstar" plays with, when it is a saved one.
                 if let Some(name) = self.settings.decks[0].as_ref().and_then(|p| p.file_stem())
                     && crate::builder::saved_decks().iter().any(|n| n.as_str() == name)

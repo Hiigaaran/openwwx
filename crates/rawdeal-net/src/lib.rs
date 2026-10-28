@@ -19,7 +19,7 @@ pub mod wire;
 use rawdeal_core::{Action, CardId, DeckList, DeckProblem, DefIdx, Event, Mode, PlayerId, PlayerView, RevolutionRules};
 use serde::{Deserialize, Serialize};
 
-pub use accounts::{Accounts, Session};
+pub use accounts::{Accounts, SavedDeck, Session};
 pub use host::{ConnId, HostCore};
 pub use relay::{DEFAULT_SERVER_PORT, Friend, FromPlayer, Listing, MatchId, Notice, PlayerHistory, Presence, Refusal};
 pub use secure::Pin;
