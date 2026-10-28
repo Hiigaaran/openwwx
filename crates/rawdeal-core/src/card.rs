@@ -107,7 +107,7 @@ pub enum Trait {
 }
 
 /// A printed card that can go in an Arsenal.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CardDef {
     /// Stable identifier such as `"premiere/042"`.
     pub id: String,

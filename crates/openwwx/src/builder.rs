@@ -11,7 +11,8 @@ use rawdeal_core::{
     is_revolution, validate_deck_with,
 };
 
-use crate::cards::{self, Preview};
+use crate::analysis::{self, AXES, Analysis};
+use crate::cards::{self, Look, Preview};
 use crate::text;
 
 /// Where saved decks live, one `.ron` file each.
@@ -169,6 +170,19 @@ pub struct Builder {
     message: Option<(String, bool)>,
     /// Asked to delete this saved deck; a second click does it.
     deleting: Option<String>,
+    tab: Tab,
+    analysis: Analysis,
+    /// The shuffled Arsenal of the test hand, and how many cards are drawn.
+    test_order: Vec<String>,
+    drawn: usize,
+}
+
+/// What the deck panel shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Tab {
+    Cards,
+    Analysis,
+    Hands,
 }
 
 impl Builder {
@@ -198,6 +212,10 @@ impl Builder {
             shown: vec![],
             shown_for: None,
             message: None,
+            tab: Tab::Cards,
+            analysis: Analysis::default(),
+            test_order: vec![],
+            drawn: 0,
             deleting: None,
         };
         b.check();
@@ -237,6 +255,23 @@ impl Builder {
             problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
         }
         self.problems = problems;
+        self.analysis = analysis::analyze(&self.db, &self.deck);
+        self.test_order.clear();
+    }
+
+    fn hand_size(&self) -> usize {
+        self.db.superstar_by_id(&self.deck.superstar).map_or(0, |s| usize::from(self.db.superstar(s).hand_size))
+    }
+
+    /// Shuffles the Arsenal and draws the Superstar's starting hand.
+    fn deal(&mut self) {
+        use rand::SeedableRng;
+        use rand::seq::SliceRandom;
+        let seed =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
+        self.test_order = self.deck.arsenal.clone();
+        self.test_order.shuffle(&mut rand_chacha::ChaCha8Rng::seed_from_u64(seed));
+        self.drawn = self.hand_size().min(self.test_order.len());
     }
 
     fn title(&self, id: &str) -> String {
@@ -633,6 +668,28 @@ impl Builder {
             });
         }
         ui.separator();
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.tab, Tab::Cards, "Cartas");
+            ui.selectable_value(&mut self.tab, Tab::Analysis, "Análisis");
+            ui.selectable_value(&mut self.tab, Tab::Hands, "Manos de prueba");
+        });
+        ui.separator();
+        match self.tab {
+            Tab::Cards => self.cards_ui(ui),
+            Tab::Analysis => {
+                egui::ScrollArea::vertical()
+                    .id_salt("analysis")
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| self.analysis_ui(ui));
+            }
+            Tab::Hands => {
+                egui::ScrollArea::vertical().id_salt("hands").auto_shrink([false; 2]).show(ui, |ui| self.hands_ui(ui));
+            }
+        }
+    }
+
+    /// The deck's cards by group, with − and + buttons.
+    fn cards_ui(&mut self, ui: &mut Ui) {
         let mut add = None;
         let mut remove = None;
         egui::ScrollArea::vertical().id_salt("deck").auto_shrink([false; 2]).show(ui, |ui| {
@@ -689,6 +746,184 @@ impl Builder {
         }
         if let Some(id) = remove {
             self.remove(&id);
+        }
+    }
+}
+
+impl Builder {
+    fn analysis_ui(&mut self, ui: &mut Ui) {
+        if self.deck.arsenal.is_empty() {
+            ui.label(RichText::new("Agrega cartas al Arsenal para ver su análisis.").weak());
+            return;
+        }
+        let a = &self.analysis;
+        ui.label(RichText::new("Foco del mazo").strong());
+        hexagon(ui, &a.focus);
+        for ((name, value), why) in AXES.iter().zip(a.focus).zip(&a.why) {
+            let mut job = egui::text::LayoutJob::default();
+            let style = ui.style().clone();
+            RichText::new(format!("{name} {value:.1}  ")).strong().append_to(
+                &mut job,
+                &style,
+                egui::FontSelection::Default,
+                egui::Align::Center,
+            );
+            RichText::new(why).weak().append_to(&mut job, &style, egui::FontSelection::Default, egui::Align::Center);
+            ui.label(job);
+        }
+        ui.add_space(10.0);
+        ui.label(RichText::new("Curva de Fortitude").strong());
+        curve(ui, &a.curve);
+        ui.add_space(10.0);
+        let st = &a.stats;
+        ui.label(
+            RichText::new(format!("En {} manos iniciales de {} cartas", thousands(analysis::HANDS), st.hand_size))
+                .strong(),
+        );
+        ui.label(format!("Cartas jugables con 0 de Fortitude: {:.1} en promedio.", st.playable));
+        ui.label(format!(
+            "Con al menos una maniobra jugable en el primer turno: {:.0}% (daño de la mejor: {:.1}).",
+            st.with_opener * 100.0,
+            st.opener_damage
+        ));
+        ui.label(format!("Con al menos un Reversal: {:.0}%.", st.with_reversal * 100.0));
+    }
+
+    fn hands_ui(&mut self, ui: &mut Ui) {
+        if self.deck.arsenal.is_empty() {
+            ui.label(RichText::new("Agrega cartas al Arsenal para repartir manos de prueba.").weak());
+            return;
+        }
+        if self.test_order.is_empty() {
+            self.deal();
+        }
+        ui.horizontal(|ui| {
+            if ui.button("Otra mano").clicked() {
+                self.deal();
+            }
+            if ui.add_enabled(self.drawn < self.test_order.len(), egui::Button::new("Robar")).clicked() {
+                self.drawn += 1;
+            }
+            ui.label(
+                RichText::new(format!(
+                    "Mano inicial de {}, {} en el Arsenal",
+                    self.hand_size(),
+                    self.test_order.len() - self.drawn
+                ))
+                .weak(),
+            );
+        });
+        let hand: Vec<&CardDef> = self.test_order[..self.drawn]
+            .iter()
+            .filter_map(|id| self.db.card_by_id(id))
+            .map(|i| self.db.card(i))
+            .collect();
+        let playable = hand.iter().filter(|c| analysis::playable_first(c)).count();
+        let reversals = hand.iter().filter(|c| c.is_reversal()).count();
+        let plural = |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        ui.label(format!(
+            "{} con 0 de Fortitude, {}.",
+            plural(playable, "jugable", "jugables"),
+            plural(reversals, "Reversal", "Reversals")
+        ));
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            for def in hand {
+                let look = if analysis::playable_first(def) { Look::Playable } else { Look::Normal };
+                cards::card(ui, Some(def), egui::vec2(100.0, 140.0), look);
+            }
+        });
+    }
+}
+
+/// `n` with a dot every three digits, as written in Spanish.
+fn thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push('.');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// The six axes of `focus` (0 to 10) as a hexagon.
+fn hexagon(ui: &mut Ui, focus: &[f32; 6]) {
+    let size = ui.available_width().min(300.0);
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size * 0.8), egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    let center = rect.center();
+    let radius = rect.height() * 0.36;
+    let point = |i: usize, v: f32| {
+        let angle = std::f32::consts::TAU * i as f32 / 6.0 - std::f32::consts::FRAC_PI_2;
+        center + egui::vec2(angle.cos(), angle.sin()) * radius * v / 10.0
+    };
+    let grid = ui.visuals().widgets.noninteractive.bg_stroke;
+    for ring in [2.5, 5.0, 7.5, 10.0] {
+        let ring: Vec<egui::Pos2> = (0..6).map(|i| point(i, ring)).collect();
+        painter.add(egui::Shape::closed_line(ring, grid));
+    }
+    for i in 0..6 {
+        painter.line_segment([center, point(i, 10.0)], grid);
+    }
+    let fill = Color32::from_rgba_unmultiplied(230, 170, 60, 90);
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(center, fill);
+    for (i, &v) in focus.iter().enumerate() {
+        mesh.colored_vertex(point(i, v), fill);
+    }
+    for i in 0..6u32 {
+        mesh.add_triangle(0, 1 + i, 1 + (i + 1) % 6);
+    }
+    painter.add(mesh);
+    let outline: Vec<egui::Pos2> = (0..6).map(|i| point(i, focus[i])).collect();
+    painter.add(egui::Shape::closed_line(outline, egui::Stroke::new(2.0, Color32::from_rgb(240, 180, 70))));
+    let text = ui.visuals().text_color();
+    for (i, name) in AXES.iter().enumerate() {
+        let at = point(i, 12.6);
+        painter.text(
+            at,
+            egui::Align2::CENTER_CENTER,
+            format!("{name} {:.1}", focus[i]),
+            egui::FontId::proportional(13.0),
+            text,
+        );
+    }
+}
+
+/// Arsenal cards by Fortitude, as bars.
+fn curve(ui: &mut Ui, counts: &[usize; 14]) {
+    let width = ui.available_width().min(340.0);
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(width, 110.0), egui::Sense::hover());
+    let painter = ui.painter_at(rect);
+    let max = counts.iter().copied().max().unwrap_or(0).max(1) as f32;
+    let slot = rect.width() / counts.len() as f32;
+    let text = ui.visuals().text_color();
+    let font = egui::FontId::proportional(11.0);
+    for (i, &n) in counts.iter().enumerate() {
+        let x = rect.left() + slot * i as f32;
+        let bottom = rect.bottom() - 16.0;
+        let height = (rect.height() - 34.0) * n as f32 / max;
+        let bar = egui::Rect::from_min_max(egui::pos2(x + 3.0, bottom - height), egui::pos2(x + slot - 3.0, bottom));
+        painter.rect_filled(bar, 2.0, Color32::from_rgb(196, 152, 52));
+        let label = if i == counts.len() - 1 { format!("{i}+") } else { i.to_string() };
+        painter.text(
+            egui::pos2(x + slot / 2.0, rect.bottom() - 7.0),
+            egui::Align2::CENTER_CENTER,
+            label,
+            font.clone(),
+            text,
+        );
+        if n > 0 {
+            painter.text(
+                egui::pos2(x + slot / 2.0, bar.top() - 7.0),
+                egui::Align2::CENTER_CENTER,
+                n.to_string(),
+                font.clone(),
+                text,
+            );
         }
     }
 }

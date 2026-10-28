@@ -72,6 +72,20 @@ pueden jugar con cualquier mazo guardado, con el automático o con otro archivo 
 
 ![El constructor de mazos: catálogo con filtros, mazo legal de 60 cartas y el visor de la carta](docs/img/constructor.png)
 
+La pestaña "Análisis" muestra el foco del mazo en un hexágono con seis ejes de 0 a 10, cada uno con lo que contó:
+**Ataque** (daño promedio de las maniobras), **Potencia** (maniobras de 7 de daño o más y Finishers), **Velocidad**
+(Fortitude promedio), **Defensa** (cuántos Reversals hay y qué tipos de maniobra y Acciones cubren), **Control**
+(Acciones y cartas que roban, descartan o buscan) y **Aguante** (Stun Value promedio). Abajo están la curva de
+Fortitude y una estadística de 1.000 manos iniciales: cartas jugables en el primer turno, probabilidad de tener una
+maniobra para abrir y de tener al menos un Reversal.
+
+![Análisis del mazo: hexágono del foco, curva de Fortitude y estadística de manos](docs/img/analisis.png)
+
+"Manos de prueba" baraja el Arsenal y reparte la mano inicial de la Superstar; "Otra mano" vuelve a barajar y "Robar"
+saca la carta siguiente. Las cartas que se pueden jugar en el primer turno aparecen marcadas en verde.
+
+![Una mano de prueba con el visor de la carta](docs/img/manos.png)
+
 ### En línea
 
 En la sección "En línea" del menú se juega contra otra persona:
