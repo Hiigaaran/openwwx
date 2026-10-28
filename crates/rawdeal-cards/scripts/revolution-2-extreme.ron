@@ -483,7 +483,6 @@
                 (applies_to: All([Maneuver, Target("arm"), Holds(CountAtLeast(count: YourRingMatching(Target("arm")), n: 10))]), damage: 1),
             ],
         ),
-        // Approximation: it triggers when the opponent's Hold succeeds.
         "Revolution Ring Psychology: Back": (
             in_ring_on_play: [
                 (
@@ -495,6 +494,7 @@
                             effects: [MoveCards(who: You, from: Hand, to: Arsenal, n: 2, pick: Random, bottom: true)],
                         ),
                     ],
+                    on_attempt: true,
                 ),
             ],
         ),
@@ -512,13 +512,13 @@
                 ),
             ],
         ),
-        // Approximation: it triggers when the opponent's Throw succeeds.
         "Revolution Ring Psychology: Head": (
             in_ring_on_play: [
                 (
                     whose: Some(Opponent),
                     filter: ManeuverType(Throw),
                     effects: [If(condition: OpponentRingHas(filter: Target("head"), n: 6), effects: [Discard(who: You, n: 2, pick: Chosen)])],
+                    on_attempt: true,
                 ),
             ],
         ),
@@ -534,7 +534,6 @@
                 ),
             ],
         ),
-        // Approximation: it triggers when the opponent's Assault succeeds.
         "Revolution Ring Psychology: Neck": (
             in_ring_on_play: [
                 (
@@ -542,10 +541,12 @@
                     filter: ManeuverType(Assault),
                     effects: [
                         If(
-                            condition: OpponentRingHas(filter: Target("neck"), n: 4),
-                            effects: [AsOpponent([DrawUpTo(who: You, n: 1)]), Mill(who: You, n: 1)],
+                            condition: CountAtLeast(count: YourRingMatching(Target("neck")), n: 4),
+                            effects: [DrawUpTo(who: You, n: 1), Mill(who: Opponent, n: 1)],
                         ),
                     ],
+                    owner_controls: true,
+                    on_attempt: true,
                 ),
             ],
         ),

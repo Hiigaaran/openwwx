@@ -454,8 +454,7 @@
                 ]),
             ],
         ),
-        // Approximation: on every RMS maneuver (not once per turn). The blanking and Hell in a Cell texts are not
-        // supported yet.
+        // The blanking and Hell in a Cell texts are not supported yet.
         "The Lone Wolf": (
             no_slot: true,
             in_ring_on_play: [
@@ -463,6 +462,7 @@
                     whose: Some(You),
                     filter: All([Maneuver, Keyword("RMS")]),
                     effects: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Not(Reversal)))],
+                    once_per_turn: true,
                 ),
             ],
         ),
@@ -1329,15 +1329,14 @@
                 If(condition: OpponentReversed(All([Maneuver, AnyOf([TitleContains("precision"), TitleContains("technical")])])), effects: [Mill(who: Opponent, n: 1)]),
             ],
         ),
-        // The bury and Triple H reversal texts, the next maneuver's hybrid restriction and the overturn are not
-        // supported yet.
+        // The bury and Triple H reversal texts and the overturn are not supported yet.
         "The Kingslayer": (
             reversal_limits: [(when: Superstar("Seth Rollins"), by: Some(Hybrid))],
             reversals_needed: 2,
             reversals_needed_when: Some(Superstar("Seth Rollins")),
             on_play: [
                 RingsideToArsenalBottom(who: You, n: 3),
-                Boost((applies_to: Maneuver, duration: NextCard, fortitude: -5, no_backlash_reversal: true)),
+                Boost((applies_to: Maneuver, duration: NextCard, fortitude: -5, no_backlash_reversal: true, only_reversed_by: Some(Not(Hybrid)))),
             ],
         ),
         // Revealing it later (Bludgeon Brothers) is not supported, so it stays hidden.

@@ -296,8 +296,13 @@
         ),
         "Texas Bullrope Match": (
             in_ring_on_play: [
-                (whose: Some(Opponent), filter: All([Not(Maneuver), Not(SuperstarSpecific)]), effects: [Discard(who: You, n: 1, pick: Random)]),
-                (whose: Some(You), filter: All([Not(Maneuver), Not(Trait(Unique))]), effects: [Discard(who: You, n: 1, pick: Chosen)]),
+                (
+                    whose: Some(Opponent),
+                    filter: All([Not(Maneuver), Not(SuperstarSpecific)]),
+                    effects: [Discard(who: You, n: 1, pick: Random)],
+                    on_attempt: true,
+                ),
+                (whose: Some(You), filter: All([Not(Maneuver), Not(Trait(Unique))]), effects: [Discard(who: You, n: 1, pick: Chosen)], on_attempt: true),
             ],
         ),
         // Blanking the opponent's Managers and his Pre-match answer are not supported yet.
@@ -921,8 +926,9 @@
         "Double A": (backstage_abilities: [OnPlayMatching(filter: Keyword("WCW"), effects: [RingsideToArsenal(who: You, n: 2, up_to: true)])]),
         // The Classic DDT and Brain Busters texts are not supported yet.
         "The Enforcer": (pre_match_limit: 2, while_in_ring: [(applies_to: TitleContains("legendary"), fortitude: -4, ignore_play_after: true)]),
-        // The Volley, Chain, Heat and removal texts are not supported yet.
+        // The Volley, Chain and Heat texts are not supported yet.
         "Adversity Introduces a Man to Himself": (
+            opponent_ability: Some((cost: [RemoveFromGame(who: You, from: Hand, n: 4)], sacrifice: true)),
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]),
                 effects: [DrawUpTo(who: You, n: 4), HandToArsenalBottom(who: You, n: 4)],
@@ -1193,6 +1199,10 @@
         "We're Taking Over": (ring_ability: Some((effects: [TakeFromUnder(to: Hand, n: 1)]))),
         // Approximation: as a Counter it cannot be reversed. The card limit is not supported yet.
         "bWo Comes to Ringside": (
+            opponent_ability: Some((
+                cost: [RemoveFromGame(who: You, from: Hand, n: 3)],
+                effects: [RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(Title("bWo Comes to Ringside")))],
+            )),
             irreversible_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
             on_play: [DrawUpTo(who: You, n: 3)],
         ),
@@ -1349,12 +1359,21 @@
                 ]),
             ],
         ),
-        // Approximation: Evolution-specific cards are Superstar-specific cards. The non-hybrid reversal limit on
-        // actions and the opponent's removal text are not supported yet.
+        // Approximation: Evolution-specific cards are Superstar-specific cards.
         "The Evolution of Teamwork": (
             reverses: Some((targets: Not(Any))),
             after_success: Some((filter: Any)),
-            while_in_ring: [(applies_to: All([Maneuver, SuperstarSpecific]), no_backlash_reversal: true)],
+            while_in_ring: [
+                (applies_to: All([Maneuver, SuperstarSpecific]), no_backlash_reversal: true),
+                (applies_to: All([Action, SuperstarSpecific]), only_reversed_by: Some(Not(Hybrid))),
+            ],
+            opponent_ability: Some((
+                cost: [Mill(who: You, n: 4)],
+                effects: [
+                    MoveCards(who: Opponent, from: Ringside, to: Arsenal, n: 4, up_to: true, pick: Random, bottom: true),
+                    RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(Title("The Evolution of Teamwork"))),
+                ],
+            )),
         ),
         // The NXT and FBI texts are not supported yet.
         "Bada Bing!": (
@@ -1720,8 +1739,23 @@
         "The Gift of Jericho": (on_play: [Search(filter: SuperstarSpecific, n: 2, up_to: true)]),
         // Putting the reversed card under it is not supported yet.
         "The List of Jericho": (reverses: Some((targets: Any))),
-        // Not supported yet.
-        "Holy Foley!": (),
+        // The damage-increase ban on the opponent's maneuvers and "do not end your turn" are not supported yet.
+        "Holy Foley!": (
+            not_with: ["Wrestlemania"],
+            backstage_abilities: [
+                OpponentCannotPlay("Not On My Broadcast!"),
+                OnPlayMatching(
+                    filter: TitleContains("cheap"),
+                    effects: [Boost((applies_to: Maneuver, duration: NextCard, only_reversed_by: Some(All([Reversal, DamageAtMost(0)]))))],
+                ),
+                OnOpponentReverses([
+                    If(
+                        condition: OpponentReversed(TitleContains("cheap")),
+                        effects: [MoveCards(who: You, from: Ringside, to: Hand, n: 1, up_to: true, pick: Random)],
+                    ),
+                ]),
+            ],
+        ),
         // The female Run-in target is not supported yet.
         "It Doesn't Matter What Your Name Is!": (
             on_play: [DrawUpTo(who: You, n: 2), If(condition: OpponentSuperstarValueAtMost(2), effects: [DrawUpTo(who: You, n: 3)])],
@@ -1805,6 +1839,10 @@
         // The in-Ring overturn cost is not supported yet.
         "The New Face of Fear": (
             on_play: [HandToArsenalTop(who: Opponent, n: 1, random: true), Mill(who: Opponent, n: 2)],
+            opponent_ability: Some((
+                cost: [Discard(who: You, n: 1, pick: Chosen), Mill(who: You, n: 3)],
+                effects: [RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(Title("The New Face of Fear")))],
+            )),
             reverses: Some((targets: All([Hybrid, Not(ManeuverType(TrademarkFinisher))]))),
         ),
         // Playing it from the removed pile and the Arsenal removal are not supported yet.
@@ -1874,12 +1912,16 @@
             on_play: [HandToArsenalBottom(who: Opponent, n: 2)],
             reverses: Some((targets: Not(Trait(Unique)), overturned_only: true)),
         ),
-        // Approximation: the next maneuver cannot be reversed from hand or Backlash. The Roman's Roar text is not
-        // supported yet.
+        // The Roman's Roar text is not supported yet.
         "I Can - I Will": (
             on_play: [
                 RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Maneuver)),
-                Boost((applies_to: Maneuver, duration: NextMatching, no_hand_reversal: true)),
+                Boost((
+                    applies_to: Maneuver,
+                    duration: NextMatching,
+                    only_reversed_by: Some(Trait(Unique)),
+                    no_reversal_from: [Hand, Ringside, Ring, Under],
+                )),
             ],
         ),
         // Not supported yet.
@@ -2113,9 +2155,10 @@
         ),
         // The Ability text is not supported yet.
         "Over 9000": (on_play: [RingsideToArsenal(who: You, n: 9, up_to: true), If(condition: FortitudeAboveOpponent, effects: [EndTurn])]),
-        // Moving it between the Ring, Ringside and Backlash is not supported yet.
+        // Moving it from the Backlash or Ringside into the Ring is not supported yet.
         "The Cosmic Wasteland": (
             pre_match_limit: 1,
+            opponent_ability: Some((requires: Some(HandAtLeast(2)), cost: [Discard(who: You, n: 2, pick: Random)], sacrifice: true)),
             on_opponent_reverses: [
                 If(condition: OpponentReversed(All([Maneuver, Not(StunValueAtLeast(1))])), effects: [Optional([Draw(who: You, n: 1), Mill(who: Opponent, n: 2)])]),
             ],

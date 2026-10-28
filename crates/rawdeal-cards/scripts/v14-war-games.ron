@@ -659,7 +659,7 @@
         // Recovering it before the Draw Segment is not supported yet.
         "I Came For Kombat": (
             reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))),
-            in_ring_on_play: [(filter: Action, effects: [Mill(who: You, n: 2)])],
+            in_ring_on_play: [(filter: Action, effects: [Mill(who: You, n: 2)], on_attempt: true)],
         ),
         // The low-Arsenal F: 0 / Ringside text is not supported yet.
         "Taking Higher Ground": (
@@ -900,12 +900,13 @@
                 effects: [Boost((applies_to: ManeuverType(Grapple), duration: NextCard, fortitude: -4))],
             )),
         ),
-        // Putting it into the Ring from the Backlash deck and the ACE texts are not supported yet.
+        // Putting it into the Ring from the Backlash deck and the ban on reversals to your ACEs are not supported yet.
         "The Call": (
             on_play: [
                 MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true),
                 Search(filter: ManeuverType(Grapple), n: 2, up_to: true),
             ],
+            opponent_ability: Some((cost: [Discard(who: You, n: 4, pick: Chosen), Mill(who: You, n: 4)], effects: [ReturnThis(to: Removed)])),
         ),
         // The WCW text is not supported yet.
         "Steiner Slam": (

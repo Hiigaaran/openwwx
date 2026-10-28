@@ -1455,11 +1455,11 @@
         ),
 
         // Logo cards of earlier Superstars
-        // The Unique-reversal limit on Maintain Hold and the Deadman Inc part are not supported yet.
+        // The Deadman Inc part is not supported yet.
         "Hell's Gate": (
             on_play: [
                 Discard(who: Opponent, n: 1, pick: Random),
-                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true)),
+                Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true, only_reversed_by: Some(Trait(Unique)))),
             ],
         ),
         // Approximation: this card goes on top of the Arsenal (after you arrange the top 3); it is also Multi as an Action.

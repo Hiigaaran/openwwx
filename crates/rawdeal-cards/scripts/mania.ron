@@ -577,10 +577,14 @@
         "Snubbed by the Fans": (opponent_value_bonus: 1),
         // Stopping a Victory Condition by discarding the hand is not supported yet.
         "Not Done with Any Flair": (on_play: [Mill(who: You, n: 3)], pre_match_limit: 1),
-        // Only you can use its ability, and the Dem Damn Dudleyz! part is not supported yet.
+        // The Dem Damn Dudleyz! ACE is not supported yet.
         "Chicago Street Fight": (
             on_play: [Mill(who: You, n: 3)],
             ring_ability: Some((
+                cost: [Discard(who: You, n: 1, pick: Chosen)],
+                effects: [RingsideToHand(who: You, n: 1, filter: Some(Keyword("Foreign Object")))],
+            )),
+            opponent_ability: Some((
                 cost: [Discard(who: You, n: 1, pick: Chosen)],
                 effects: [RingsideToHand(who: You, n: 1, filter: Some(Keyword("Foreign Object")))],
             )),

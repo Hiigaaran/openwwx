@@ -1367,13 +1367,10 @@
         ),
         // Checking the overturned cards for a non-hybrid Action (to let his turn go on) is not supported yet.
         "McMahon-us Interrupt-us": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Approximation: the opponent's draw happens at the start of his turn.
         "Gentlemen's Establishment": (
             ring_ability: Some((effects: [Choice([[Draw(who: You, n: 1)], [RingsideToArsenalBottom(who: You, n: 1)]])])),
             in_ring_start_of_turn: [If(condition: OpponentFemale, effects: [Mill(who: Opponent, n: 1)])],
-            in_ring_opponent_start_of_turn: [
-                AsOpponent([If(condition: Not(OpponentFemale), effects: [AsOpponent([Optional([Draw(who: You, n: 1)])])])]),
-            ],
+            opponent_ability: Some((requires: Some(YouAre("Male")), effects: [Draw(who: You, n: 1)])),
         ),
         // Approximation: the extra starting card is drawn at the end of the Pre-match phase.
         "Hardcore Originator of ECW": (

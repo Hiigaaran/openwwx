@@ -422,13 +422,13 @@
         ),
         // Blanking the text of a card in the Ring is not supported yet.
         "For the Love of God-Why, King, Why?": (requires: Some(Never)),
-        // Removing a card with an Activated Card Effect is not supported yet.
         "Escape the Rules": (
             on_play: [
                 ShuffleThisIntoArsenal,
-                Optional([
-                    RingsideToHand(who: You, n: 1, filter: Some(All([Not(Trait(Unique)), Not(Action)]))),
-                    EndTurn,
+                Choice([
+                    [],
+                    [RingsideToHand(who: You, n: 1, filter: Some(All([Not(Trait(Unique)), Not(Action)]))), EndTurn],
+                    [RemoveFromRing(who: Opponent, n: 1, filter: All([HasAce, Not(Trait(Unique))]))],
                 ]),
             ],
             reverses: Some((
@@ -590,9 +590,11 @@
             restricts_self: Some((when: Not(SuperstarValueBelowOpponent), filter: TitleBelt)),
         ),
         "It's All About the Game": (),
-        // Removing a card with an Activated Card Effect is not supported yet.
         // Approximation: the +1 Starting Hand Size is drawn at the end of the Pre-match phase.
-        "Managed by Dawn Marie": (end_of_prematch: [Draw(who: You, n: 1)]),
+        "Managed by Dawn Marie": (
+            end_of_prematch: [Draw(who: You, n: 1)],
+            ring_ability: Some((sacrifice: true, effects: [RemoveFromRing(who: Opponent, n: 1, filter: HasAce)])),
+        ),
 
         // Mid-match
         // Its text is cut short in the data, and checking for a Feud card is not supported yet.
@@ -731,9 +733,9 @@
                 ],
             )),
         ),
-        // The opponent's option to discard 3 cards and put it into your Ringside pile is not supported yet.
         "Listen Up, Junior: Don't Be an Ass-clown!": (
             mid_match_limit: 3,
+            opponent_ability: Some((sacrifice: true, cost: [Discard(who: You, n: 3, pick: Chosen)])),
             ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),
         ),
         "My Obscenely Expensive Jeri-tron 5000": (

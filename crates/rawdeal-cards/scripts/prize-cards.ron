@@ -392,7 +392,7 @@
                     ]),
                 ),
             ),
-            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [Mill(who: You, n: 2)])],
+            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [Mill(who: You, n: 2)], on_attempt: true)],
             ring_ability: Some((sacrifice: true, effects: [Search(filter: Title("What a Maneuver!"))])),
         ),
         // "When this effect is reversed, your turn does not end" is not supported.

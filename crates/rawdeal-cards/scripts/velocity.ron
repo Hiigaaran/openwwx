@@ -166,7 +166,11 @@
         // Approximation: you play your cards as if you had your opponent's Fortitude, not 1 less.
         "Breather Hold": (on_play: [Boost((applies_to: Any, duration: ThisTurn, use_opponent_fortitude: true))]),
         // Blanking a chosen card in the opponent's Ring is not supported yet.
-        "Waist Lock": (on_play: [NextCardMustBe(Not(Title("Maintain Hold")))]),
+        // Approximation: the opponent may discard any Reversal card, not only one that could reverse Waist Lock.
+        "Waist Lock": (
+            on_play: [NextCardMustBe(Not(Title("Maintain Hold")))],
+            opponent_ability: Some((cost: [DiscardMatching(who: You, n: 1, filter: Reversal, pick: Chosen)], sacrifice: true)),
+        ),
         "Shoot Headlock": (
             not_reversed_by: Some(Title("Break the Hold")),
             ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),

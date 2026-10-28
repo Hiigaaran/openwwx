@@ -496,6 +496,7 @@
                     whose: Some(Opponent),
                     filter: AnyOf([TitleContains("American"), TitleContains("U.S.A.")]),
                     effects: [Discard(who: You, n: 1, pick: Chosen)],
+                    on_attempt: true,
                 ),
             ],
         ),

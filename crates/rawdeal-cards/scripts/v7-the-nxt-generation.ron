@@ -398,14 +398,22 @@
                 ),
             ],
         ),
-        // The extra titles and the Ringside texts are not supported yet. Approximation: the ACE is used during your
-        // turn.
+        // The extra titles and the Ringside texts are not supported yet. Approximation: the ACE is a Ring trigger
+        // (it cannot be reversed).
         "I Hear Voices In My Head": (
             while_in_ring: [
                 (applies_to: Title("The Viper Strikes"), fortitude: -30),
                 (applies_to: Title("Battling The Voices"), fortitude: -6, multi: true),
             ],
-            ring_ability: Some((sacrifice: true, effects: [ShuffleHandAndRedraw(who: You), Draw(who: You, n: 2)])),
+            in_ring_on_play: [
+                (
+                    whose: Some(Opponent),
+                    filter: Maneuver,
+                    effects: [Optional([SacrificeThis, ShuffleHandAndRedraw(who: You), Draw(who: You, n: 2)])],
+                    owner_controls: true,
+                    on_attempt: true,
+                ),
+            ],
         ),
         // Cannot be blanked and the ACE are not supported yet.
         "The New Face of The WWE": (
@@ -1590,8 +1598,10 @@
         "Jam Session": (end_of_prematch: [Mill(who: Opponent, n: 3)]),
         // The +1F per Pre-match card and the ACE are not supported yet.
         "The Band Joins In": (reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))])))),
-        // The Maintain Hold and hand texts are not supported yet.
-        "Jinder's Camel Clutch": (),
+        // The hand text is not supported yet.
+        "Jinder's Camel Clutch": (
+            on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, only_reversed_by: Some(SuperstarSpecific)))],
+        ),
         // The hand ability is not supported yet.
         "Future Shock DDT": (on_play: [Discard(who: Opponent, n: 3, pick: Random)]),
         // Approximation: it goes to the Ringside pile like other Reversals; the Ring ability is not supported yet.
@@ -1674,8 +1684,13 @@
         // Paige
         // The Skirt the Issue, hybrid and Diva of Tomorrow texts are not supported yet.
         "The First NXT Women's Champion": (backstage_abilities: [DamageFor(filter: Maneuver, delta: 1)]),
-        // The opponent's answer is not supported yet.
+        // Approximation: the opponent's Reversal can have any Fortitude.
         "The Diva of Tomorrow": (
+            opponent_ability: Some((
+                requires: Some(HandHas(Reversal)),
+                cost: [MoveCards(who: You, from: Hand, to: Arsenal, n: 1, filter: Some(Reversal), bottom: true)],
+                sacrifice: true,
+            )),
             not_with: ["Technical Drop Kick"],
             ring_ability: Some((
                 requires: Some(HandHas(TitleContains("kick"))),
@@ -1923,8 +1938,10 @@
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 5), Mill(who: Opponent, n: 5)],
         ),
 
-        // Choosing and blanking a card in his Ring and the Ring texts are not supported yet.
+        // Choosing and blanking a card in his Ring and the overturn when your maneuver is unsuccessful are not
+        // supported yet.
         "Beware of Dog": (
+            opponent_ability: Some((cost: [Mill(who: You, n: 4)], sacrifice: true)),
             bonuses: [(when: InYourRing(TitleContains("dog")), fortitude: -5)],
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), from_hand_only: true)),
         ),

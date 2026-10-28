@@ -338,8 +338,23 @@
                 ),
             ],
         ),
-        // The Ability and Stun Value texts are not supported yet.
-        "The Prince of Dark Matter": (while_in_ring: [(applies_to: Title("Dark Matter"), fortitude: -5)]),
+        // The Ability text and the Stun Value draw limit are not supported yet.
+        "The Prince of Dark Matter": (
+            while_in_ring: [(applies_to: Title("Dark Matter"), fortitude: -5)],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([Maneuver, Not(StunValueAtLeast(1))]),
+                    effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, pick: Random, bottom: true)],
+                ),
+                (
+                    whose: Some(Opponent),
+                    filter: All([Maneuver, StunValueAtLeast(1)]),
+                    effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, pick: Random, bottom: true)],
+                    owner_controls: true,
+                ),
+            ],
+        ),
         // Approximation: the Counter needs no Stardust-specific card. The Oddity text and the reversal are not
         // supported yet.
         "Falling Star": (

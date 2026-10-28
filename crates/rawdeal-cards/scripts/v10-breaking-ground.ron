@@ -150,7 +150,7 @@
                 ),
             ],
         ),
-        // The Unique-reversal restriction and the Backstage texts are not supported yet.
+        // The Backstage texts are not supported yet.
         "I Don’t Give a Damn About My Reputation": (
             irreversible: true,
             on_play: [
@@ -159,7 +159,7 @@
                     effects: [
                         Counted(
                             count: Plus(SuperstarValue, OpponentValueTimes(1)),
-                            effect: Boost((applies_to: Maneuver, duration: NextMatching, damage: 1)),
+                            effect: Boost((applies_to: Maneuver, duration: NextMatching, damage: 1, only_reversed_by: Some(Trait(Unique)))),
                         ),
                     ],
                 ),
@@ -168,7 +168,7 @@
                     effects: [
                         Counted(
                             count: Plus(SuperstarValue, OpponentValueTimes(1)),
-                            effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -1, no_hand_reversal: true)),
+                            effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -1, no_hand_reversal: true, no_backlash_reversal: true)),
                         ),
                     ],
                 ),
@@ -431,7 +431,7 @@
                     [RingsideToArsenal(who: You, n: 6)],
                 ]),
             ],
-            in_ring_on_play: [(whose: Some(You), filter: Title("Ready to Fight"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
+            in_ring_on_play: [(whose: Some(You), filter: Title("Ready to Fight"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)], on_attempt: true)],
         ),
         "Shatter Machine": (
             no_backlash_reversal: true,
@@ -457,7 +457,7 @@
         "No Flips - Just Fists": (
             on_play: [RingsideToHand(who: You, n: 2, up_to: true, filter: Some(ManeuverType(Strike))), DrawUpTo(who: You, n: 2)],
             reverses: Some((targets: ManeuverType(HighRisk), fortitude: Some(0), effects: [Discard(who: Opponent, n: 2, pick: Random)])),
-            in_ring_on_play: [(whose: Some(You), filter: All([Maneuver, Not(ManeuverType(HighRisk))]), effects: [DrawUpTo(who: You, n: 1)])],
+            in_ring_on_play: [(whose: Some(You), filter: All([Maneuver, Not(ManeuverType(HighRisk))]), effects: [DrawUpTo(who: You, n: 1)], on_attempt: true)],
         ),
         // Giving maneuvers the Tag logo is not supported yet.
         "Proud Southern Boys": (),

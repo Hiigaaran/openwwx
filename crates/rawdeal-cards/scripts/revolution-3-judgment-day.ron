@@ -687,7 +687,7 @@
         // not supported yet.
         // Starting the match is not supported yet.
         "Revolution ECW Originals": (
-            in_ring_on_play: [(filter: SameTitleInRing, effects: [DrawUpTo(who: Opponent, n: 1)])],
+            in_ring_on_play: [(filter: SameTitleInRing, effects: [DrawUpTo(who: Opponent, n: 1)], on_attempt: true)],
         ),
         // Being considered an Extremist is not supported yet.
         "Revolution The New Breed": (
@@ -706,7 +706,9 @@
         "Revolution Tomorrow's WWE Legends": (
             value_bonus: 1,
             pre_match_limit: 1,
-            in_ring_on_play: [(whose: Some(Opponent), filter: TitleBelt, effects: [DrawUpTo(who: Opponent, n: 1)])],
+            in_ring_on_play: [
+                (whose: Some(Opponent), filter: TitleBelt, effects: [DrawUpTo(who: You, n: 1)], owner_controls: true, on_attempt: true),
+            ],
         ),
         // Drawing when the opponent discards and blanking the opponent's Antic are not supported yet.
         "Revolution Even Good Guys Do Bad Things": (requires: Some(InYourRing(Title("Revolution Tomorrow's WWE Legends")))),
@@ -1120,7 +1122,7 @@
         "Revolution Whoop-Ass Attitude": (
             requires: Some(All([InYourRing(Title("Revolution Attitude Adjusters")), FortitudeAboveOpponent])),
             on_play: [
-                Boost((applies_to: Maneuver, duration: NextCard, no_backlash_reversal: true)),
+                Boost((applies_to: Maneuver, duration: NextCard, only_reversed_by: Some(Not(Trait(MidMatch))))),
                 If(
                     condition: CountAtLeast(
                         count: YourRingMatching(

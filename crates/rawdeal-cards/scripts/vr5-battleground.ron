@@ -1248,8 +1248,29 @@
                 ThisToArsenal(bottom: true),
             ],
         ),
-        // Ending the opponent's turn is not supported yet.
-        "Revolution The Highlight Reel": (pre_match_limit: 1),
+        // Approximation: his turn ends after his maneuver resolves (its damage is applied first).
+        "Revolution The Highlight Reel": (
+            pre_match_limit: 1,
+            in_ring_on_play: [
+                (
+                    whose: Some(Opponent),
+                    filter: All([Maneuver, EarlierThisTurn(filter: Maneuver, n: 1)]),
+                    effects: [
+                        If(
+                            condition: All([FortitudeBelowOpponent, HandAtLeast(3)]),
+                            effects: [
+                                Optional([
+                                    MoveCards(who: You, from: Hand, to: Arsenal, n: 3),
+                                    RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Maneuver, Not(Hybrid)]))),
+                                    EndTurn,
+                                ]),
+                            ],
+                        ),
+                    ],
+                    owner_controls: true,
+                ),
+            ],
+        ),
         // The Ring texts are not supported yet.
         "Revolution Aid From the King's Court": (
             reverses: Some((targets: Maneuver, fortitude_when: Some((CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), 0)))),

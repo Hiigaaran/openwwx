@@ -838,8 +838,10 @@
         ),
 
         // Reversals
-        // Telling which cards have a 'can only be reversed' restriction is not supported yet.
-        "It's Great To Be Back Here In...": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // The -10F to the first card of your next turn (with a Venue in your Ring) is not supported yet.
+        "It's Great To Be Back Here In...": (
+            reverses: Some((targets: All([HasReversalLimit, Not(Trait(Unique))]), ignores_limits: true)),
+        ),
         "Just What the Game Needs": (
             reverses: Some((
                 reversed_removed: true,
@@ -891,13 +893,20 @@
         ),
         // Playing cards from the Ringside pile is not supported yet.
         "Between the Ropes": (requires: Some(Never)),
-        // "It can only be reversed by hybrid or unique Reversal cards" is not supported yet.
         // Approximation: any maneuver in your Ringside pile can be removed, whatever its Fortitude.
         "Over the Ropes": (
             on_play: [
                 Optional([
                     RemoveFromGame(who: You, from: Ringside, n: 1, filter: Some(Maneuver)),
-                    Counted(count: YourRemoved, effect: Boost((applies_to: Maneuver, duration: NextMatching, fortitude: -2))),
+                    Counted(
+                        count: YourRemoved,
+                        effect: Boost((
+                            applies_to: Maneuver,
+                            duration: NextMatching,
+                            fortitude: -2,
+                            only_reversed_by: Some(AnyOf([Hybrid, Trait(Unique)])),
+                        )),
+                    ),
                 ]),
             ],
         ),

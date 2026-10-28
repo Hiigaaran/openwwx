@@ -345,18 +345,20 @@
         // Approximation: any non-Unique card while That's Value! is in your Ring (the card counts and the
         // searches are not supported yet).
         "Your Trash is My Treasure": (reverses: Some((targets: Not(Trait(Unique)), requires: Some(InYourRing(Title("That's Value!")))))),
-        // Reversing as if D: 0 and counting as 2 reversals are not supported yet.
+        // Reversing as if D: 0 is not supported yet.
         "Counter Hold": (
             not_with: ["A Revolution of the Mind", "Legendary Defense"],
-            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]))),
+            reverses: Some((targets: AnyOf([ManeuverType(Grapple), ManeuverType(Submission)]), counts_as_overturned: 2)),
         ),
+        // Reversing as if D: 0 is not supported yet.
         "Counter Assault": (
             not_with: ["A Revolution of the Mind", "Legendary Defense"],
-            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Submission)]))),
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Submission)]), counts_as_overturned: 2)),
         ),
+        // Reversing as if D: 0 is not supported yet.
         "Counter Throw": (
             not_with: ["A Revolution of the Mind", "Legendary Defense"],
-            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]))),
+            reverses: Some((targets: AnyOf([ManeuverType(Strike), ManeuverType(Grapple)]), counts_as_overturned: 2)),
         ),
 
         // ================================================================ Raw / Smackdown
@@ -535,6 +537,7 @@
                     whose: Some(Opponent),
                     filter: All([Trait(MidMatch), AnyOf([Trait(Face), Trait(Heel), Trait(Cheater), Trait(FanFavorite)])]),
                     effects: [HandToArsenalBottom(who: You, n: 1)],
+                    on_attempt: true,
                 ),
                 (
                     whose: Some(You),
@@ -629,14 +632,14 @@
         "The Iconic Duo": (),
         // Playing it in the Venue step and the discard / overturn texts are not supported yet.
         "From Sydney, Australia": (pre_match_limit: 2),
-        // Approximation: every successful maneuver or Unique action (not once per turn). Doubling the Title Belt
-        // numbers and the ACE are not supported yet.
+        // Doubling the Title Belt numbers and the ACE are not supported yet.
         "The Most Iiconic Moment": (
             in_ring_on_play: [
                 (
                     whose: Some(You),
                     filter: AnyOf([Maneuver, All([Action, Trait(Unique)])]),
                     effects: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Title("IICONICS!")))],
+                    once_per_turn: true,
                 ),
             ],
         ),
@@ -692,9 +695,10 @@
                 OnPlayMatching(filter: ManeuverType(TrademarkFinisher), effects: [Optional([Dig(n: 2, take: 1)])]),
             ],
         ),
-        // Approximation: every successful Superstar-specific card (not once per turn; the Counter maneuver part is
-        // not supported). The Title Belt slot and the RFG replacement are not supported yet.
-        "BOOM!": (in_ring_on_play: [(whose: Some(You), filter: SuperstarSpecific, effects: [Optional([Dig(n: 3, take: 1)])])]),
+        // Approximation: once per turn on a successful Superstar-specific card (the Counter maneuver part and Bobby
+        // Fish's once during any turn are not supported). The Title Belt slot and the RFG replacement are not
+        // supported yet.
+        "BOOM!": (in_ring_on_play: [(whose: Some(You), filter: SuperstarSpecific, effects: [Optional([Dig(n: 3, take: 1)])], once_per_turn: true)]),
         // Approximation: +1 Pre-match card. The Starting Hand Size and the Ability replacement are not supported yet.
         "Title Belt Air Guitar": (pre_match_limit: 1),
         // The discard to return it to the Backlash and the RFG / reveal option are not supported yet.
@@ -1532,7 +1536,7 @@
         "Camp Cornette": (
             not_with: ["The Hart Family", "Strength of Allied Powers", "Managed by Harley Race"],
             in_ring_on_play: [
-                (whose: Some(You), filter: TitleContains("Interfere"), effects: [DrawUpTo(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Random)]),
+                (whose: Some(You), filter: TitleContains("Interfere"), effects: [DrawUpTo(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Random)], on_attempt: true),
             ],
         ),
         // The Starting Hand Sizes, the Activated reversal cost, the 'Classic' titles and Classic Distraction are

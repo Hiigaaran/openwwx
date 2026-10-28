@@ -940,6 +940,7 @@
                     whose: Some(Opponent),
                     filter: Maneuver,
                     effects: [Choice([[TakeFromUnder(to: Hand, n: 1)], [PutUnder(from: Ringside, n: 1, up_to: true)]])],
+                    owner_controls: true,
                 ),
             ],
         ),
@@ -1540,7 +1541,7 @@
         "Weight Belt Whip": (
             extra_traits: [Heel],
             not_reversed_by: Some(Hybrid),
-            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [Discard(who: You, n: 1, pick: Chosen)])],
+            in_ring_on_play: [(whose: Some(Opponent), filter: Action, effects: [Discard(who: You, n: 1, pick: Chosen)], on_attempt: true)],
             ring_ability: Some((
                 requires: Some(CountAtLeast(count: YourRingSize, n: 2)),
                 cost: [RemoveFromGame(who: You, from: Ring, n: 1, filter: Some(Not(Title("Weight Belt Whip"))))],
@@ -1600,8 +1601,18 @@
                 ]),
             ],
         ),
-        // The Ring trigger is not supported yet.
-        "Roadhouse": (on_play: [RingsideToArsenal(who: You, n: 2, up_to: true), DrawUpTo(who: You, n: 2)]),
+        // Approximation: "successfully play 2+ Strikes" is a successful Strike after another Strike played this turn.
+        "Roadhouse": (
+            on_play: [RingsideToArsenal(who: You, n: 2, up_to: true), DrawUpTo(who: You, n: 2)],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: All([ManeuverType(Strike), EarlierThisTurn(filter: ManeuverType(Strike), n: 1)]),
+                    effects: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
+                    once_per_turn: true,
+                ),
+            ],
+        ),
         // The Brood texts and removing Ring reversals are not supported yet.
         "Bloodbath!": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))])))),
         // The unsuccessful 'Kick' text is not supported yet.
@@ -1783,12 +1794,13 @@
                 [],
             ],
         ),
-        // The Ringside text is not supported yet.
+        // The Ringside text and the ACE being reversible only by Superstar-specific reversals (Sherri Martel) are
+        // not supported yet.
         "Sister Sherri": (
             on_play: [RingsideToArsenal(who: You, n: 4, up_to: true), RingsideToHand(who: You, n: 2, up_to: true, filter: Some(Maneuver))],
             ring_ability: Some((
                 requires: Some(CountBelow(a: Plus(YourFortitude, Const(4)), b: OpponentFortitude)),
-                effects: [SacrificeThis, Boost((applies_to: ManeuverType(Strike), duration: NextMatching, no_hand_reversal: true))],
+                effects: [SacrificeThis, Boost((applies_to: ManeuverType(Strike), duration: NextMatching, no_hand_reversal: true, no_backlash_reversal: true))],
             )),
         ),
         // Approximation: as an action you look at their hand and draw 2 (their Recover is not supported).

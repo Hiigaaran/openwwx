@@ -540,7 +540,9 @@
         // Being Active only without Back to Basics is not supported yet. Approximation: Backlash cards are Mid-match cards.
         "Old School Psychology": (
             restricts_opponent: Some((filter: Title("Old School Wrestling Match"))),
-            in_ring_on_play: [(whose: Some(Opponent), filter: Trait(MidMatch), effects: [Discard(who: You, n: 1, pick: Chosen)])],
+            in_ring_on_play: [
+                (whose: Some(Opponent), filter: Trait(MidMatch), effects: [Discard(who: You, n: 1, pick: Chosen)], on_attempt: true),
+            ],
         ),
         // "You can only play Pre-match cards with 'old school' in the title" and losing the game if your opponent
         // finds non-Superstar-specific maneuvers in your Arsenal or Backlash deck are not supported yet.
@@ -790,8 +792,16 @@
         "Goldberg's Spear": (reverses: Some((targets: Action))),
 
         // Stacy Keibler
-        // The discard on the opponent's first turn is not supported yet.
+        // The discard on the opponent's first turn only works when he has the first turn of the match.
         "Straddle the Ropes": (
+            in_ring_on_play: [
+                (
+                    whose: Some(Opponent),
+                    filter: Action,
+                    effects: [If(condition: FirstTurnOfGame, effects: [Discard(who: You, n: 2, pick: Chosen)])],
+                    on_attempt: true,
+                ),
+            ],
             ring_ability: Some((
                 sacrifice: true,
                 effects: [LookAtHand(who: Opponent), RemoveFromGame(who: Opponent, from: Hand, n: 1, pick: Controller)],

@@ -347,8 +347,9 @@
         "Turn the Match Around": (on_play: [Boost((duration: NextCard, use_opponent_fortitude: true))]),
         // The ACE (removing cards the opponent moves from his Ringside pile) is not supported yet.
         "Paul Heyman's Shoot Promo": (on_play: [DrawUpTo(who: You, n: 2)]),
-        // Removing it by putting a maneuver into the Ringside pile or discarding 4 cards is not supported yet.
+        // Approximation: the opponent can only discard 4 cards to remove it (not put a maneuver into his Ringside).
         "nWo Comes to Ringside": (
+            opponent_ability: Some((cost: [Discard(who: You, n: 4, pick: Chosen)], sacrifice: true)),
             requires: Some(AnyOf([InYourRing(Keyword("nWo")), BackstageRevealed(who: You, filter: Keyword("nWo"))])),
             restricts_opponent: Some((filter: EarlierThisTurn(filter: Any, n: 2))),
         ),
@@ -1057,10 +1058,14 @@
         ),
 
         // The Future of Sports Entertainment (Ken Kennedy logo)
-        // Ken Kennedy's part (blank Ability, D: 0-only Reversals) is not supported yet. Approximation: # counts the cards
-        // in your Ring that are not maneuvers, actions, Reversals or Antics.
+        // Ken Kennedy's blank Ability is not supported yet. Approximation: # counts the cards in your Ring that are not
+        // maneuvers, actions, Reversals or Antics.
         "Talk Loud - Hit Harder": (
             backstage_abilities: [
+                OnPlayMatching(
+                    filter: All([Action, Holds(Superstar("Ken Kennedy"))]),
+                    effects: [Boost((applies_to: Maneuver, duration: NextCard, only_reversed_by: Some(All([Reversal, DamageAtMost(0)]))))],
+                ),
                 FortitudeFor(filter: All([Action, Not(SuperstarSpecific), Holds(Not(Superstar("Ken Kennedy")))]), delta: -3),
                 DamageFor(filter: All([Maneuver, Holds(Not(Superstar("Ken Kennedy")))]), delta: 1),
             ],
@@ -1097,7 +1102,9 @@
         // Approximation: Stevie Richards-specific cards are Superstar-specific cards. Beating the Odds is not supported yet.
         "Most Extreme Player": (frees_slots: Some(SuperstarSpecific)),
         // Making the opponent's cards non-Unique is not supported yet.
-        "Taunting Your Opponent with a Skit": (),
+        "Taunting Your Opponent with a Skit": (
+            opponent_ability: Some((cost: [Counted(count: HalfYourHand, effect: Discard(who: You, n: 1, pick: Chosen))], sacrifice: true)),
+        ),
         // Its maneuver damage changes are not supported yet.
         "We're Takin' Over!": (
             requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5)),
@@ -1139,8 +1146,16 @@
             no_backlash_reversal: true,
             not_reversed_by: Some(Title("The Coach Says, 'Today's the Day!'")),
         ),
-        // Its Ring texts (blanking 'reverse' maneuvers, removing it) are not supported yet.
-        "Is That All You Got?": (reverses: Some((targets: Not(Any))), after_success: Some((filter: Maneuver))),
+        // Blanking 'reverse' maneuvers in the Ring is not supported yet. Approximation: the opponent discards the
+        // 4 cards from his hand only.
+        "Is That All You Got?": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((filter: Maneuver)),
+            opponent_ability: Some((
+                cost: [Discard(who: You, n: 4, pick: Chosen)],
+                effects: [RemoveFromGame(who: Opponent, from: Ring, n: 1, filter: Some(Title("Is That All You Got?")), pick: Controller)],
+            )),
+        ),
         // Approximation: removed when reversed from hand.
         "The Finlay Roll": (
             on_play: [RingsideToArsenal(who: You, n: 4, up_to: true), RemoveFromGame(who: Opponent, from: Hand, n: 1)],

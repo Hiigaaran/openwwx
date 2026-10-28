@@ -959,8 +959,24 @@
             )),
         ),
         // ---------------------------------------------------------------- Heath Slater
-        // Approximation: the cards not taken go to the bottom. The reversal restriction is not supported yet.
-        "The One-Man Rock Band": (end_of_prematch: [Dig(n: 5, take: 1)]),
+        // Approximation: the cards not taken go to the bottom; the next maneuver can only be reversed by D: 0
+        // Reversals from anywhere (not only from hand and Arsenal).
+        "The One-Man Rock Band": (
+            end_of_prematch: [Dig(n: 5, take: 1)],
+            in_ring_on_play: [
+                (
+                    whose: Some(You),
+                    filter: AnyOf([Antic, All([Action, Not(Trait(Multi))])]),
+                    effects: [
+                        Boost((
+                            applies_to: All([Maneuver, Not(SuperstarSpecific)]),
+                            duration: NextCard,
+                            only_reversed_by: Some(All([Reversal, DamageAtMost(0)])),
+                        )),
+                    ],
+                ),
+            ],
+        ),
         // The F: 0 condition is not supported yet.
         "I'm About to Blow Your Mind": (
             on_play: [
@@ -2031,8 +2047,19 @@
         // ---------------------------------------------------------------- The King of Kings
         // Its texts are not supported yet.
         "Vocare Ad Regnum": (),
-        // The Ring texts and giving the card to the opponent are not supported yet.
-        "No One Is Bigger Than The Business": (reverses: Some((targets: SuperstarSpecific))),
+        // Turning maneuvers into Trademark Finishers and giving the card to the opponent are not supported yet.
+        // Approximation: only the opponent's card titles are checked for the words (not the text).
+        "No One Is Bigger Than The Business": (
+            reverses: Some((targets: SuperstarSpecific)),
+            in_ring_on_play: [
+                (
+                    whose: Some(Opponent),
+                    filter: AnyOf([TitleContains("Triple H"), TitleContains("GM"), TitleContains("Chairman"), TitleContains("Business")]),
+                    effects: [DrawUpTo(who: You, n: 2)],
+                    owner_controls: true,
+                ),
+            ],
+        ),
         // ---------------------------------------------------------------- The Showstopper
         // The Wrestlemania texts are not supported yet.
         "Mr. Wrestlemania": (),
@@ -2485,9 +2512,16 @@
             play_after: Some(Maneuver),
             irreversible_when: Some(After(All([Maneuver, DamageAtLeast(10)]))),
         ),
-        // The ACE is not supported yet.
+        // Approximation: the card put under it comes from your hand only.
         "Backed by The People": (
             end_of_prematch: [PutUnder(from: Hand, n: 1, up_to: true)],
+            ring_ability: Some((
+                sacrifice: true,
+                effects: [
+                    Boost((applies_to: Title("Patented Rock Footstomp"), duration: NextCard, fortitude: -5, only_reversed_by: Some(Trait(Unique)))),
+                    NextPlayWatch(filter: Title("Patented Rock Footstomp"), on_success: [EndTurn]),
+                ],
+            )),
             play_from_under: Some(Any),
             under_to: Some(Arsenal),
         ),
@@ -2819,12 +2853,17 @@
         ),
         // The ACE is not supported yet.
         "Air (Boom) Support": (irreversible_when: Some(Superstar("Kofi Kingston"))),
-        // The D: 0 reversal restriction and the Ringside text are not supported yet.
         "Backed by Santino Marella": (
             on_play: [
                 ShuffleThisIntoArsenal,
                 MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, filter: Some(Maneuver)),
+                Boost((
+                    applies_to: All([Maneuver, Not(Trait(Unique))]),
+                    duration: NextCard,
+                    only_reversed_by: Some(All([Reversal, DamageAtMost(0)])),
+                )),
             ],
+            ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand), EndTurn])),
         ),
         "Soviet Power": (
             chain_when: Some(Superstar("Nikolai Volkoff")),

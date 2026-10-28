@@ -67,7 +67,7 @@
         "Handcuffed": (
             on_play: [DrawUpTo(who: You, n: 3)],
             on_reversed_from_hand: [If(condition: OpponentReversedFrom([Hand]), effects: [Discard(who: Opponent, n: 2, pick: Chosen)])],
-            in_ring_on_play: [(whose: Some(Opponent), filter: Trait(Face), effects: [Discard(who: You, n: 1, pick: Chosen)])],
+            in_ring_on_play: [(whose: Some(Opponent), filter: Trait(Face), effects: [Discard(who: You, n: 1, pick: Chosen)], on_attempt: true)],
         ),
         "Fisticuffs": (
             on_reversed_from_hand: [

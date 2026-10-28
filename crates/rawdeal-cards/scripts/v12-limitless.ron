@@ -214,8 +214,14 @@
                 )),
             ],
         ),
-        // Its reveal, Panic / Desperate and Ring texts are not supported yet.
-        "Sink Your Teeth In": (),
+        // Its reveal, Panic / Desperate and Ring hand-moving texts are not supported yet.
+        "Sink Your Teeth In": (
+            opponent_ability: Some((
+                requires: Some(HandAtLeast(2)),
+                cost: [MoveCards(who: You, from: Hand, to: Arsenal, n: 2)],
+                effects: [ReturnThis(to: Arsenal)],
+            )),
+        ),
         // The Ric Flair text is not supported yet.
         "Mule Kick": (
             on_play: [MoveCards(who: You, from: Removed, to: Arsenal, n: 4, up_to: true), Discard(who: Opponent, n: 4, pick: Chosen)],
@@ -564,6 +570,7 @@
                 requires: Some(All([HandAtLeast(2), Not(HandHas(All([Maneuver, FortitudeAtMost(0)])))])),
                 cost: [RevealHand(who: You), HandToArsenalBottom(who: You, n: 2)],
                 effects: [Search(filter: All([Maneuver, FortitudeAtMost(0), Not(Hybrid), Not(Trait(Unique))]))],
+                unreversible: true,
             )),
         ),
         // Approximation: your Mid-match maneuvers cannot be reversed from hand. The ACE and face-down texts are not
@@ -892,8 +899,12 @@
         ),
         // Its texts are not supported yet.
         "The Reverend D-Von": (),
-        // The opponent's answer and the Ringside text are not supported yet.
-        "Eyes of Righteousness": (reveals_opponent_hand: true, on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)]),
+        // The Ringside text is not supported yet.
+        "Eyes of Righteousness": (
+            reveals_opponent_hand: true,
+            on_play: [RingsideToArsenal(who: You, n: 3, up_to: true)],
+            opponent_ability: Some((cost: [Mill(who: You, n: 4)], sacrifice: true)),
+        ),
         // The Ring D: 0 text is not supported yet.
         "Backed by Deacon Batista": (
             not_reversed_by: Some(Hybrid),
@@ -1152,7 +1163,7 @@
         // The Ability texts are not supported yet.
         "Grandson of a Plumber": (
             frees_slots: Some(SuperstarSpecific),
-            ring_ability: Some((effects: [ReturnThis(to: Removed), MoveCards(who: You, from: Removed, to: Arsenal, n: 5, up_to: true)])),
+            ring_ability: Some((effects: [ReturnThis(to: Removed), MoveCards(who: You, from: Removed, to: Arsenal, n: 5, up_to: true)], unreversible: true)),
         ),
         // Shuffling a Backstage card into the Arsenal is not supported yet.
         "Backed by Randy Orton": (),

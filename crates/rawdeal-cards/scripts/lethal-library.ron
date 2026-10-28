@@ -158,7 +158,6 @@
                 ]),
             ],
         ),
-        // Approximation: the opponent's removal happens at the start of his turn, before his Draw Segment.
         "I Don't Care About the Heat": (
             ring_ability: Some((
                 effects: [
@@ -171,9 +170,9 @@
                     ]),
                 ],
             )),
-            in_ring_opponent_start_of_turn: [
-                Optional([RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Not(Keyword("Heat"))), pick: Controller)]),
-            ],
+            opponent_ability: Some((
+                effects: [RemoveFromGame(who: Opponent, from: Ringside, n: 1, filter: Some(Not(Keyword("Heat"))), pick: Controller)],
+            )),
         ),
 
         // Mid-match

@@ -87,6 +87,7 @@
                         effects: [Search(filter: All([Maneuver, Not(Trait(Unique)), Not(Hybrid), StunValueAtLeast(1)]))],
                     ),
                 ],
+                unreversible: true,
             )),
         ),
         // The reversal cost and the Bury-from-hand text are not supported yet.
@@ -104,6 +105,7 @@
         "The Ugandan Giant": (
             as_action: Some((on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Maneuver)])),
             reverses: Some((targets: All([Not(ManeuverType(TrademarkFinisher)), Maneuver]))),
+            opponent_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], sacrifice: true)),
         ),
         // "Its damage cannot be reduced" is not supported yet.
         "Air Africa": (

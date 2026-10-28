@@ -257,11 +257,11 @@
         // Grapples
         "Shake": (not_reversed_by: Some(Not(Title("Escape Move")))),
         "Capture Suplex": (reverses: Some((targets: All([Maneuver, After(Title("From the Top Rope"))])))),
-        // Removing cards with an Activated Card Effect is not supported yet.
         // Approximation: the next card may ignore any "can only be played after" text.
         "Tossed Between the Ropes": (
             no_backlash_reversal: true,
             on_play: [
+                Optional([RemoveFromRing(who: Opponent, n: 1, filter: HasAce)]),
                 Boost((applies_to: Any, duration: NextCard, ignore_play_after: true)),
                 If(condition: Superstar("Rey Mysterio"), effects: [Optional([Search(filter: Title("The 619"))])]),
             ],
