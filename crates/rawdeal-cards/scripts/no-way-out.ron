@@ -914,12 +914,16 @@
         ),
         // Naming the cards that can reverse it is not supported yet.
         "Shoot Action": (),
-        // Reversing cards not played from hand from the Ring is not supported yet.
-        "Ashley: Pretty Punk": (requires: Some(Never)),
+        // Replacing a card listed on WWE Divas: The Next Generation or WWE Divas Rule! is not supported yet.
+        // Approximation: only cards played from his Ringside pile count as not played from his hand.
+        "Ashley: Pretty Punk": (
+            reverses_from_ring: Some((targets: Holds(PlayedFromRingside), fortitude: Some(0))),
+            ring_reverses_ace: Some(()),
+        ),
         // WWE Divas cards are not in the game yet.
         "Mickie: Fervent Fanatic": (on_play: [Search(filter: Not(Trait(Unique)), n: 2)]),
-        // Its Ring ability (ending the opponent's turn after damage) is not supported yet.
         "Kick Out!": (
+            ring_after_success: Some((filter: Maneuver)),
             bonuses: [(fortitude: -10)],
             on_play: [Draw(who: You, n: 1)],
             reverses: Some((
@@ -1457,12 +1461,12 @@
             play_after: Some(Any),
             on_play: [Search(filter: Trait(Unique)), Search(filter: Title("Springboard"))],
         ),
-        // Reversing Activated Card Effects is not supported yet.
         "I'll Do Anything For the Scoop, But...": (
             reverses: Some((
                 targets: Not(Trait(Unique)),
                 effects: [Search(filter: Title("...I Do Ask the Tough Questions"), ringside: true)],
             )),
+            reverses_ace: Some((effects: [Search(filter: Title("...I Do Ask the Tough Questions"), ringside: true)])),
         ),
         "...I Do Ask the Tough Questions": (
             requires: Some(InYourRing(Title("I'll Do Anything For the Scoop, But..."))),

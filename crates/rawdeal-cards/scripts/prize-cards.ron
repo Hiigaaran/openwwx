@@ -2,8 +2,7 @@
 // Ringside Announcers, Movies...), merged by the OCTGN importer.
 // Keys are card titles. Only the parts of the text the engine can express are
 // scripted; cards marked `requires: Some(Never)` cannot be played yet.
-// "ACE" (Activated Card Effect) texts are Ring abilities; reversing an ACE and using it during the opponent's turn are
-// not supported.
+// "ACE" (Activated Card Effect) texts are Ring abilities; using one during the opponent's turn is not supported.
 // Changing the Starting Hand Size is approximated: +N is a draw of N at the end of the Pre-match phase (after the
 // starting hands), -N for a player puts N random cards from his hand on top of his Arsenal.
 // "You cannot play any title belt except the Tag Team Title Belts" / "when you can pack the Tag Team Title Belts" is

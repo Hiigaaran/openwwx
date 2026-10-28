@@ -758,10 +758,9 @@
         // Goldberg
         // Starting the game and the Mid-match reversal limit are not supported yet.
         "Revolution Goooooldberg! Goooooldberg!": (),
-        // Approximation: only Unique reversals can reverse it also when you are not Goldberg.
         "Revolution Believe the Hype": (
             bonuses: [(when: Superstar("Revolution Goldberg"), fortitude: -10)],
-            not_reversed_by: Some(Not(Trait(Unique))),
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: Superstar("Revolution Goldberg"))],
             on_play: [DrawUpTo(who: You, n: 1), RingsideToArsenal(who: You, n: 7, up_to: true), Discard(who: Opponent, n: 3, pick: Chosen)],
         ),
         "Revolution Goldberg's Powerful Punch": (on_play: [DrawUpTo(who: You, n: 1)]),
@@ -1180,9 +1179,8 @@
         // Dudley Boyz
         // The Set the Table texts are not supported yet.
         "Revolution Get the Table!": (),
-        // The hybrid-from-hand reversal limit is not supported yet.
         "Revolution Wazzzzzup!!": (
-            reversal_limits: [(from: [Backlash], when: After(Maneuver))],
+            reversal_limits: [(from: [Backlash], when: After(Maneuver)), (from: [Hand], by: Some(Hybrid), when: After(Maneuver))],
             on_play: [DrawUpTo(who: You, n: 2), Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Chosen)],
         ),
         // Becoming a Colossal is not supported yet.
@@ -1261,8 +1259,9 @@
             pre_match_limit: 1,
             in_ring_on_play: [(whose: Some(You), filter: AnyOf([ManeuverType(Assault), SuperstarSpecific]), effects: [DrawUpTo(who: You, n: 1)])],
         ),
-        // The non-Unique reversal limit and naming a Target are not supported yet.
+        // Naming a Target is not supported yet.
         "Revolution The YES! Movement": (
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: AnyOf([FortitudeBelowOpponent, OpponentHandLarger]))],
             on_play: [
                 RingsideToHand(who: You, n: 1, up_to: true),
                 MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true),
@@ -1319,8 +1318,7 @@
                 Boost((applies_to: Any, duration: NextCard, momentum: true)),
             ],
         ),
-        // The Arsenal limit for non-Unique cards is not supported yet.
-        "Revolution Van Terminator": (not_reversed_by: Some(Hybrid)),
+        "Revolution Van Terminator": (not_reversed_by: Some(Hybrid), reversal_limits: [(from: [Arsenal], by: Some(Not(Trait(Unique))))]),
         "Revolution Big Johnny": (
             on_play: [
                 RingsideToArsenal(who: You, n: 3, up_to: true),

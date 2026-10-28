@@ -6,7 +6,8 @@
 // "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game; "Recover" shuffles removed
 // cards into the Arsenal.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
-// played, of card effects and of Activated Card Effects are not supported (`targets: Not(Any)`).
+// played use `after_success`, of Activated Card Effects `reverses_ace` / `ring_reverses_ace`; of other card effects
+// they are not supported (`targets: Not(Any)`).
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Packing permissions printed on
 // Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
 // Not supported: face-down (Flipped) cards, cards put under Superstar, Backstage or other cards (205 Live,
@@ -328,11 +329,12 @@
                 effects: [Boost((applies_to: All([Maneuver, Not(Trait(Multi))]), duration: NextTurnFirstCard, irreversible: true))],
             )),
         ),
-        // Approximation: 'Rope' in the title instead of the text. Counting as 2 reversals is not supported yet.
+        // Approximation: 'Rope' in the title instead of the text.
         "It's Best You Stay On The Ground": (
             as_action: Some((on_play: [ShuffleThisIntoArsenal, RemoveFromGame(who: Opponent, from: Hand, n: 1)])),
             reverses: Some((
                 targets: AnyOf([ManeuverType(HighRisk), All([ManeuverType(TrademarkFinisher), TitleContains("Rope")])]),
+                counts_as: 2,
                 effects: [RemoveFromGame(who: Opponent, from: Hand, n: 2)],
             )),
         ),
@@ -489,8 +491,8 @@
         // Street Profits
         // Cards under it are not supported yet.
         "Montez Ford's Solo Cup": (),
-        // The ACE is not supported yet.
         "We Want The Smoke!": (
+            ring_reverses_ace: Some((effects: [Discard(who: Opponent, n: 2, pick: Chosen), ReturnThis(to: Removed)])),
             in_ring_start_of_turn: [
                 If(
                     condition: AnyOf([FortitudeBelowOpponent, OpponentHandLarger]),
@@ -606,8 +608,17 @@
         "Symphony of Destruction": (while_in_ring: [(applies_to: Maneuver, damage: 2, count: Some(YourUnderSuperstar))]),
         // The Trademark Finisher change is not supported yet.
         "WALTER's Splash": (reversal_limits: [(from: [Arsenal], when: CountAtLeast(count: YourRingMatching(All([Maneuver, SuperstarSpecific])), n: 4))]),
-        // The reversal restriction is not supported yet.
         "WALTER's Shotgun Dropkick": (
+            reversal_limits: [
+                (
+                    from: [Hand],
+                    when: AnyOf([
+                        After(Maneuver),
+                        All([ReversedLastTurn(AnyOf([Trait(SetUp), All([Maneuver, DamageAtLeast(5)])])), FirstCardThisTurn]),
+                    ]),
+                    by: Some(Not(SuperstarSpecific)),
+                ),
+            ],
             bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10), fortitude: -4)],
             on_play: [Discard(who: You, n: 1, pick: Chosen), Discard(who: Opponent, n: 2, pick: Random)],
         ),
@@ -707,9 +718,11 @@
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 2),
             ],
         ),
-        // Approximation: it reverses any maneuver, even one that cannot be reversed. The hybrid and Ring texts are
-        // not supported yet.
-        "The Mat is Sacred": (reverses: Some((targets: Maneuver, ignores_irreversible: true, effects: [DrawUpTo(who: You, n: 2)]))),
+        // Approximation: it reverses any maneuver (not only those with a reversal restriction). The hybrid and Ring
+        // texts are not supported yet.
+        "The Mat is Sacred": (
+            reverses: Some((targets: Maneuver, ignores_irreversible: true, ignores_limits: true, effects: [DrawUpTo(who: You, n: 2)])),
+        ),
         // Approximation: the Fortitude needed is the reversed card's damage (not half, at least 5).
         "Improvise - Adapt - Overcome": (reverses: Some((targets: Not(SuperstarSpecific), fortitude_is_damage: true))),
 
@@ -760,10 +773,11 @@
         "Ground and Pound": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // The Nightmare Ring text is not supported yet.
         "Take No Prisoners": (),
-        // Reversing ACEs and card effects and the Permanent text are not supported yet.
+        // Reversing card effects and the Permanent text are not supported yet.
         "The First NXT UK Women's Champion": (
             as_action: Some((on_play: [Discard(who: Opponent, n: 2, pick: Chosen), RingsideToArsenal(who: You, n: 6, up_to: true)])),
             reverses: Some((targets: Not(Maneuver), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])),
+            reverses_ace: Some((effects: [Discard(who: Opponent, n: 1, pick: Chosen)])),
         ),
 
         // British Strong Style
@@ -927,9 +941,10 @@
             irreversible_when: Some(FortitudeBelowOpponent),
             on_play: [RingsideToArsenalBottom(who: You, n: 9), DrawUpTo(who: You, n: 1), Discard(who: Opponent, n: 1, pick: Chosen)],
         ),
-        // Reversing ACEs and card effects is not supported yet.
+        // Reversing card effects is not supported yet; reversing an ACE always needs its printed F.
         "...For the Reigning, Defending, Undisputed Champion!": (
             reverses: Some((targets: Trait(Unique), fortitude_when: Some((InYourRing(Title("I Am The Advocate...")), 5)))),
+            reverses_ace: Some(()),
         ),
         // Its texts are not supported yet.
         "Sable's Scandalous Bikini": (),
@@ -1081,12 +1096,12 @@
                 StartOfTurn([If(condition: FortitudeAboveOpponent, effects: [Boost((applies_to: Maneuver, duration: NextMatching, damage: 3))])]),
             ],
         ),
-        // Approximation: "ignore reversal restrictions" reverses cards that cannot be reversed. The +15F / 8D+ text
-        // for the searched card is not supported yet.
+        // The +15F / 8D+ text for the searched card is not supported yet.
         "Bigger and Tougher Than Any Two Men": (
             reverses: Some((
                 targets: DamageAtLeast(10),
                 ignores_irreversible: true,
+                ignores_limits: true,
                 effects: [
                     If(
                         condition: AnyOf([
@@ -1279,8 +1294,10 @@
             not_reversed_by: Some(All([Not(Hybrid), Not(Trait(Unique))])),
             on_play: [Discard(who: Opponent, n: 1, pick: Random)],
         ),
-        // The reversal restriction is not supported yet.
-        "Holly's Rope-Assisted Kick": (on_play: [Discard(who: Opponent, n: 1, pick: Random)]),
+        "Holly's Rope-Assisted Kick": (
+            reversal_limits: [(from: [Hand], when: AnyOf([After(Any), All([ReversedLastTurn(Any), FirstCardThisTurn])]), by: Some(Not(Trait(Unique))))],
+            on_play: [Discard(who: Opponent, n: 1, pick: Random)],
+        ),
         "Allegedly Well Over 500lbs.": (
             reverses: Some((
                 targets: All([Not(ManeuverType(TrademarkFinisher)), Maneuver]),
@@ -1298,9 +1315,9 @@
                 HandToArsenal(who: You, n: 1),
             ],
         ),
-        // Approximation: any reversal from any area. The Unique search option and the reversal restriction are not
-        // supported yet.
+        // Approximation: any reversal from any area. The Unique search option is not supported yet.
         "The War Goddess": (
+            reversal_limits: [(when: AnyOf([FortitudeBelowOpponent, OpponentHandLarger]), by: Some(Not(SuperstarSpecific)))],
             on_opponent_reverses: [
                 If(condition: OpponentReversed(All([Maneuver, Not(Trait(Unique))])), effects: [Search(filter: All([Maneuver, Not(Trait(Unique)), Not(Hybrid)]))]),
             ],
@@ -1333,9 +1350,10 @@
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
         ),
-        // The reversal restriction is not supported yet.
+        // Approximation: "not your first maneuver this turn" is read as played right after a maneuver.
         "The Interceptor": (
             bonuses: [(fortitude: -10)],
+            reversal_limits: [(from: [Hand], when: After(Maneuver), by: Some(Not(Trait(Unique))))],
             on_play: [RingsideToBacklash(who: You, n: 2)],
             reverses: Some((targets: AnyOf([Action, Keyword("Volley")]))),
         ),

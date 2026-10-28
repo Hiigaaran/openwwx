@@ -6,7 +6,8 @@
 // "Bury" puts cards on the bottom of the Arsenal; "Stack" on top; "RFG" removes them from the game; "Recover"
 // shuffles cards into the Arsenal. "Arsenal Search N" = `Search`; "Ringside Search N" = `RingsideToHand`.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
-// played, of card effects and of Activated Card Effects are not supported (`targets: Not(Any)`).
+// played use `after_success`, of Activated Card Effects `reverses_ace` / `ring_reverses_ace`; of other card effects
+// they are not supported (`targets: Not(Any)`).
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Not supported: face-down (Flip)
 // cards, conditional TMF, 'completely', "cannot be blanked",
 // "reveal this card when ..." Backstage cards (they start hidden), cards played from the Backstage Area or the
@@ -163,11 +164,16 @@
         "Chase University": (while_in_ring: [(applies_to: Title("Team Spirit"), irreversible: true)]),
 
         // Mid-match
-        // The Backlash discount, the Superstar-specific D: 0 reversal restriction and the TMF text are not supported
-        // yet.
+        // The Backlash discount and the TMF text are not supported yet.
         "Precision Flurry": (
             requires: Some(BackstageRevealed(who: You, filter: Title("Pinpoint Precision Offense"))),
             multi_when: Some(All([CountBelow(a: Plus(YourFortitude, Const(14)), b: OpponentFortitude), Not(InYourRing(Maneuver))])),
+            reversal_limits: [
+                (
+                    when: All([CountBelow(a: Plus(YourFortitude, Const(14)), b: OpponentFortitude), Not(InYourRing(Maneuver))]),
+                    by: Some(Not(All([SuperstarSpecific, DamageAtMost(0)]))),
+                ),
+            ],
         ),
         "Now You're Going to School!": (
             requires: Some(InYourRing(Title("Chase University"))),
@@ -358,9 +364,9 @@
                 requires: Some(InYourRing(Title("Chase University"))),
             )),
         ),
-        // Approximation: any non-Unique maneuver, also one that cannot be reversed. The Hybrid text and the
-        // packing restriction are not supported yet.
-        "Textbook Defense": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), ignores_irreversible: true))),
+        // Approximation: any non-Unique maneuver (not only those with a reversal restriction). The Hybrid text and
+        // the packing restriction are not supported yet.
+        "Textbook Defense": (reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), ignores_irreversible: true, ignores_limits: true))),
         // The Superstar-specific and Arsenal texts are not supported yet.
         "Knees Up!": (),
         // Putting it into the Ring from the Arsenal and the ACE are not supported yet.
@@ -445,12 +451,10 @@
         ),
         // Being a TMF and the reveal ACE are not supported yet.
         "Samoan Splash": (play_after: Some(Maneuver), reversal_limits: [(from: [Hand], when: After(All([Maneuver, TitleContains("Samoan")])))]),
-        // Approximation: as a maneuver it cannot be reversed from hand or Backlash (the D: 0 exception is not
-        // supported). Playing it as a reversal from the removed pile is not supported yet.
+        // Playing it as a reversal from the removed pile is not supported yet.
         "Spinning Solo": (
             bonuses: [(fortitude: -20)],
-            no_hand_reversal: true,
-            no_backlash_reversal: true,
+            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], by: Some(DamageAtLeast(1)))],
             reverses: Some((targets: Not(Any))),
         ),
         // The action tax is not supported yet.
@@ -489,8 +493,8 @@
             )),
         ),
         "The Eradicator": (on_play: [ClearRing(who: Opponent), ClearRing(who: You)]),
-        // Reversing ACEs and card effects, and the Ring text, are not supported yet.
-        "Bailed Out By Mami": (reverses: Some((targets: Not(Maneuver)))),
+        // Reversing card effects and the Ring text are not supported yet.
+        "Bailed Out By Mami": (reverses: Some((targets: Not(Maneuver))), reverses_ace: Some(())),
 
         // Damian Priest
         // Approximation: "under this card" is under the Superstar card, and its maneuvers can be played any number
@@ -518,9 +522,8 @@
         // Approximation: "Recover any number of Hand cards and draw that many" is a mulligan. The Bury trigger is
         // not supported yet.
         "Punisher": (end_of_prematch: [Mulligan(n: 10)]),
-        // The maneuver text (cards under The Archer of Infamy) and ignoring reversal restrictions are not
-        // supported yet.
-        "Broken Arrow": (reverses: Some((targets: TitleContains("Plex")))),
+        // The maneuver text (cards under The Archer of Infamy) is not supported yet.
+        "Broken Arrow": (reverses: Some((targets: TitleContains("Plex"), ignores_limits: true))),
         "Priest's Precision Heel Kick": (fortitude_discount: Some((per: 2, max: 5, overturn: true))),
         "South of Heaven": (bonuses: [(when: All([ReversedLastTurn(Any), FirstCardThisTurn]), fortitude: -10)]),
         // Being a TMF and the removed-card lock are not supported yet.
@@ -706,7 +709,7 @@
         "IYO's Faceplant": (
             bonuses: [(fortitude: -15)],
             after_damage: [RemoveFromGame(who: Opponent, from: Ringside, n: 3, up_to: true, pick: Controller)],
-            reverses: Some((targets: All([Maneuver, Not(Trait(Chain)), Not(SuperstarSpecific)]), ignores_irreversible: true)),
+            reverses: Some((targets: All([Maneuver, Not(Trait(Chain)), Not(SuperstarSpecific)]), ignores_irreversible: true, ignores_limits: true)),
         ),
         // Becoming a TMF with 5+ face-down cards is not supported yet.
         "IYO's Crossface": (
@@ -904,8 +907,14 @@
                 Search(filter: ManeuverType(Grapple), n: 2, up_to: true),
             ],
         ),
-        // The WCW and Counter texts are not supported yet.
-        "Steiner Slam": (reverses: Some((targets: AnyOf([After(Trait(SetUp)), ManeuverType(HighRisk)])))),
+        // The WCW text is not supported yet.
+        "Steiner Slam": (
+            reversal_limits: [
+                (
+                    when: All([ReversedLastTurn(Any), FirstCardThisTurn, YouReversedFrom([Arsenal]), FortitudeBelowOpponent]),
+                    by: Some(Not(Trait(Unique))),
+                ),
+            ],reverses: Some((targets: AnyOf([After(Trait(SetUp)), ManeuverType(HighRisk)])))),
         "Breakker's Overhead Suplex": (
             reversal_limits: [(from: [Backlash], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
             on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 4, up_to: true, bottom: true)],
@@ -914,8 +923,8 @@
         "Breakker's Press Powerslam": (reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))]),
         // The No Sell Maneuver text is not supported yet.
         "Dogfaced Gremlin Mentality": (reverses: Some((targets: Maneuver, effects: [DrawUpTo(who: You, n: 2)]))),
-        // Reversing ACEs and the ACE tax are not supported yet.
-        "You Want A Friend? Get A Dog!": (reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)])))),
+        // The ACE tax is not supported yet.
+        "You Want A Friend? Get A Dog!": (reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))), reverses_ace: Some(())),
         "Do You Want The Bark or The Bite": (
             on_play: [
                 OpponentChooses(
@@ -1113,9 +1122,9 @@
         ),
         // The Unique draw and counting as Roundhouse Kick are not supported yet.
         "Muta's Martial Arts Kick": (bonuses: [(fortitude: -3)], reverses: Some((targets: Not(Maneuver), damage: Fixed(3)))),
-        // The Counter reversal restriction is not supported yet.
         "Muta's Arm Triangle": (
             bonuses: [(fortitude: -5)],
+            reversal_limits: [(when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(DamageAtLeast(2)))],
             reverses: Some((targets: AnyOf([ManeuverType(Submission), TitleContains("Punch")]))),
         ),
     },

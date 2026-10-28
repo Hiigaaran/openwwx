@@ -662,12 +662,13 @@
             ring_ability: Some((sacrifice: true, effects: [RingsideToHand(who: You, n: 1), EndTurn])),
             ringside_ability: Some((cost: [Discard(who: You, n: 3, pick: Chosen)], effects: [ReturnThis(to: Backlash)])),
         ),
-        // Reversing Activated Card Effects is not supported yet.
+        // The -10F does not apply when it reverses an Activated Card Effect.
         "Unscrupulous S.O.B.": (
             reverses: Some((
                 targets: All([Action, Not(Trait(Unique))]),
                 fortitude_when: Some((SuperstarValueBelowOpponent, 5)),
             )),
+            reverses_ace: Some((filter: Not(Trait(Unique)))),
         ),
         "Cheap Accolades": (
             bonuses: [(when: SuperstarValueBelowOpponent, fortitude: -8)],

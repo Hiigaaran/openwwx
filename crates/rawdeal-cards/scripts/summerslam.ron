@@ -127,8 +127,30 @@
         "Back Splash": (play_after: Some(Title("From the Top Rope")), no_arsenal_reversal: true, no_backlash_reversal: true),
 
         // Strikes
-        // The Irish Whip reversal limit is not supported yet.
+        // Approximation: the Reversals that reverse maneuvers played after Irish Whip are listed by title.
         "Knife-Edge Chop": (
+            reversal_limits: [
+                (
+                    when: After(Title("Irish Whip")),
+                    by: Some(
+                        Not(
+                            AnyOf([
+                                Trait(Unique),
+                                Title("Shoulder Block"),
+                                Title("Cross Body Block"),
+                                Title("Spear"),
+                                Title("Lou Thesz Press"),
+                                Title("Facebuster"),
+                                Title("Crucifix Rollup"),
+                                Title("Stun Gun"),
+                                Title("Spinning Elbow"),
+                                Title("Tilt-a-Whirl Powerslam"),
+                                Title("Hall's Fall-Away Slam"),
+                            ]),
+                        ),
+                    ),
+                ),
+            ],
             on_play: [If(condition: Superstar("Ric Flair"), effects: [Optional([Search(filter: TitleContains("chop"))])])],
         ),
         "Spinning Back Fist": (on_play: [Boost((applies_to: Action, duration: NextCard, reversal_fortitude: 10))]),
@@ -706,8 +728,10 @@
             ],
         ),
         "Greco-Roman Holiday!": (not_reversed_by: Some(Title("Backlash!")), play_after: Some(ManeuverType(Grapple))),
-        // Ending the opponent's turn after taking a whole maneuver's damage is not supported yet.
-        "That's a Near Fall!": (requires: Some(Never)),
+        "That's a Near Fall!": (
+            requires: Some(All([FirstCardThisTurn, ReversedLastTurn(Maneuver), YouReversedFrom([Arsenal])])),
+            ring_after_success: Some(()),
+        ),
         "You Suck! ... You Suck!": (
             irreversible_when: Some(OpponentSuperstar("Kurt Angle")),
             in_ring_on_play: [(whose: Some(Opponent), filter: Trait(Heel), effects: [Discard(who: You, n: 1, pick: Chosen)])],

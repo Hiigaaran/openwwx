@@ -179,6 +179,7 @@
             reverses: Some((
                 targets: All([Maneuver, Trait(Multi)]),
                 ignores_irreversible: true,
+                ignores_limits: true,
                 effects: [MoveCards(who: You, from: Removed, to: Arsenal, n: 2, up_to: true, bottom: true)],
             )),
             while_in_ring: [

@@ -109,9 +109,9 @@
             on_play: [Discard(who: Opponent, n: 4, pick: Chosen)],
             reversal_limits: [(from: [Hand], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
         ),
-        // Approximation: the reversed card is always removed from the game (the opponent's discard option is not
-        // supported).
-        "Woo!": (reverses: Some((targets: Not(Maneuver), reversed_removed: true))),
+        // Approximation: the reversed card (or the card whose Activated Card Effect it reverses) is always removed from
+        // the game (the opponent's discard option is not supported).
+        "Woo!": (reverses: Some((targets: Not(Maneuver), reversed_removed: true)), reverses_ace: Some((ace_to: Some(Removed)))),
         "Charlotte's Web": (
             reverses: Some((
                 targets: All([Maneuver, Not(SuperstarSpecific)]),

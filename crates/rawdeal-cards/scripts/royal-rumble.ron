@@ -160,8 +160,9 @@
         ),
 
         // Reversals
-        // Reversing Activated Card Effects is not supported yet.
         "How Many Do You Need?": (
+            requires: Some(OpponentRingHas(filter: Maneuver, n: 5)),
+            reverses_ace: Some(()),
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique))]),
                 from_hand_only: true,

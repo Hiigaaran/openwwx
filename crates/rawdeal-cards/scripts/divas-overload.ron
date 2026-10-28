@@ -519,10 +519,11 @@
         "Asset Retrieval": (ring_ability: Some((sacrifice: true, effects: [Search(filter: AnyOf([Title("Show and Go"), Title("Girly Punch"), Title("Chick Kick"), Title("Modified Clutch Onto Opponent"), Title("Lady's Grapevine"), Title("Girl on Girl Action!"), Title("Some Gals Don't Get Any Action"), Title("I've Got a Nice ... Bottom"), Title("Get a Look at These"), Title("This Diva's Got Claws!"), Title("Puppy Love"), Title("What Are You Gawking At?"), Title("Skirt vs. Skirt Match"), Title("Divas Overload!")]))]))),
         // Blanking cards is not supported yet.
         "Not Today, Cupcake!": (requires: Some(Never)),
-        // Approximation: the Fortitude check is made at the start of your next turn instead of the end of this one.
+        // The end-of-turn check is set up when it is played and at the start of each of your turns.
         "I'm Always on Top...": (
             while_in_ring: [(applies_to: Maneuver, fortitude: -3)],
-            in_ring_start_of_turn: [If(condition: FortitudeBelowOpponent, effects: [SacrificeThis])],
+            on_play: [AtEndOfTurn([If(condition: FortitudeBelowOpponent, effects: [SacrificeThis])])],
+            in_ring_start_of_turn: [AtEndOfTurn([If(condition: FortitudeBelowOpponent, effects: [SacrificeThis])])],
         ),
         // Approximation: only Reversals can be played during the first turn of the match only.
         "Distractingly Divalicious": (

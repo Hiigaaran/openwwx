@@ -453,7 +453,7 @@
         // go to the Ringside pile instead of out of the game. The Event part is not supported yet.
         "Again With This Crap?!?!?": (
             pre_match_limit: 1,
-            reverses: Some((targets: SameTitleInRing, ignores_irreversible: true, effects: [PurgeReversedTitle])),
+            reverses: Some((targets: SameTitleInRing, ignores_irreversible: true, ignores_limits: true, effects: [PurgeReversedTitle])),
         ),
         // Approximation: only the Multi Volley maneuver part (comparing printed F with his Fortitude is not supported
         // yet); returning the reversed card to his hand and the ACE are not supported yet.
@@ -573,10 +573,10 @@
                 targets: AnyOf([Trait(Multi), All([Maneuver, Trait(Unique), Not(ManeuverType(TrademarkFinisher))])]),
             )),
         ),
-        // Reversing an Activated Card Effect is not supported yet.
         "Don't Try This at Home": (
             on_play: [Search(filter: Title("From the Top Rope"))],
             reverses: Some((targets: Not(Any))),
+            reverses_ace: Some((ace_to: Some(Ringside), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])),
         ),
         // The packing ban on F: 0 maneuver / reversal hybrids is not supported yet.
         "Revolution The Second Solution": (
@@ -687,7 +687,7 @@
             ],
         ),
         // Reversing card effects and the overturned part are not supported yet.
-        "The Viper Strikes": (reverses: Some((targets: Not(Trait(Unique))))),
+        "The Viper Strikes": (reverses: Some((targets: Not(Trait(Unique)))), reverses_ace: Some(())),
         // Approximation: the card goes on top before your Draw Segment, not after you draw.
         "Calculated Attack": (
             reverses: Some((targets: All([Maneuver, Trait(Multi), Not(SuperstarSpecific)]))),

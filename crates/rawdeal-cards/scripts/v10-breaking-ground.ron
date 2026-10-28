@@ -238,10 +238,9 @@
                 )),
             ],
         ),
-        // Approximation: "ignore reversal restrictions" works on cards that cannot be reversed; the Arsenal Search
-        // option removes the top card of his Arsenal.
+        // Approximation: the Arsenal Search option removes the top card of his Arsenal.
         "The Baddest B!tch on the Planet": (
-            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), ignores_irreversible: true)),
+            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), ignores_irreversible: true, ignores_limits: true)),
             on_opponent_reverses: [
                 If(
                     condition: OpponentReversed(All([Maneuver, AnyOf([TitleContains("judo"), TitleContains("shoot")])])),
@@ -286,8 +285,15 @@
                 ),
             ],
         ),
-        // The Counter reversal restriction and the discard-for-Promo text in hand are not supported yet.
-        "La Sombra": (),
+        // The discard-for-Promo text in hand is not supported yet.
+        "La Sombra": (
+            reversal_limits: [
+                (
+                    when: AnyOf([All([ReversedLastTurn(DamageAtLeast(5)), FirstCardThisTurn]), After(All([Maneuver, DamageAtLeast(5)]))]),
+                    by: Some(Not(Trait(Unique))),
+                ),
+            ],
+        ),
         "Double Knee Smash in the Corner": (
             play_after: Some(Title("Throw Into the Corner Turnbuckle")),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
@@ -355,8 +361,11 @@
         "Nia's Samoan Drop": (
             reverses: Some((targets: AnyOf([After(Trait(SetUp)), ManeuverType(Strike)]), damage: Fixed(20))),
         ),
-        // The Arsenal restriction is not supported yet.
-        "Nia's Leg Drop": (play_after: Some(All([Maneuver, DamageAtLeast(5)])), bonuses: [(count: Some(YourRingStun), damage: 1)]),
+        "Nia's Leg Drop": (
+            play_after: Some(All([Maneuver, DamageAtLeast(5)])),
+            bonuses: [(count: Some(YourRingStun), damage: 1)],
+            reversal_limits: [(from: [Arsenal], when: InYourRing(Title("Nia's Samoan Drop")), by: Some(Not(SuperstarSpecific)))],
+        ),
         // Approximation: the reveal-and-bury ability works only from the Ringside pile.
         "Nia's Elbow Drop": (
             play_after: Some(All([Maneuver, DamageAtLeast(5)])),
@@ -424,8 +433,19 @@
             ],
             in_ring_on_play: [(whose: Some(You), filter: Title("Ready to Fight"), effects: [Discard(who: Opponent, n: 1, pick: Chosen)])],
         ),
-        // The Counter non-Unique hand restriction is not supported yet.
-        "Shatter Machine": (no_backlash_reversal: true),
+        "Shatter Machine": (
+            no_backlash_reversal: true,
+            reversal_limits: [
+                (
+                    from: [Hand],
+                    when: AnyOf([
+                        All([ReversedLastTurn(AnyOf([TitleContains("blindside"), SuperstarSpecific])), FirstCardThisTurn]),
+                        After(Maneuver),
+                    ]),
+                    by: Some(Not(Trait(Unique))),
+                ),
+            ],
+        ),
         // The 'completely' text is not supported yet.
         "Dawson’s Cradle DDT": (reverses: Some((targets: AnyOf([ManeuverType(Strike), Not(Maneuver)])))),
         // Approximation: always Multi (playing a 'leverage' maneuver with it is not supported yet).

@@ -263,8 +263,13 @@
                 ),
             ],
         ),
-        // Reversing a card after it was successfully played is not supported yet.
-        "Textbook Bridging Pin": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // Only the "10+ lower Fortitude, after any maneuver" case is scripted (maneuvers with a reversal restriction
+        // are not recognized). The Ring Pinfall Victory is not supported yet.
+        "Textbook Bridging Pin": (
+            requires: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10)),
+            reverses: Some((targets: Not(Any))),
+            after_success: Some(()),
+        ),
 
         // Billy Graham
         // Approximation: when you reverse a card you may overturn 2 and Bury 2- Ringside cards. The first-card
@@ -284,8 +289,8 @@
                 Search(filter: SuperstarSpecific, ringside: true, n: 2, up_to: true),
             ],
         ),
-        // The reversal restriction with The Man of the Hour is not supported yet.
         "The Man With the Power": (
+            reversal_limits: [(when: InYourRing(Title("The Man of the Hour")), by: Some(Not(SuperstarSpecific)))],
             on_play: [RingsideToArsenal(who: You, n: 5, up_to: true), DrawUpTo(who: You, n: 1), Mill(who: Opponent, n: 5)],
             while_in_ring: [(applies_to: Maneuver, damage: 2)],
             in_ring_on_play: [(whose: Some(You), filter: Maneuver, effects: [Mill(who: Opponent, n: 1)])],

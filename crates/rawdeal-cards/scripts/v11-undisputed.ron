@@ -9,9 +9,9 @@
 // NXT: We Are Not Your Kind in your Ring).
 // Not supported: face-down (Flipped) cards, cards put under Superstar or Backstage cards, Superstar cards packed
 // in the Backstage Area (revealed / hidden Superstars), putting cards into the opponent's Backstage, Title Belt
-// Superstar lists, Starting Hand Size, "cannot be blanked", reversals of Activated
-// Card Effects or of cards after they were successfully played, and packing permissions printed on Superstar
-// cards. Trait names ("Rookie", "NXT") are not used in `not_packed_by` (they break auto decks).
+// Superstar lists, Starting Hand Size, "cannot be blanked" and packing permissions printed on Superstar cards.
+// Reversals of Activated Card Effects use `reverses_ace`, of cards after they were successfully played
+// `after_success`. Trait names ("Rookie", "NXT") are not used in `not_packed_by` (they break auto decks).
 (
     abilities: {
         // Playing RFG cards as if from hand, the 8D- damage replacement and the RFG limit are not supported yet.
@@ -514,7 +514,6 @@
                 ],
             )),
         ),
-        // Reversing Activated Card Effects is not supported yet: it reverses cards that cannot be reversed.
         "Oh So Glorious": (
             on_play: [
                 Counted(
@@ -523,6 +522,7 @@
                 ),
             ],
             reverses: Some((targets: Trait(Irreversible), ignores_irreversible: true, reversed_removed: true)),
+            reverses_ace: Some((ace_to: Some(Removed))),
         ),
 
         // ================================================================ Aleister Black
@@ -765,11 +765,10 @@
                 effects: [Dig(n: 3, take: 1)],
             )),
         ),
-        // Approximation: no Superstar-specific card can reverse it, from any area.
         "Panama Sunrise": (
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(5)]), Title("From the Middle Turnbuckle")])),
             play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(5)])), FirstCardThisTurn])),
-            not_reversed_by: Some(Not(SuperstarSpecific)),
+            reversal_limits: [(from: [Hand], by: Some(Not(SuperstarSpecific)))],
         ),
         // The Counter discard is not supported yet.
         "Kneecap Brainbuster": (
@@ -904,6 +903,7 @@
                 on_play: [ShuffleThisIntoArsenal, MoveCards(who: You, from: Removed, to: Backlash, n: 1, up_to: true, filter: Some(Trait(MidMatch)))],
             )),
             reverses: Some((targets: Trait(Multi), fortitude: Some(0))),
+            reverses_ace: Some(()),
         ),
 
         // The Heat Seekers
@@ -1053,9 +1053,9 @@
         ),
         // Blanking his reversals and the Ring text are not supported yet.
         "White Noise": (on_play: [If(condition: Not(InYourRing(Title("The Bar"))), effects: [DrawUpTo(who: You, n: 1)])]),
-        // The Counter (5D+) and the "after a maneuver" reversal restriction are not supported yet.
         "Swiss One Nine": (
             play_after: Some(All([Maneuver, Not(Title("From the Top Rope"))])),
+            reversal_limits: [(from: [Hand, Backlash], when: After(Maneuver), by: Some(Not(Trait(Unique))))],
             play_after_unless: Some(All([ReversedLastTurn(All([Maneuver, DamageAtLeast(5)])), FirstCardThisTurn])),
             on_play: [If(condition: Not(InYourRing(Title("The Bar"))), effects: [DrawUpTo(who: You, n: 1)])],
         ),
@@ -1143,8 +1143,9 @@
         // Team Hell No
         // Overturning when revealed and the turn texts are not supported yet.
         "Support from Dr. Shelby": (),
-        // The Superstar-specific reversal restriction and shuffling it back are not supported yet.
+        // Shuffling it back is not supported yet.
         "No, I am the Tag Team Champions!": (
+            reversal_limits: [(when: InYourRing(Title("I am the Tag Team Champions!")), by: Some(Not(SuperstarSpecific)))],
             on_play: [
                 If(
                     condition: InYourRing(Title("I am the Tag Team Champions!")),
@@ -1546,9 +1547,10 @@
                 Draw(who: Opponent, n: 1),
             ],
         ),
-        // The -7F and the non-Unique reversal restriction with Camp Cornette are not supported for the action.
+        // The -7F with Camp Cornette is not supported for the action.
         "Cornette's Motivational Speech": (
             requires: Some(AnyOf([Superstar("Jim Cornette"), Superstar("Yokozuna"), InYourRing(Title("Camp Cornette"))])),
+            reversal_limits: [(when: InYourRing(Title("Camp Cornette")), by: Some(Not(Trait(Unique))))],
             on_play: [RingsideToArsenal(who: You, n: 4, up_to: true), DrawUpTo(who: You, n: 3), RingsideToHand(who: You, n: 1)],
             reverses: Some((
                 targets: Action,
@@ -1631,9 +1633,9 @@
                 ],
             )),
         ),
-        // The Set-up reversal restriction is not supported yet.
         "The Ghetto Drop": (
             bonuses: [(fortitude: -6)],
+            reversal_limits: [(when: After(Trait(SetUp)), by: Some(Not(Trait(Unique))))],
             reverses: Some((
                 targets: AnyOf([All([ManeuverType(Strike), Not(Trait(Unique))]), All([ManeuverType(Grapple), Not(Trait(Unique))])]),
             )),
@@ -1711,8 +1713,8 @@
             bonuses: [(when: AnyOf([After(Maneuver), All([ReversedLastTurn(Any), FirstCardThisTurn])]), fortitude: -5)],
             on_play: [Counted(count: YourRingMatching(Maneuver), effect: Mill(who: Opponent, n: 0))],
         ),
-        // Reversing card effects and Activated Card Effects and the shuffle are not supported yet.
-        "Nobody Will Do It For You": (reverses: Some((targets: Not(Maneuver)))),
+        // Reversing other card effects and the shuffle are not supported yet.
+        "Nobody Will Do It For You": (reverses: Some((targets: Not(Maneuver))), reverses_ace: Some(())),
         // Continuing the turn is not supported yet.
         "Do It Yourself": (
             on_play: [

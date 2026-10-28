@@ -141,13 +141,13 @@
             bonuses: [(fortitude: -10)],
             reverses: Some((targets: AnyOf([ManeuverType(HighRisk), After(Trait(SetUp))]))),
         ),
-        // The 2 D: 0 reversals limit and the Maintain Hold text are not supported yet.
-        "Calf Crusher": (),
+        // It is printed Multi (2 Reversals). The Maintain Hold text is not supported yet.
+        "Calf Crusher": (reversal_limits: [(by: Some(DamageAtLeast(1)))]),
         // Approximation: "ignore any reversal restrictions" reverses cards that cannot be reversed. The Ringside text
         // is not supported yet.
         "Styles Clash": (
             reversal_limits: [(from: [Arsenal], when: CountAtLeast(count: YourRingMatching(ManeuverType(TrademarkFinisher)), n: 2))],
-            reverses: Some((targets: TitleContains("rana"), ignores_irreversible: true)),
+            reverses: Some((targets: TitleContains("rana"), ignores_irreversible: true, ignores_limits: true)),
         ),
         // The removed-from-the-game text is not supported yet.
         "I Am Phenomenal": (reverses: Some((targets: Any))),
@@ -190,12 +190,12 @@
                 targets: AnyOf([TitleContains("BASH"), TitleContains("precision"), TitleContains("shoot"), TitleContains("technical")]),
             )),
         ),
-        // Approximation: as a Counter any 2 reversals (not only D: 0 ones). Reversing Activated Card Effects is not
-        // supported yet.
         "Punk's Shoot Knee Strike": (
             not_packed_by: ["New Nexus"],
             reversals_needed: 2,
             reversals_needed_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
+            reversal_limits: [(by: Some(DamageAtLeast(1)), when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
+            reverses_ace: Some(()),
             bonuses: [(fortitude: -5)],
             reverses: Some((targets: ManeuverType(Strike))),
         ),
@@ -256,8 +256,11 @@
             not_reversed_by: Some(DamageAtLeast(1)),
             reverses: Some((targets: EarlierThisTurn(filter: Any, n: 2))),
         ),
-        // The Counter reversal limit is not supported yet.
-        "Braun's Big Beal Toss": (reverses: Some((targets: After(Trait(SetUp))))),
+        // Approximation: the Counter's reversal is not checked for being non-Unique.
+        "Braun's Big Beal Toss": (
+            reversal_limits: [(from: [Hand, Backlash], by: Some(Not(Trait(Unique))), when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
+            reverses: Some((targets: After(Trait(SetUp)))),
+        ),
         "Strowman's Strong Strike to the Chest": (
             bonuses: [(fortitude: -5)],
             multi_when: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
@@ -303,9 +306,11 @@
             ],
             // The Fortitude Rating bonus per D: 1 card is not supported yet.
         ),
-        // The reversal limits are not supported yet.
+        // Approximation: only Unique reversals can reverse it after a maneuver or Set-up card or as a Counter (not
+        // the cards that reverse a maneuver played after Irish Whip or a Set-up card).
         "Drew's Tilt-a-Whirl Backbreaker": (
             bonuses: [(fortitude: -10)],
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: AnyOf([After(AnyOf([Maneuver, Trait(SetUp)])), All([ReversedLastTurn(Any), FirstCardThisTurn])]))],
             reverses: Some((targets: All([Maneuver, After(Trait(SetUp))]), damage: Fixed(10))),
         ),
         // Exchanging cards under it and the opponent's text are not supported yet.
@@ -321,9 +326,9 @@
             play_after: Some(All([Maneuver, DamageAtLeast(3)])),
             play_after_unless: Some(All([FortitudeBelowOpponent, ReversedLastTurn(Maneuver), FirstCardThisTurn])),
         ),
-        // The reversal limit when you have lower Fortitude is not supported yet.
         "Drew's Big Boot": (
             bonuses: [(fortitude: -1, damage: 7)],
+            reversal_limits: [(from: [Hand], by: Some(Not(Trait(Unique))), when: FortitudeBelowOpponent)],
             reverses: Some((
                 targets: ManeuverType(Strike),
                 effects: [
@@ -498,8 +503,7 @@
                 ),
             ],
         ),
-        // Not being reversed by hybrid cards as a Counter is not supported yet.
-        "Natalya's German Suplex": (),
+        "Natalya's German Suplex": (reversal_limits: [(by: Some(Hybrid), when: All([ReversedLastTurn(Any), FirstCardThisTurn]))]),
         // Approximation: it is printed Multi, so it always needs 2 reversals.
         "Natalya's Abdominal Stretch": (
             bonuses: [(when: CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 5), fortitude: -8)],
@@ -531,8 +535,9 @@
             backstage_ability: Some((requires: Some(HandAtLeast(1)), effects: [PutUnder(from: Hand, n: 1)])),
             // Playing maneuvers from under it and hiding it are not supported yet.
         ),
-        // The ACE is not supported yet.
-        "We Came to Conquer and Divide": (),
+        // Approximation: the 2 cards go on the bottom of your Arsenal after the reversal (up to 2 if you have fewer).
+        // The Pre-match text and the 2 overturned cards against a Superstar-specific card are not supported yet.
+        "We Came to Conquer and Divide": (ring_reverses_ace: Some((effects: [HandToArsenalBottom(who: You, n: 2)]))),
         // Putting the maneuver back in his hand as not played is not supported yet.
         "More Than What You Bargained For": (
             reverses: Some((
@@ -568,8 +573,11 @@
         ),
         // Becoming a Trademark Finisher and the Superstar-specific overturn are not supported yet.
         "Gallows Pole": (bonuses: [(fortitude: -10, damage: 10)], reverses: Some((targets: Not(Maneuver)))),
-        // The reversal limit after a maneuver is not supported yet.
-        "Magic Killer": (bonuses: [(fortitude: -10)], reverses: Some((targets: ManeuverType(Grapple)))),
+        "Magic Killer": (
+            bonuses: [(fortitude: -10)],
+            reversal_limits: [(from: [Hand, Arsenal], by: Some(Not(Trait(Unique))), when: After(Maneuver))],
+            reverses: Some((targets: ManeuverType(Grapple))),
+        ),
         // Approximation: doubled when you are a Tag Team. The John Cena text and the hand / Ringside text are not
         // supported yet.
         "Beat Up by The Club": (

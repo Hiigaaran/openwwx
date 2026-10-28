@@ -7,8 +7,8 @@
 // "Recover" shuffles cards into the Arsenal. "Arsenal Search N" = `Search`; "Ringside Search N" = `RingsideToHand`.
 // "N+ lower Fortitude" = `CountBelow(a: Plus(YourFortitude, Const(N - 1)), b: OpponentFortitude)`.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
-// played, of card effects, of ACEs and of "cards that move cards from a Ringside" are not supported
-// (`targets: Not(Any)`).
+// played use `after_success`, of ACEs `reverses_ace`; of other card effects and of "cards that move cards from a
+// Ringside" they are not supported (`targets: Not(Any)`).
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Not supported: face-down (Flip)
 // cards, conditional TMF / card types, 'completely', "cannot be blanked or blocked", "your opponent cannot
 // respond", "must Bury / RFG N to play reversals to this card", "In Hand:" and
@@ -199,9 +199,10 @@
             ])),
             on_play: [NextPlayWatch(filter: Maneuver, on_reversed: [Discard(who: Opponent, n: 4, pick: Chosen)])],
         ),
-        // Flipping this card face-down at the end of each of your turns is not supported yet.
         "Stranger Rings": (
             irreversible_when: Some(AnyOf([Superstar("Rhea Ripley"), Superstar("The Champ")])),
+            on_play: [AtEndOfTurn([FlipThisDown])],
+            in_ring_start_of_turn: [AtEndOfTurn([FlipThisDown])],
             on_flip_up: [
                 Choice([
                     [FlipDown(who: You, n: 1)],
@@ -312,7 +313,6 @@
             reverses: Some((targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher))]), overturned_only: true)),
             ring_ability: Some((effects: [ThisToArsenal(bottom: true), Draw(who: You, n: 1)])),
         ),
-        // Reversing ACEs is not supported yet.
         "Crimson Champions": (
             reversal_limits: [(from: [Hand], when: InYourRing(TitleBelt))],
             on_play: [DrawUpTo(who: You, n: 2), MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
@@ -321,6 +321,7 @@
                 overturned_only: true,
                 requires: Some(Superstar("Crimson Goddess")),
             )),
+            reverses_ace: Some(()),
         ),
 
         // Logan Paul
@@ -573,12 +574,12 @@
             irreversible_when: Some(CountAtMost(count: HandSize, n: 5)),
             on_play: [MoveCards(who: You, from: Removed, to: Arsenal, n: 5, up_to: true), DrawUpTo(who: You, n: 3)],
         ),
-        // Approximation: after any maneuver it cannot be reversed ("cannot respond"). Reversing ACEs is not
-        // supported yet.
+        // Approximation: after any maneuver it cannot be reversed ("cannot respond").
         "Cry About It": (
             irreversible_when: Some(After(Maneuver)),
             on_play: [Mill(who: Opponent, n: 2), Draw(who: You, n: 2)],
             reverses: Some((targets: Action, effects: [Discard(who: Opponent, n: 2, pick: Chosen), Draw(who: You, n: 2)])),
+            reverses_ace: Some((effects: [Discard(who: Opponent, n: 2, pick: Chosen), Draw(who: You, n: 2)])),
         ),
         // The Ring trigger is not supported yet.
         "Liv Forever": (
@@ -903,7 +904,7 @@
         "Santos' Pump Knee Strike": (from_ringside: Some(CountBelow(a: Plus(YourFortitude, Const(4)), b: OpponentFortitude))),
         // Approximation: Multi: # is Multi: 2 (cards under 205 Live are not supported). "Reversals deal no damage" is
         // not supported yet.
-        "Escobar Step-Up Enzuigiri": (multi_when: Some(Always), reverses: Some((targets: Trait(SetUp), ignores_irreversible: true))),
+        "Escobar Step-Up Enzuigiri": (multi_when: Some(Always), reverses: Some((targets: Trait(SetUp), ignores_irreversible: true, ignores_limits: true))),
         // Becoming a High Risk is not supported yet.
         "Santos' Jumping Superkick": (
             on_play: [Dig(n: 3, take: 1), MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true), MoveCards(who: You, from: Ringside, to: Arsenal, n: 3, up_to: true, bottom: true)],
@@ -1022,8 +1023,11 @@
             on_play: [HandToArsenalBottom(who: Opponent, n: 2)],
             on_reversed_from_hand: [ReversedCardTo(to: Arsenal, bottom: true)],
         ),
-        // The Counter restriction and the Chase University text are not supported yet.
-        "Chase's Running Boot": (reverses: Some((targets: After(Trait(SetUp))))),
+        // The Chase University text is not supported yet.
+        "Chase's Running Boot": (
+            reversal_limits: [(from: [Hand], when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(Not(Trait(Unique))))],
+            reverses: Some((targets: After(Trait(SetUp)))),
+        ),
         // The 'completely' restriction and the Ring text are not supported yet.
         "The Fratliner": (bonuses: [(when: YouAre("Tag Team"), damage: 10)], multi_when: Some(YouAre("Tag Team"))),
         // The Chase University text is not supported yet.
@@ -1096,8 +1100,8 @@
                 RingsideToArsenal(who: You, n: 6, up_to: true),
             ],
         ),
-        // The conditional reversal restriction is not supported yet.
         "Chase U. Bionic Elbow": (
+            reversal_limits: [(from: [Hand, Backlash], when: AnyOf([All([ReversedLastTurn(Any), FirstCardThisTurn]), After(Maneuver)]), by: Some(Not(SuperstarSpecific)))],
             bonuses: [(damage: 2)],
             on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, filter: Some(Maneuver), top: true)],
         ),
@@ -1158,12 +1162,11 @@
                 effects: [Dig(n: 6, take: 1), MoveCards(who: You, from: Ringside, to: Arsenal, n: 9, up_to: true, bottom: true), Search(filter: Title("...and I'm Gonna Smoke It!"))],
             )),
         ),
-        // Approximation: shuffle up to 10 Hand cards into the Arsenal and draw as many; it cannot be reversed by
-        // non-Superstar-specific cards even with nWo Ring cards. The opponent's discard and the Ring text are not
-        // supported yet.
+        // Approximation: shuffle up to 10 Hand cards into the Arsenal and draw as many. The opponent's discard and
+        // the Ring text are not supported yet.
         "...and I'm Gonna Smoke It!": (
             bonuses: [(when: InYourRing(Title("Your Ass is Grass...")), fortitude: -10)],
-            not_reversed_by: Some(Not(SuperstarSpecific)),
+            reversal_limits: [(when: Not(InYourRing(Keyword("nWo"))), by: Some(Not(SuperstarSpecific)))],
             on_play: [Mulligan(n: 10)],
         ),
         // The Dudleyville and 'Table' texts are not supported yet.
@@ -1189,7 +1192,7 @@
         "Dudley Device": (
             play_after: Some(Maneuver),
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn, YouReversedFrom([Hand])])),
-            not_reversed_by: Some(Not(Trait(Unique))),
+            reversal_limits: [(from: [Hand, Backlash], by: Some(Not(Trait(Unique))))],
             on_play: [RemoveFromGame(who: Opponent, from: Arsenal, n: 3)],
         ),
         // The 'Table' texts are not supported yet.
@@ -1456,9 +1459,9 @@
             play_after_unless: Some(All([ReversedLastTurn(Any), FirstCardThisTurn])),
             on_play: [Dig(n: 3, take: 1), MoveCards(who: You, from: Ringside, to: Arsenal, n: 1, up_to: true, bottom: true), RingsideToHand(who: You, n: 1, up_to: true, filter: Some(Keyword("Run-in")))],
         ),
-        // The Counter reversal restriction is not supported yet.
         "Pimpin' Back Kick": (
             bonuses: [(fortitude: -7)],
+            reversal_limits: [(when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(Not(Trait(Unique))))],
             on_play: [
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 3, up_to: true, bottom: true),
                 MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true),
@@ -1652,9 +1655,9 @@
         ),
         // Reversing any card with Mister Backlund is not supported yet.
         "Eat Your Broccoli!": (),
-        // Approximation: search 3 cards and 2 random ones go back. The Hybrid reversal restriction is not supported
-        // yet.
+        // Approximation: search 3 cards and 2 random ones go back.
         "As American as Apple Pie": (
+            reversal_limits: [(when: BackstageRevealed(who: You, filter: Title("The All-American Boy")), by: Some(Hybrid))],
             bonuses: [(when: BackstageRevealed(who: You, filter: Title("The All-American Boy")), fortitude: -10)],
             on_play: [Search(filter: Any, n: 3, up_to: true, random_back: 2)],
         ),

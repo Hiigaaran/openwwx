@@ -187,9 +187,9 @@
     },
     scripts: {
         // Strikes
-        // Not being reversible by Reversals greater than D: 2 is not supported yet.
         "Whirlwind Kick": (
             bonuses: [(when: InYourRing(TitleContains("Revolution")), damage: 4)],
+            reversal_limits: [(by: Some(DamageAtLeast(3)), when: InYourRing(TitleContains("Revolution")))],
             on_play: [MoveCards(who: You, from: Ringside, to: Arsenal, n: 2, up_to: true, bottom: true)],
         ),
         // Not being Multi for women and lowering the Volley: # are not supported yet.
@@ -226,6 +226,7 @@
             requires: Some(AnyOf([InYourRing(Keyword("nWo")), BackstageRevealed(who: You, filter: Keyword("nWo"))])),
             play_after: Some(Any),
             play_after_unless: Some(AnyOf([InYourRing(Title("Ref Takes a Bump")), OpponentRingHas(filter: Title("Ref Takes a Bump"), n: 1)])),
+            reversals_needed: 2,
         ),
         // Becoming Heat or BASH is not supported yet.
         "Spinning Wrist Lock Hammerlock Headlock Takedown Armbar of Doom": (
@@ -416,9 +417,9 @@
             ],
             while_in_ring: [(applies_to: AnyOf([Title("From the Top Rope"), Title("From the Middle Turnbuckle")]), irreversible: true)],
         ),
-        // The ACE during the opponent's turn is not supported yet.
         "I'll Taunt You, Then I'll BASH You!": (
             end_of_prematch: [Optional([Search(filter: Not(Trait(Unique)))])],
+            ring_after_success: Some((filter: Trait(Unique), effects: [Mill(who: Opponent, n: 6)], end_turn: false)),
             while_in_ring: [(applies_to: All([Maneuver, Holds(OpponentRingHas(filter: Title("Yo! Kill da Beat!"), n: 1))]), fortitude: -3)],
         ),
         // Approximation: done at the end of the Pre-match phase; the Back to Basics option is not supported yet.
@@ -554,13 +555,13 @@
         ),
         // Reversing maneuvers by their reversal restrictions is not supported yet.
         "This Is Going to be an Old School Brawl!": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
-        // Reversing ACEs is not supported yet.
         "Classic Teamwork": (
             only_packed_by: ["Tag Team"],
             reverses: Some((
                 targets: All([Not(SuperstarSpecific), Not(Maneuver)]),
                 effects: [DrawUpTo(who: You, n: 2), Discard(who: You, n: 1, pick: Chosen)],
             )),
+            reverses_ace: Some((effects: [DrawUpTo(who: You, n: 2), Discard(who: You, n: 1, pick: Chosen)])),
         ),
         "Enforcer Interferes": (
             not_packed_by: ["Theodore Long", "Eric Bischoff"],
@@ -971,10 +972,12 @@
             play_after: Some(Any),
             reverses: Some((targets: All([TitleContains("Revolution"), Not(Trait(Unique))]))),
         ),
-        // Reversing Activated Card Effects is not supported yet.
         "I'm Here To Save Us.. From You!": (
             reverses: Some((
                 targets: All([Maneuver, Not(Trait(Unique))]),
+                effects: [Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("You Sanctimonious Son of a B!tch")))])],
+            )),
+            reverses_ace: Some((
                 effects: [Optional([MoveCards(who: You, from: Backlash, to: Ring, n: 1, filter: Some(Title("You Sanctimonious Son of a B!tch")))])],
             )),
         ),
@@ -1556,11 +1559,19 @@
             while_in_ring: [(applies_to: Maneuver, damage: 1)],
             while_in_ring_opponent: [(applies_to: Maneuver, damage: -1)],
         ),
-        // Reversing Activated Card Effects is not supported yet.
+        // Approximation: the -5F does not apply when it reverses an Activated Card Effect.
         "Legendary Teamwork": (
             reverses: Some((
                 targets: All([Maneuver, Not(ManeuverType(TrademarkFinisher)), PlayerRingHas(filter: Maneuver, n: 1)]),
                 fortitude_when: Some((All([Superstar("The Road Warriors"), FortitudeBelowOpponent]), 0)),
+                effects: [
+                    Choice([
+                        [RingsideToHand(who: You, n: 1, up_to: true)],
+                        [MoveCards(who: You, from: Removed, to: Hand, n: 1, up_to: true)],
+                    ]),
+                ],
+            )),
+            reverses_ace: Some((
                 effects: [
                     Choice([
                         [RingsideToHand(who: You, n: 1, up_to: true)],
@@ -1574,8 +1585,12 @@
             bonuses: [(fortitude: -10)],
             reverses: Some((targets: All([Not(Maneuver), Not(Trait(Unique))]))),
         ),
-        // The hybrid-only reversal with a Road Warriors Backlash card is not supported yet.
-        "Doomsday Device": (play_after: Some(Any), irreversible_when: Some(After(Title("From the Top Rope")))),
+        // Approximation: a Road Warriors-specific Backlash card is any Superstar-specific Mid-match card.
+        "Doomsday Device": (
+            play_after: Some(Any),
+            irreversible_when: Some(After(Title("From the Top Rope"))),
+            reversal_limits: [(by: Some(Not(Hybrid)), when: InYourRing(All([SuperstarSpecific, Trait(MidMatch)])))],
+        ),
         "Legendary Road Warrior Face Paint": (
             on_play: [RingsideToArsenal(who: You, n: 8, up_to: true)],
             ring_ability: Some((effects: [ReturnThis(to: Removed), Mill(who: You, n: 2), DrawUpTo(who: You, n: 4)])),
@@ -1989,8 +2004,9 @@
             pre_match_limit: 3,
             restricts_opponent: Some((filter: Title("I'm Gonna Break You"))),
         ),
-        // The hybrid protection when you have lower Fortitude is not supported yet.
+        // Approximation: the hybrid protection with lower Fortitude also applies when it is played as a maneuver.
         "Steiner Recliner": (
+            reversal_limits: [(by: Some(Hybrid), when: FortitudeBelowOpponent)],
             on_play: [DrawUpTo(who: You, n: 2), MoveCards(who: Opponent, from: Ringside, to: Arsenal, n: 1, bottom: true, pick: Controller)],
             as_action: Some((
                 fortitude: Some(0),

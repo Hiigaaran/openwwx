@@ -210,8 +210,8 @@
                 ],
             )),
         ),
-        // Choosing a number to lower its F and the hybrid-only hand reversals are not supported yet.
-        "Precision Haymaker": (),
+        // Choosing a number to lower its F is not supported yet.
+        "Precision Haymaker": (reversal_limits: [(from: [Hand], by: Some(Not(Hybrid)))]),
 
         // Grapples
         "BASH Suplex": (
@@ -937,9 +937,8 @@
             ],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]), from_hand_only: true)),
         ),
-        // Reversing only non-hybrid cards is not supported yet.
         "The Bottomless Pit": (
-            reverses: Some((targets: Not(Any))),
+            reverses: Some((targets: Not(Hybrid))),
             after_damage: [
                 RemoveFromGame(who: You, from: Ringside, n: 255, pick: Random),
                 RemoveFromGame(who: Opponent, from: Ringside, n: 255, pick: Random),

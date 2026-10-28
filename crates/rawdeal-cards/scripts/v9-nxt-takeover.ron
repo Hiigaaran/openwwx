@@ -6,7 +6,8 @@
 // "Bury" puts cards on the bottom of the Arsenal; "Stack" on top; "RFG" removes them from the game.
 // "Arsenal Search N" = `Search`; "Ringside Search N" = `RingsideToHand`.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
-// played and of card effects / Activated Card Effects are not supported (`targets: Not(Any)`).
+// played use `after_success`, of Activated Card Effects `reverses_ace`; of other card effects they are not supported
+// (`targets: Not(Any)`).
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Not supported: cards under a
 // Superstar card, under NXT Arrival or The Selfie Stick (also face-down cards), 'completely' and packing
 // permissions.
@@ -325,9 +326,11 @@
             from_ringside: Some(CountAtLeast(count: HandSize, n: 1)),
             on_play: [If(condition: PlayedFromRingside, effects: [HandToArsenalBottom(who: You, n: 1)])],
         ),
-        // The D:0 limit on hand reversals when played as a Counter is not supported yet.
         "STJoe": (
-            reversal_limits: [(from: [Backlash, Ringside, Ring, Under], when: All([ReversedLastTurn(Any), FirstCardThisTurn]))],
+            reversal_limits: [
+                (from: [Backlash, Ringside, Ring, Under], when: All([ReversedLastTurn(Any), FirstCardThisTurn])),
+                (from: [Hand], when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(DamageAtLeast(1))),
+            ],
             reverses: Some((targets: AnyOf([ManeuverType(Strike), After(Trait(SetUp))]))),
         ),
         // Approximation: the shuffle is not reduced by reversals; the 'completely' text is not supported yet.
@@ -505,13 +508,13 @@
                 ),
             ],
         ),
-        // Reversing Activated Card Effects is not supported yet.
         "All Hail Baron Corbin": (
             reverses: Some((
                 targets: AnyOf([Trait(Irreversible), Trait(Momentum)]),
                 ignores_irreversible: true,
                 effects: [DrawUpTo(who: You, n: 4), HandToArsenalBottom(who: You, n: 2)],
             )),
+            reverses_ace: Some((effects: [DrawUpTo(who: You, n: 4), HandToArsenalBottom(who: You, n: 2)])),
         ),
         // The No Sell Maneuver text is not supported yet.
         "An Eye For an Eye": (
@@ -719,8 +722,8 @@
             reversals_needed: 3,
             reversals_needed_when: Some(Not(All([ReversedLastTurn(Any), FirstCardThisTurn]))),
         ),
-        // The Unique-reversal text is not supported yet.
         "Hyped-Up Pounce": (
+            reversal_limits: [(when: After(Trait(SetUp)), by: Some(Not(Trait(Unique))))],
             bonuses: [(fortitude: -5), (per: Some(TitleContains("hype")), fortitude: -1)],
             reverses: Some((targets: ManeuverType(Strike))),
         ),
@@ -789,14 +792,14 @@
                 If(condition: OpponentReversed(Maneuver), effects: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)]),
             ],
         ),
-        // Approximation: "ignore reversal restrictions" works on cards that cannot be reversed. The Ringside text is
-        // not supported yet.
+        // The Ringside text is not supported yet.
         "Asuka's Cross-Arm Breaker": (
             bonuses: [(fortitude: -10, damage: 5)],
             on_play: [MoveCards(who: Opponent, from: Hand, to: Arsenal, n: 1, pick: Random, bottom: true)],
             reverses: Some((
                 targets: AnyOf([TitleContains("clothesline"), TitleContains("fist"), TitleContains("punch"), TitleContains("slap")]),
                 ignores_irreversible: true,
+                ignores_limits: true,
             )),
         ),
         "Billiken": (
@@ -820,8 +823,11 @@
         ),
         // The 'completely', Arsenal-to-Ring and Furisode texts are not supported yet.
         "Tomorrow Brings Danger": (),
-        // The Counter reversal restriction and the Ring text are not supported yet.
-        "Empress of Tomorrow": (on_play: [Search(filter: Any, up_to: true)]),
+        // The Ring text is not supported yet.
+        "Empress of Tomorrow": (
+            reversal_limits: [(when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(DamageAtLeast(2)))],
+            on_play: [Search(filter: Any, up_to: true)],
+        ),
 
         // Alexa Bliss
         // Playing maneuvers from the Backstage Area and the Fortitude Rating text are not supported yet.
@@ -930,12 +936,11 @@
             reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
             ringside_ability: Some((effects: [ReturnThis(to: Arsenal)])),
         ),
-        // Approximation: "ignore reversal restrictions" works on cards that cannot be reversed. The Bubbly Personality
-        // and 'diva' texts are not supported yet.
+        // The Bubbly Personality and 'diva' texts are not supported yet.
         "Dil-Emma": (
             bonuses: [(fortitude: -5, damage: 5)],
             on_play: [RemoveFromRing(who: Opponent, n: 1, filter: Not(SuperstarSpecific))],
-            reverses: Some((targets: ManeuverType(Strike), ignores_irreversible: true)),
+            reverses: Some((targets: ManeuverType(Strike), ignores_irreversible: true, ignores_limits: true)),
         ),
         // Approximation: after the random discard it cannot be reversed at all.
         "The Emma Lock": (
@@ -943,10 +948,18 @@
             before_reversal: [Optional([Discard(who: You, n: 4, pick: Random), IrreversibleThis])],
             on_play: [Boost((applies_to: Title("Maintain Hold"), duration: NextCard, ignore_play_after: true))],
         ),
-        // Reversing Activated Card Effects is not supported yet. Approximation: the Ring ability buries a chosen card.
+        // Approximation: the Ring ability buries a chosen card.
         "#Bubbles": (
             reverses: Some((
                 targets: Trait(Unique),
+                effects: [
+                    If(
+                        condition: BackstageRevealed(who: You, filter: Title("Emma's Bubbly Personality")),
+                        effects: [Choice([[Discard(who: You, n: 1, pick: Random), Discard(who: Opponent, n: 1, pick: Random)], [DrawUpTo(who: You, n: 2)]])],
+                    ),
+                ],
+            )),
+            reverses_ace: Some((
                 effects: [
                     If(
                         condition: BackstageRevealed(who: You, filter: Title("Emma's Bubbly Personality")),
@@ -1077,10 +1090,9 @@
         ),
         // The 'classic' title text is not supported yet.
         "Manly Double Team": (bonuses: [(when: CountBelow(a: Plus(YourFortitude, Const(4)), b: OpponentFortitude), fortitude: -5)]),
-        // Approximation: D:3+ cards cannot reverse it from anywhere.
         "Gentleman's Clutch": (
             bonuses: [(fortitude: -10, damage: 5)],
-            not_reversed_by: Some(DamageAtLeast(3)),
+            reversal_limits: [(from: [Hand], by: Some(DamageAtLeast(3)))],
             reverses: Some((targets: AnyOf([Action, ManeuverType(Submission)]))),
         ),
         "That's a Wrap!": (
@@ -1300,6 +1312,7 @@
                 targets: All([Maneuver, Not(SuperstarSpecific)]),
                 from_hand_only: true,
                 ignores_irreversible: true,
+                ignores_limits: true,
                 effects: [Discard(who: Opponent, n: 2, pick: Random)],
             )),
         ),
@@ -1316,9 +1329,10 @@
                 If(condition: OpponentReversed(All([Maneuver, AnyOf([TitleContains("precision"), TitleContains("technical")])])), effects: [Mill(who: Opponent, n: 1)]),
             ],
         ),
-        // The non-hybrid / bury and Triple H reversal texts, the next maneuver's hybrid restriction and the overturn are
-        // not supported yet.
+        // The bury and Triple H reversal texts, the next maneuver's hybrid restriction and the overturn are not
+        // supported yet.
         "The Kingslayer": (
+            reversal_limits: [(when: Superstar("Seth Rollins"), by: Some(Hybrid))],
             reversals_needed: 2,
             reversals_needed_when: Some(Superstar("Seth Rollins")),
             on_play: [
@@ -1426,7 +1440,6 @@
                 ]),
             ],
         ),
-        // Approximation: "ignore reversal restrictions" works on cards that cannot be reversed.
         "This IS The Show": (
             on_play: [
                 Choice([
@@ -1434,7 +1447,7 @@
                     [RingsideToArsenal(who: You, n: 4, up_to: true), Draw(who: You, n: 1)],
                 ]),
             ],
-            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), from_hand_only: true, ignores_irreversible: true)),
+            reverses: Some((targets: All([Maneuver, Not(SuperstarSpecific)]), from_hand_only: true, ignores_irreversible: true, ignores_limits: true)),
         ),
         // Its texts (Superstar Value, Hand Size, blank Ability) are not supported yet.
         "The Modern-Day Maharaja": (),
@@ -1444,8 +1457,11 @@
             as_action: Some((fortitude: Some(5), on_play: [DiscardThis, DrawUpTo(who: You, n: 2)])),
             reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), from_hand_only: true)),
         ),
-        // Reversing after a successfully played maneuver is not supported yet.
-        "The Singh Brothers Assist": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
+        // The ACE (The Khallas) is not supported yet.
+        "The Singh Brothers Assist": (
+            reverses: Some((targets: Not(Any))),
+            after_success: Some((filter: All([Maneuver, DamageAtLeast(5), Not(ManeuverType(TrademarkFinisher))]), at: BeforeEffects, cancel: true)),
+        ),
         // The Maharaja's Protective Turban Case text is not supported yet.
         "And Now, I Will Speak to My People In MY Native Language!": (on_play: [DiscardThis, RingsideToArsenalBottom(who: You, n: 1)]),
         // Its texts (Omen in the Sky) are not supported yet.

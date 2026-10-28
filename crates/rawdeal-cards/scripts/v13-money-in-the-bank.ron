@@ -5,7 +5,8 @@
 // "Promo: N" is approximated as `Dig`: you keep 1 of the top N cards and the rest go on the bottom of the Arsenal.
 // "Bury" puts cards on the bottom of the Arsenal; "RFG" removes them from the game.
 // "Reversal: Special" cards: "Reverse any X" is the reversal target. Reversals after a card was successfully
-// played, of card effects and of Activated Card Effects are not supported (`targets: Not(Any)`).
+// played use `after_success`, of Activated Card Effects `reverses_ace` / `ring_reverses_ace`; of other card effects
+// they are not supported (`targets: Not(Any)`).
 // ACE (Activated Card Effects) are ring abilities used during your own turn. Packing permissions printed on
 // Superstar cards ("You can pack X") are not supported unless they are other Superstars' logos (`PacksLogos`).
 // Face-down cards, cards under a Superstar or Backstage card, hiding Backstage cards during the opponent's turn,
@@ -112,8 +113,8 @@
         "Learn or Be Left Behind!": (
             on_play: [Choice([[Draw(who: You, n: 1)], [RemoveFromGame(who: Opponent, from: Arsenal, n: 1)]])],
         ),
-        // Ignoring reversal restrictions is not supported yet.
-        "Fickle!": (reverses: Some((targets: Not(Maneuver), effects: [RingsideToArsenal(who: You, n: 3, up_to: true)]))),
+        // Ignoring play restrictions is not supported yet.
+        "Fickle!": (reverses: Some((targets: Not(Maneuver), ignores_limits: true, effects: [RingsideToArsenal(who: You, n: 3, up_to: true)]))),
 
         // The Great Liberator
         // Approximation: "under this card" is under the Superstar card, and its maneuvers can be played at any time
@@ -232,9 +233,11 @@
             )),
             reverses: Some((targets: All([Maneuver, After(Action)]))),
         ),
-        // Approximation: non-Unique cards can still reverse it from the Arsenal. Reversing pinfall-preventing effects
-        // is not supported yet.
-        "Slay-Mission": (reversal_limits: [(from: [Backlash, Ringside, Ring, Under])], reverses: Some((targets: Keyword("Foil")))),
+        // Reversing pinfall-preventing effects is not supported yet.
+        "Slay-Mission": (
+            reversal_limits: [(from: [Backlash, Ringside, Ring, Under]), (from: [Arsenal], by: Some(Not(Trait(Unique))))],
+            reverses: Some((targets: Keyword("Foil"))),
+        ),
         "It's Glow Time": (
             as_action: Some((on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true, filter: Some(AnyOf([SuperstarSpecific, Keyword("Foil")])))])),
         ),
@@ -440,8 +443,8 @@
             )),
         ),
         // Approximation: "Buries all cards in his hand except 3" puts the extra cards on the bottom of his Arsenal.
-        // The ACE is not supported yet.
         "Pretty Mean Sisters": (
+            ring_reverses_ace: Some(()),
             from_ringside: Some(CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10)),
             on_play: [Counted(count: Minus(OpponentHandSize, Const(3)), effect: HandToArsenalBottom(who: Opponent, n: 1))],
         ),

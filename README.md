@@ -173,6 +173,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   quedan en blanco (sin tipo, rasgos ni texto, F: 0 D: 0) hasta que se dan vuelta o salen del Ring. Cartas debajo de
   la Superstar, que algunas habilidades dejan jugar como si estuvieran en la mano ("debajo de una carta Backstage" se
   trata igual).
+- Revertir Activated Card Effects (ACEs) de cartas del Ring, del Ringside o Backstage, desde la mano o desde el
+  Ring (el costo se paga igual y el efecto no ocurre); cartas del Ring que paran una maniobra exitosa; cartas que solo
+  ciertos Reversals pueden revertir ("no por cartas non-Unique"); Reversals que cuentan como 2 y Reversals que
+  ignoran las restricciones de reversión.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

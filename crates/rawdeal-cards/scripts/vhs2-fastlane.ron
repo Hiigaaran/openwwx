@@ -403,6 +403,7 @@
         "It's Morphin' Time!": (
             on_play: [Search(filter: Title("Honor Roll"), ringside: true, up_to: true)],
             reverses: Some((targets: Not(Maneuver))),
+            reverses_ace: Some(()),
         ),
         // Approximation: "Recover" shuffles into the Arsenal. The reversal (of a card effect) is not supported yet.
         "The Doctor of Defenestration": (
@@ -437,12 +438,18 @@
             reversals_needed: 3,
             reversals_needed_when: Some(YouAre("Stable")),
         ),
-        // The non-Unique Arsenal reversal limit and 'completely' are not supported yet. Approximation: The New
-        // Day-specific cards are Superstar-specific cards.
+        // 'completely' is not supported yet. Approximation: The New Day-specific cards are Superstar-specific cards.
         "The Midnight Hour": (
             bonuses: [(per: Some(AnyOf([Trait(Cheater), Trait(Heel)])), fortitude: -1)],
             reversals_needed: 3,
             reversals_needed_when: Some(CountAtLeast(count: YourRingMatching(AnyOf([Trait(Cheater), Trait(Heel), SuperstarSpecific])), n: 15)),
+            reversal_limits: [
+                (
+                    from: [Arsenal],
+                    by: Some(Not(Trait(Unique))),
+                    when: CountAtLeast(count: YourRingMatching(AnyOf([Trait(Cheater), Trait(Heel), SuperstarSpecific])), n: 15),
+                ),
+            ],
         ),
         "The Power of Positivity": (
             on_play: [ShuffleThisIntoArsenal, RingsideToArsenal(who: You, n: 1, up_to: true)],
@@ -452,9 +459,10 @@
                 overturned_only: true,
             )),
         ),
-        // It is printed Multi (2 Reversals); the D: 0-only part is not supported yet.
+        // It is printed Multi (2 Reversals).
         "Sound the Trombone!": (
             play_after: Some(Maneuver),
+            reversal_limits: [(by: Some(DamageAtLeast(1)))],
             on_play: [
                 Choice([
                     [Search(filter: All([Not(Trait(Unique)), Maneuver]), n: 2, up_to: true)],

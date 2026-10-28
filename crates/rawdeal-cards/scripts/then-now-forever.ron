@@ -131,7 +131,7 @@
         "The Bruiserweight": (
             in_ring_on_play: [(whose: Some(You), filter: Title("Elbow to the Face"), effects: [Draw(who: You, n: 2)])],
         ),
-        // The Counter reversal restriction and the hand / Ringside ability are not supported yet.
-        "The Bitter End": (),
+        // The hand / Ringside ability is not supported yet.
+        "The Bitter End": (reversal_limits: [(from: [Arsenal], when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(Not(Trait(Unique))))]),
     },
 )

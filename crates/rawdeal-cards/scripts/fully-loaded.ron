@@ -541,7 +541,8 @@
             on_play: [Damage(who: Opponent, n: 2)],
             in_ring_start_of_turn: [Optional([Discard(who: You, n: 1, pick: Chosen), Damage(who: Opponent, n: 2)])],
         ),
-        "Kick Out!": (requires: Some(Never)),
+        // "At the conclusion of overturning an opponent's entire maneuver damage" = after the maneuver's damage.
+        "Kick Out!": (ring_after_success: Some(())),
         "Acolyte Protection Agency": (
             on_play: [
                 Choice([

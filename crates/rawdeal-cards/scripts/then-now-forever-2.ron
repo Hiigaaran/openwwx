@@ -82,9 +82,10 @@
             )),
         ),
         // Approximation: your 'Classic' maneuvers are -2F and +1D (not for each Ringside 'Classic' maneuver).
-        // Superstar-specific, the draw and the ACE are not supported yet.
+        // Superstar-specific and the draw are not supported yet.
         "The Greatest Wrestler on God's Green Earth": (
             not_with: ["There Is No Escape"],
+            ring_after_success: Some((at: BeforeEffects, cancel: true, end_turn: false, to: Some(Removed))),
             while_in_ring: [(applies_to: All([Maneuver, TitleContains("Classic")]), fortitude: -2, damage: 1)],
         ),
         // The "5+ lower Fortitude and F: 0" case of the Arsenal-only restriction is not supported yet.
@@ -132,8 +133,12 @@
             ],
             reverses: Some((targets: Not(Any))),
         ),
-        // The Counter and Arsenal reversal restrictions are not supported yet.
+        // Approximation: its reversal restrictions also apply when it is played as an action.
         "The Lethal Kick": (
+            reversal_limits: [
+                (when: All([ReversedLastTurn(Any), FirstCardThisTurn]), by: Some(Hybrid)),
+                (from: [Arsenal], by: Some(Trait(Unique))),
+            ],
             as_action: Some((
                 fortitude: Some(0),
                 on_play: [

@@ -172,9 +172,10 @@
                 effects: [Search(filter: All([Maneuver, Not(Trait(Unique))]), ringside: true)],
             )),
         ),
-        // Searching for it as non-Unique and the non-Unique hand reversal limit are not supported yet.
+        // Searching for it as non-Unique is not supported yet.
         "Big Elbow Smash": (
             reversal_limits: [
+                (from: [Hand], by: Some(Not(Trait(Unique))), when: After(Maneuver)),
                 (
                     from: [Hand, Backlash, Ringside, Ring, Under],
                     when: All([YouAre("Kevin Nash"), CountAtLeast(count: Minus(OpponentFortitude, YourFortitude), n: 10)]),
@@ -388,8 +389,8 @@
             reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))),
         ),
         "Don't Piss Me Off!": (reverses: Some((targets: Not(ManeuverType(TrademarkFinisher)), effects: [DrawUpTo(who: You, n: 2)]))),
-        // The conditional reversal limit is not supported yet.
         "Ain't I Great?": (
+            reversal_limits: [(by: Some(AnyOf([Hybrid, Not(Reversal)])), when: OpponentHandLarger)],
             on_play: [
                 RingsideToArsenalBottom(who: You, n: 5),
                 MoveCards(who: You, from: Removed, to: Arsenal, n: 1, up_to: true, bottom: true),
@@ -590,8 +591,9 @@
             on_play: [DrawUpTo(who: You, n: 5), RingsideToArsenal(who: You, n: 5, up_to: true), Mill(who: Opponent, n: 5)],
             while_in_ring: [(applies_to: Keyword("ECW"), fortitude: -5)],
         ),
-        // The reversal limit is not supported yet.
+        // Putting your hand on top of your Arsenal for the reversal limit is not supported yet.
         "Blood, Sweat, and Beers": (
+            reversal_limits: [(by: Some(Not(SuperstarSpecific)), when: InYourRing(Title("Can of Beer")))],
             on_play: [
                 Search(filter: All([Maneuver, Not(Hybrid)])),
                 Search(filter: All([Reversal, Not(Hybrid)])),

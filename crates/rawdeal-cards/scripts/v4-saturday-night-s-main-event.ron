@@ -380,18 +380,29 @@
                 effects: [MillUntil(who: Opponent, filter: Reversal), MillUntil(who: Opponent, filter: Reversal)],
             )),
         ),
-        // "Counts as 2 reversal cards" and the ACE are not supported yet.
+        // The ACE is not supported yet.
         "A Giant Assist": (
             reverses: Some((
                 targets: Maneuver,
+                counts_as: 2,
                 requires: Some(AnyOf([InYourRing(Title("The Heenan Family")), YouAre("Ravishing Rick Rude")])),
             )),
         ),
-        // Reversing Activated Card Effects and the ACE are not supported yet.
+        // Approximation: Pre-match cards are the cards that are not maneuvers, actions, Reversals, Antics or Mid-match
+        // cards; "your logo is printed on The Heenan Family" is having it in your Ring (or being Ravishing Rick Rude).
         "Rude-ly Interrupting": (
+            requires: Some(AnyOf([InYourRing(Title("The Heenan Family")), YouAre("Ravishing Rick Rude")])),
             reverses: Some((
                 targets: Trait(MidMatch),
                 requires: Some(AnyOf([InYourRing(Title("The Heenan Family")), YouAre("Ravishing Rick Rude")])),
+            )),
+            reverses_ace: Some((filter: Not(AnyOf([Maneuver, Action, Reversal, Antic, Trait(MidMatch)])))),
+            ring_after_success: Some((
+                filter: All([
+                    Maneuver,
+                    Holds(AnyOf([OpponentRingHas(filter: Title("The Heenan Family"), n: 1), OpponentIs("Ravishing Rick Rude")])),
+                ]),
+                to: Some(Removed),
             )),
         ),
         // The Backlash discount and the draw-and-bury are not supported yet.
@@ -730,6 +741,15 @@
         ),
         // The opponent-turn reversal from the Ring is not supported yet.
         "Mr. Fuji's Handful of Salt": (
+            reversal_limits: [
+                (
+                    by: Some(Not(SuperstarSpecific)),
+                    when: AnyOf([
+                        InYourRing(Title("Managed by Mr. Fuji")),
+                        CountAtLeast(count: YourRingsideMatching(Title("Managed by Mr. Fuji")), n: 1),
+                    ]),
+                ),
+            ],
             on_play: [
                 LookAtHand(who: Opponent),
                 Discard(who: Opponent, n: 2, pick: Controller),
@@ -814,7 +834,11 @@
 
         // Million Dollar Corporation
         // Blanking a Backstage card is not supported. Approximation: the hand is revealed while it is in your Ring.
-        "You Will Be Bought!": (requires: Some(InYourRing(Title("The Million Dollar Corporation"))), reveals_opponent_hand: true),
+        "You Will Be Bought!": (
+            requires: Some(InYourRing(Title("The Million Dollar Corporation"))),
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: InYourRing(Title("The Million Dollar Corporation")))],
+            reveals_opponent_hand: true,
+        ),
         // The logo text is not supported yet.
         "Tax Tips from I.R.S.": (
             requires: Some(InYourRing(Title("The Million Dollar Corporation"))),
@@ -840,9 +864,10 @@
         ),
 
         // Macho Man / Hulk Hogan
-        // The 'blindside' Unique-reversal limit is not supported yet. Approximation: it is also Multi as an Action.
+        // Approximation: it is also Multi as an Action.
         "Savage Double Axe Handle": (
             multi_when: Some(YouAre("Macho Man Randy Savage")),
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: After(All([Maneuver, TitleContains("blindside")])))],
             play_after: Some(Maneuver),
             on_play: [RingsideToHand(who: You, n: 1, up_to: true, filter: Some(All([Action, SuperstarSpecific])))],
             as_action: Some((
@@ -900,9 +925,10 @@
             momentum_when: Some(OpponentRingHas(filter: TitleContains("Revolution"), n: 1)),
             reverses: Some((targets: All([Not(SuperstarSpecific), Not(Maneuver)]))),
         ),
-        // Approximation: reverses cards with Momentum or that cannot be reversed. The Superstar-specific limit is not supported.
+        // Approximation: reverses cards with Momentum or that cannot be reversed.
         "Diesel-Powered Sidewalk Slam": (
             bonuses: [(when: YouAre("Diesel"), fortitude: -10)],
+            reversal_limits: [(by: Some(Not(SuperstarSpecific)), when: After(Maneuver))],
             reverses: Some((targets: AnyOf([Trait(Momentum), Trait(Irreversible)]), ignores_irreversible: true)),
         ),
         // Approximation: going to the Arsenal applies when reversed from hand. Its reversal (overturned by non-damage effects) is not supported.
@@ -1189,9 +1215,11 @@
         ),
 
         // Nikolai Volkoff
-        // The non-Unique hand / Backlash reversal limit after a maneuver is not supported yet.
         "Volkoff's Russian Slam": (
             bonuses: [(when: YouAre("Nikolai Volkoff"), fortitude: -9)],
+            reversal_limits: [
+                (from: [Hand, Backlash], by: Some(Not(Trait(Unique))), when: All([YouAre("Nikolai Volkoff"), After(Maneuver)])),
+            ],
             multi_when: Some(All([YouAre("Nikolai Volkoff"), After(Any)])),
             chain_when: Some(All([YouAre("Nikolai Volkoff"), After(Trait(Chain))])),
         ),
@@ -1241,8 +1269,12 @@
             on_play: [RingsideToArsenal(who: You, n: 3, up_to: true), DrawUpTo(who: You, n: 3)],
             reverses: Some((targets: All([Trait(Unique), SuperstarSpecific]))),
         ),
-        // Approximation: "Rare or Unique" is not checked. The ACE is not supported yet.
-        "It's All About the Money": (bonuses: [(when: YouAre("Money Inc."), fortitude: -20)], on_play: [DrawUpTo(who: You, n: 3)]),
+        // Approximation: "Rare or Unique" is Unique. The ACE is not supported yet.
+        "It's All About the Money": (
+            bonuses: [(when: YouAre("Money Inc."), fortitude: -20)],
+            reversal_limits: [(by: Some(Not(Trait(Unique))), when: YouAre("Money Inc."))],
+            on_play: [DrawUpTo(who: You, n: 3)],
+        ),
 
         // Demolition
         // Drawing for each reversal played in response is not supported yet.

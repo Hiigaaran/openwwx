@@ -42,10 +42,12 @@
             bonuses: [(fortitude: -6, damage: 2)],
             reverses: Some((targets: TitleContains("takedown"))),
         ),
-        // Approximation: only from the Arsenal; Hold the Phone! and Superplex cannot reverse it from hand either.
         "Superplex": (
             play_after: Some(AnyOf([All([Maneuver, DamageAtLeast(8)]), Title("Throw Into the Corner Turnbuckle")])),
-            reversal_limits: [(from: [Hand, Backlash, Ringside, Ring, Under])],
+            reversal_limits: [
+                (from: [Backlash, Ringside, Ring, Under]),
+                (from: [Hand], by: Some(Not(AnyOf([Title("Hold the Phone!"), Title("Superplex")])))),
+            ],
             reverses: Some((
                 targets: AnyOf([
                     Title("Superplex"),
@@ -77,8 +79,10 @@
         "Chop to the Chest": (
             on_play: [Boost((applies_to: Maneuver, duration: NextCard, damage: 3, reversal_fortitude: 3))],
         ),
-        // The Irish Whip reversal limit is not supported yet.
+        // Approximation: after Irish Whip, non-unique Reversals that specifically reverse a maneuver played after
+        // Irish Whip cannot reverse it either.
         "Knife-Edge Chop": (
+            reversal_limits: [(when: After(Title("Irish Whip")), by: Some(Not(Trait(Unique))))],
             ringside_ability: Some((cost: [Discard(who: You, n: 2, pick: Chosen)], effects: [ReturnThis(to: Hand)])),
         ),
         // Approximation: you may discard up to 5 cards.

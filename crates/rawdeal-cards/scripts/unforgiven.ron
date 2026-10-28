@@ -346,14 +346,18 @@
         ),
         // Burying your hand to make it -7F is not supported yet.
         "Sit Out Powerbomb": (),
-        // Counting as a High Risk maneuver outside the Ring is not supported yet. Approximation: after From the
-        // Middle Turnbuckle or From the Top Rope any Reversal may still reverse it from hand, not only Unique ones.
+        // Counting as a High Risk maneuver outside the Ring is not supported yet.
         "Tornado DDT": (
             play_after: Some(Any),
             reversal_limits: [
                 (
                     from: [Backlash, Ringside, Ring, Under],
                     when: After(AnyOf([Title("From the Middle Turnbuckle"), Title("From the Top Rope")])),
+                ),
+                (
+                    from: [Hand],
+                    when: After(AnyOf([Title("From the Middle Turnbuckle"), Title("From the Top Rope")])),
+                    by: Some(Not(Trait(Unique))),
                 ),
             ],
             reverses: Some((
@@ -709,8 +713,8 @@
                 ),
             ],
         ),
-        // Restricted Modification Symbols and reversing Activated Card Effects are not supported yet.
-        "Frankie Takes Ho-llywood": (requires: Some(Never)),
+        // Giving your Reversal cards the Restricted Modification Symbol is not supported yet.
+        "Frankie Takes Ho-llywood": (ring_reverses_ace: Some((filter: Not(Trait(Unique))))),
         "Inferno Match": (),
         // Moving text between cards is not supported yet.
         "The Old Switcheroo": (requires: Some(Never)),
@@ -881,10 +885,9 @@
             )),
             on_removed_by_opponent: [MoveCards(who: You, from: Removed, to: Hand, n: 3, up_to: true)],
         ),
-        // Reversing Activated Card Effects is not supported yet.
         "Just Close Your Eyes": (
             as_action: Some((fortitude: Some(0), on_play: [ShuffleThisIntoArsenal, Discard(who: Opponent, n: 2, pick: Chosen)])),
-            reverses: Some((targets: Not(Any))),
+            reverses_ace: Some(()),
         ),
         "That's How I Roll": (
             on_play: [Discard(who: You, n: 1, pick: Chosen), RingsideToHand(who: You, n: 3, up_to: true)],
@@ -1362,8 +1365,7 @@
             on_play: [RingsideToArsenal(who: You, n: 6, up_to: true)],
             reverses: Some((targets: All([Maneuver, Not(Trait(Unique))]))),
         ),
-        // Reversing Activated Card Effects and checking the overturned cards for a non-hybrid Action are not
-        // supported yet.
+        // Checking the overturned cards for a non-hybrid Action (to let his turn go on) is not supported yet.
         "McMahon-us Interrupt-us": (requires: Some(Never), reverses: Some((targets: Not(Any)))),
         // Approximation: the opponent's draw happens at the start of his turn.
         "Gentlemen's Establishment": (
