@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use rawdeal_ai::{Bot, RandomBot};
+use rawdeal_ai::RandomBot;
 use rawdeal_core::{Engine, GameSetup};
 
 #[test]
@@ -29,7 +29,7 @@ fn user_sets_play_random_matches() {
                 while state.outcome.is_none() {
                     let p = state.decision.as_ref().unwrap().player;
                     let legal = engine.legal_actions(&state, p);
-                    let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
+                    let action = bots[p.index()].pick(&legal);
                     engine.apply(&mut state, p, action).unwrap();
                     state.check_invariants().unwrap();
                     actions += 1;
@@ -67,7 +67,7 @@ fn user_sets_revolution_format() {
                 while state.outcome.is_none() {
                     let p = state.decision.as_ref().unwrap().player;
                     let legal = engine.legal_actions(&state, p);
-                    let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
+                    let action = bots[p.index()].pick(&legal);
                     engine.apply(&mut state, p, action).unwrap();
                     state.check_invariants().unwrap();
                     actions += 1;
@@ -160,7 +160,7 @@ fn user_sets_every_card_in_random_piles() {
             let p = state.decision.as_ref().unwrap().player;
             let legal = engine.legal_actions(&state, p);
             assert!(legal.len() < 5_000, "{} legal actions", legal.len());
-            let action = bots[p.index()].choose(&engine, &engine.view(&state, p), &legal);
+            let action = bots[p.index()].pick(&legal);
             for ev in engine.apply(&mut state, p, action).unwrap() {
                 // A Superstar ability can reverse by discarding any card: only count real Reversals.
                 let card = match ev {

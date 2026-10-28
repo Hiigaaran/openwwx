@@ -7,10 +7,10 @@ use eframe::egui::{
     self, Align2, Color32, CornerRadius, FontId, Id, LayerId, Order, Pos2, Rect, RichText, ScrollArea, Stroke,
     StrokeKind, Ui, vec2,
 };
-use rawdeal_ai::{Bot, RandomBot};
+use rawdeal_ai::{Bot, Difficulty};
 use rawdeal_core::{
     Action, CardDb, CardDef, CardId, CardKind, Decision, DecisionKind, Engine, Event, GameState, PlayerId, PlayerView,
-    Zone,
+    Seat, Zone,
 };
 
 use crate::anim::{Banner, Display, Float, Fly, Layout, Step, ease};
@@ -61,7 +61,7 @@ impl Speed {
 pub struct Match {
     engine: Engine,
     state: GameState,
-    bot: RandomBot,
+    bot: Box<dyn Bot + Send>,
     me: PlayerId,
     log: Vec<String>,
     /// Cards picked so far in a "choose cards" decision.
@@ -87,14 +87,21 @@ pub struct Match {
 }
 
 impl Match {
-    pub fn new(db: Arc<CardDb>, state: GameState, events: Vec<Event>, seed: u64, speed: Speed) -> Self {
+    pub fn new(
+        db: Arc<CardDb>,
+        state: GameState,
+        events: Vec<Event>,
+        seed: u64,
+        speed: Speed,
+        difficulty: Difficulty,
+    ) -> Self {
         let engine = Engine::new(db);
         let me = PlayerId::ONE;
         let display = Display::from_view(&engine.view(&state, me));
         let mut m = Match {
             engine,
             state,
-            bot: RandomBot::new(seed ^ 0x5eed),
+            bot: difficulty.bot(seed ^ 0x5eed),
             me,
             log: vec![],
             selected: vec![],
@@ -455,8 +462,7 @@ impl Match {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(wait));
             return;
         }
-        let legal = self.engine.legal_actions(&self.state, player);
-        let action = self.bot.choose(&self.engine, &self.engine.view(&self.state, player), &legal);
+        let action = self.bot.choose(&Seat::new(&self.engine, &self.state, player));
         self.act(player, action);
         ui.ctx().request_repaint();
     }

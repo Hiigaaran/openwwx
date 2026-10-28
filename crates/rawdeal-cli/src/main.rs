@@ -1,6 +1,6 @@
 //! Text-mode client: play against the random bot.
 //!
-//! Usage: `rawdeal-cli [--seed N] [--watch] [--advanced | --revolution | --virtual] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
+//! Usage: `rawdeal-cli [--seed N] [--watch] [--level easy|normal|hard] [--advanced | --revolution | --virtual] [--cards DIR [--deck1 FILE | --superstar1 ID] [--deck2 FILE | --superstar2 ID]] [--check]`.
 //!
 //! - `--advanced`: Pre-match phase and Backlash decks.
 //! - `--revolution`: Revolution format (Revolution cards only, Advanced rules).
@@ -9,6 +9,7 @@
 //!   `--no-aggression`.
 //! - `--virtual`: Advanced rules with the Virtual Backlash and Ring limits.
 //! - `--watch`: two bots play each other and the match log is printed.
+//! - `--level easy|normal|hard`: how well the computer plays (normal by default).
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
 //!   `--superstar1`/`--superstar2` build a quick deck for that Superstar id.
@@ -19,7 +20,7 @@ use std::path::Path;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rawdeal_ai::{Bot, RandomBot};
+use rawdeal_ai::Difficulty;
 use rawdeal_core::*;
 
 fn arg<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
@@ -123,7 +124,13 @@ fn main() -> ExitCode {
     let human = if watch { None } else { Some(PlayerId::ONE) };
     print_events(&engine, &state, &events, human.unwrap_or(PlayerId::ONE));
 
-    let mut bots = [RandomBot::new(seed ^ 1), RandomBot::new(seed ^ 2)];
+    let level = match arg(&args, "--level") {
+        None | Some("normal") => Difficulty::Normal,
+        Some("easy") => Difficulty::Easy,
+        Some("hard") => Difficulty::Hard,
+        Some(other) => return fail(format!("unknown level {other}: use easy, normal or hard")),
+    };
+    let mut bots = [level.bot(seed ^ 1), level.bot(seed ^ 2)];
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
     while state.outcome.is_none() {
@@ -144,7 +151,7 @@ fn main() -> ExitCode {
                 }
             }
         } else {
-            bots[player.index()].choose(&engine, &engine.view(&state, player), &legal)
+            bots[player.index()].choose(&Seat::new(&engine, &state, player))
         };
         let events = engine.apply(&mut state, player, action).expect("only legal actions are offered");
         print_events(&engine, &state, &events, human.unwrap_or(PlayerId::ONE));

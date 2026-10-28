@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, RichText, Ui};
+use rawdeal_ai::Difficulty;
 use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
@@ -34,6 +35,8 @@ struct Settings {
     virtual_rules: bool,
     #[serde(default)]
     speed: Speed,
+    #[serde(default)]
+    difficulty: Difficulty,
 }
 
 pub struct App {
@@ -211,7 +214,14 @@ impl App {
             .unwrap_or(1);
         match Engine::new(self.db.clone()).new_game(&setup, seed) {
             Ok((state, events)) => {
-                self.game = Some(Match::new(self.db.clone(), state, events, seed, self.settings.speed))
+                self.game = Some(Match::new(
+                    self.db.clone(),
+                    state,
+                    events,
+                    seed,
+                    self.settings.speed,
+                    self.settings.difficulty,
+                ))
             }
             Err(e) => self.error = Some(e.to_string()),
         }
@@ -330,6 +340,25 @@ impl App {
                 });
                 ui.end_row();
             }
+
+            ui.label("Dificultad:");
+            ui.horizontal(|ui| {
+                for level in Difficulty::ALL {
+                    let (name, hint) = match level {
+                        Difficulty::Easy => ("Fácil", "Juega cartas al azar."),
+                        Difficulty::Normal => {
+                            ("Normal", "Revierte siempre que puede y ataca con sus maniobras más fuertes.")
+                        }
+                        Difficulty::Hard => (
+                            "Difícil",
+                            "Prueba cada jugada contra varias suposiciones de tu mano y elige la que mejor le resulta. \
+                             No ve tus cartas ocultas.",
+                        ),
+                    };
+                    ui.radio_value(&mut self.settings.difficulty, level, name).on_hover_text(hint);
+                }
+            });
+            ui.end_row();
 
             ui.label("Reglas:");
             ui.vertical(|ui| {

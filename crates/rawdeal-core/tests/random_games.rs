@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use proptest::prelude::*;
-use rawdeal_ai::{Bot, RandomBot};
+use rawdeal_ai::RandomBot;
 use rawdeal_core::*;
 
 const MAX_ACTIONS: usize = 20_000;
@@ -27,8 +27,7 @@ fn play_out(seed: u64) -> (Outcome, Vec<Event>) {
         let player = state.decision.as_ref().expect("a live game always waits on someone").player;
         let legal = engine.legal_actions(&state, player);
         assert!(!legal.is_empty(), "{player} has a decision but no legal action");
-        let view = engine.view(&state, player);
-        let action = bots[player.index()].choose(&engine, &view, &legal);
+        let action = bots[player.index()].pick(&legal);
         log.extend(engine.apply(&mut state, player, action).expect("bots only pick legal actions"));
         state.check_invariants().unwrap();
         assert!(state.cards.len() == 120 || state.cards.len() == 120 + 18);

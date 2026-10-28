@@ -15,7 +15,7 @@ efectos programados. El diseño completo está en
 |---|---|
 | `rawdeal-core` | Motor de reglas puro y determinista: estado, turnos, daño, reversals, victoria. |
 | `rawdeal-cards` | Carga de cartas desde archivos RON. Incluye un set de prueba con cartas y Superstars inventados. |
-| `rawdeal-ai` | Oponentes por computadora. Por ahora, un bot aleatorio. |
+| `rawdeal-ai` | Oponentes por computadora en tres niveles: Fácil, Normal y Difícil. |
 | `rawdeal-cli` | Cliente de texto para jugar contra el bot y depurar el motor. |
 | `openwwx` | App de escritorio (egui): menú, tablero, mano, decisiones y relato de la lucha. |
 
@@ -23,6 +23,17 @@ efectos programados. El diseño completo está en
 
 Descarga la versión para tu sistema desde [Releases](https://github.com/Hiigaaran/openwwx/releases), descomprímela,
 pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`.
+
+Antes de empezar eliges la dificultad de la computadora:
+
+- **Fácil**: juega cartas al azar.
+- **Normal**: revierte siempre que puede, ataca con sus maniobras más fuertes y descarta las cartas que menos le sirven.
+- **Difícil**: prueba cada jugada posible contra varias suposiciones de tu mano y de su Arsenal, juega el resto del
+  turno en cada una y elige la que mejor le resulta. No ve tus cartas ocultas: solo sabe lo que sabría un jugador en
+  la mesa.
+
+En 800 partidas entre bots con los 53 sets (`cargo run --release -p rawdeal-cards --example arena -- <carpeta> 800`),
+Normal le gana a Fácil el 66% de las veces, y Difícil le gana a Fácil el 73% y a Normal el 58%.
 
 La mesa repite cada jugada con animaciones: la carta vuela de la mano a "En juego", las cartas volteadas por daño
 caen al Ringside con un destello rojo, y los avisos grandes marcan turnos, reversals, daño recibido y manos mostradas.
@@ -51,7 +62,7 @@ Linux y crea el release con los archivos.
 
 ```sh
 cargo test                                  # tests de reglas + 200 partidas aleatorias entre todos los Superstars
-cargo run -p rawdeal-cli                    # jugar contra el bot
+cargo run -p rawdeal-cli                    # jugar contra el bot (--level easy|normal|hard)
 cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 ```
 

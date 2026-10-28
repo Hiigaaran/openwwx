@@ -9,3 +9,4 @@ license.workspace = true
 rawdeal-core.workspace = true
 rand.workspace = true
 rand_chacha.workspace = true
+serde.workspace = true

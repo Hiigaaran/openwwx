@@ -12,6 +12,7 @@ pub mod decision;
 pub mod deck;
 pub mod engine;
 pub mod event;
+pub mod seat;
 pub mod state;
 pub mod view;
 
@@ -28,6 +29,7 @@ pub use deck::{
 };
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
+pub use seat::Seat;
 pub use state::{
     CardId, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, RevolutionRules, Source, Watch, WinMethod,
     Zone,
