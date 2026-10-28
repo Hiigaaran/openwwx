@@ -11,7 +11,7 @@ use rawdeal_core::{
 };
 use rawdeal_net::{
     APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, HostCore, HostHandle, Listing, MatchId, MatchInfo, Pin,
-    Refusal, Session, relay, secure, tcp,
+    PlayerHistory, Refusal, Session, Standing, relay, secure, tcp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +29,15 @@ type ListResult = Arc<Mutex<Option<Result<Vec<Listing>, String>>>>;
 
 /// Where a background login or registration leaves its answer.
 type AuthResult = Arc<Mutex<Option<Result<Result<Session, Refusal>, std::io::Error>>>>;
+
+/// The ranking or a player's history, from the common server.
+enum Board {
+    Ranking(Vec<Standing>),
+    History(String, PlayerHistory),
+}
+
+/// Where a background request for a [`Board`] leaves it.
+type BoardResult = Arc<Mutex<Option<Result<Board, String>>>>;
 
 /// How often an open match list asks the server again.
 const LIST_REFRESH: std::time::Duration = std::time::Duration::from_secs(5);
@@ -103,6 +112,9 @@ pub struct App {
     login_name: String,
     login_password: String,
     logging_in: Option<(String, AuthResult)>,
+    /// The ranking or a history on show, and one on its way.
+    board: Option<Result<Board, String>>,
+    board_fetch: Option<BoardResult>,
     /// A server whose certificate is not the one trusted before.
     pin_changed: Option<String>,
     /// The last import's result, for display.
@@ -128,6 +140,8 @@ impl App {
             login_name: String::new(),
             login_password: String::new(),
             logging_in: None,
+            board: None,
+            board_fetch: None,
             pin_changed: None,
             notice: None,
             ctx: cc.egui_ctx.clone(),
@@ -490,6 +504,133 @@ impl App {
         });
     }
 
+    /// Asks the common server for the ranking, or for `who`'s history, in
+    /// the background.
+    fn fetch_board(&mut self, who: Option<String>) {
+        let slot: BoardResult = Arc::new(Mutex::new(None));
+        self.board_fetch = Some(slot.clone());
+        let addr = self.server_addr();
+        let pin = self.pin(&addr);
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let result = match who {
+                None => relay::ranking(addr.as_str(), &pin).map(Board::Ranking),
+                Some(name) => relay::history(addr.as_str(), &pin, &name).map(|h| Board::History(name, h)),
+            };
+            let result = result.map_err(|e| {
+                if e.to_string().contains(secure::CHANGED) {
+                    format!("El certificado del servidor {addr} no es el de la última vez.")
+                } else {
+                    format!("No se pudo conectar al servidor {addr}: {e}")
+                }
+            });
+            if let Ok(mut s) = slot.lock() {
+                *s = Some(result);
+            }
+            ctx.request_repaint();
+        });
+    }
+
+    /// The ranking or a player's history, if one is open.
+    fn board_ui(&mut self, ui: &mut Ui) {
+        if let Some(result) = self.board_fetch.as_ref().and_then(|s| s.lock().ok().and_then(|mut s| s.take())) {
+            self.board_fetch = None;
+            self.remember_pins();
+            self.board = Some(result);
+        }
+        if self.board.is_none() && self.board_fetch.is_none() {
+            return;
+        }
+        ui.add_space(12.0);
+        let mut close = false;
+        let mut show = None;
+        ui.horizontal(|ui| {
+            let title = match &self.board {
+                Some(Ok(Board::History(name, _))) => format!("Historial de {name}"),
+                _ => format!("Ranking de {}", self.server_addr()),
+            };
+            ui.label(RichText::new(title).strong());
+            if self.board_fetch.is_some() {
+                ui.spinner();
+            }
+            if matches!(self.board, Some(Ok(Board::History(..)))) && ui.button("Ver ranking").clicked() {
+                show = Some(None);
+            }
+            if ui.button("Cerrar").clicked() {
+                close = true;
+            }
+        });
+        match &self.board {
+            None => {}
+            Some(Err(e)) => {
+                ui.colored_label(egui::Color32::from_rgb(240, 110, 110), e);
+            }
+            Some(Ok(Board::Ranking(list))) if list.is_empty() => {
+                ui.label("Todavía no hay partidas terminadas en este servidor.");
+            }
+            Some(Ok(Board::Ranking(list))) => {
+                egui::Grid::new("ranking").striped(true).spacing([24.0, 6.0]).show(ui, |ui| {
+                    for h in ["", "Jugador", "Puntos", "Ganadas", "Perdidas", "Empates"] {
+                        ui.label(RichText::new(h).weak());
+                    }
+                    ui.end_row();
+                    for (i, p) in list.iter().enumerate() {
+                        ui.label(format!("{}.", i + 1));
+                        if ui.link(&p.name).on_hover_text("Ver su historial").clicked() {
+                            show = Some(Some(p.name.clone()));
+                        }
+                        ui.label(p.rating.to_string());
+                        ui.label(p.wins.to_string());
+                        ui.label(p.losses.to_string());
+                        ui.label(p.draws.to_string());
+                        ui.end_row();
+                    }
+                });
+            }
+            Some(Ok(Board::History(name, history))) => {
+                match &history.standing {
+                    Some(p) => ui.label(format!(
+                        "{} puntos: {} ganadas, {} perdidas, {} empates.",
+                        p.rating, p.wins, p.losses, p.draws
+                    )),
+                    None => ui.label(format!("{name} todavía no termina ninguna partida en este servidor.")),
+                };
+                let me = name.to_lowercase();
+                egui::Grid::new("history").striped(true).spacing([24.0, 6.0]).show(ui, |ui| {
+                    for r in &history.records {
+                        let seat = usize::from(r.players[1].to_lowercase() == me);
+                        let rival = &r.players[1 - seat];
+                        let change = if seat == 0 { r.change } else { -r.change };
+                        let how = r.method.map_or("", text::win_method);
+                        let result = match r.winner {
+                            None => "Empate".to_string(),
+                            Some(w) if usize::from(w) == seat => format!("Ganó {how}"),
+                            Some(_) => format!("Perdió {how}"),
+                        };
+                        ui.label(text::ago(r.when));
+                        ui.horizontal(|ui| {
+                            ui.label("contra");
+                            if ui.link(rival).on_hover_text("Ver su historial").clicked() {
+                                show = Some(Some(rival.clone()));
+                            }
+                        });
+                        ui.label(result);
+                        ui.label(text::mode(r.mode));
+                        ui.label(format!("{change:+}"));
+                        ui.end_row();
+                    }
+                });
+            }
+        }
+        if close {
+            self.board = None;
+            self.board_fetch = None;
+        }
+        if let Some(who) = show {
+            self.fetch_board(who);
+        }
+    }
+
     /// Picks up the server's answer, and asks again every few seconds while
     /// the list is open.
     fn poll_matches(&mut self) {
@@ -539,6 +680,9 @@ impl App {
                 if ui.add_enabled(typed, egui::Button::new("Ver partidas")).clicked() {
                     self.matches = Some(Ok(vec![]));
                     self.fetch_matches();
+                }
+                if ui.add_enabled(typed, egui::Button::new("Ranking")).clicked() {
+                    self.fetch_board(None);
                 }
                 if ui
                     .add_enabled(typed && self.session().is_some(), egui::Button::new("Publicar partida"))
@@ -604,13 +748,18 @@ impl App {
             ui.end_row();
         });
         self.match_list(ui);
+        self.board_ui(ui);
     }
 
     /// Who you are on the common server, or the form to log in.
     fn account_row(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if let Some(session) = self.session() {
-                ui.label(format!("Conectado como {}", session.name));
+                let name = session.name.clone();
+                ui.label(format!("Conectado como {name}"));
+                if ui.button("Mi historial").clicked() {
+                    self.fetch_board(Some(name));
+                }
                 if ui.button("Cerrar sesión").clicked() {
                     self.log_out();
                 }

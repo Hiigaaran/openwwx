@@ -90,9 +90,12 @@ pub struct HostHandle {
     tx: Sender<Input>,
     /// Where it listens, hosted directly.
     port: Option<u16>,
-    /// Its link and number on the common server.
-    server: Option<(Link, MatchId)>,
+    /// Its link and number on the common server, and word that the link
+    /// is closed.
+    server: Option<(Link, MatchId, Receiver<()>)>,
     next_local: ConnId,
+    /// The thread that runs the match.
+    runner: Option<thread::JoinHandle<()>>,
 }
 
 impl HostHandle {
@@ -103,8 +106,8 @@ impl HostHandle {
         let (tx, rx) = mpsc::channel();
         let accept_tx = tx.clone();
         thread::spawn(move || accept(listener, accept_tx));
-        thread::spawn(move || run(core, rx, None));
-        Ok(HostHandle { tx, port: Some(port), server: None, next_local: 1 << 62 })
+        let runner = thread::spawn(move || run(core, rx, None));
+        Ok(HostHandle { tx, port: Some(port), server: None, next_local: 1 << 62, runner: Some(runner) })
     }
 
     /// Lists `core` on the common server at `addr`; guests reach it through
@@ -121,7 +124,7 @@ impl HostHandle {
         server.writer.send(&hello);
         let hosted = server.recv::<Result<Hosted, Refusal>>(Duration::from_secs(15))?.map_err(refused)?;
         let link: Link = server.writer.clone();
-        let lines = server.lines;
+        let (lines, done) = (server.lines, server.done);
         let (tx, rx) = mpsc::channel();
         let relay_tx = tx.clone();
         let relay_link = link.clone();
@@ -149,8 +152,9 @@ impl HostHandle {
             }
         });
         let run_link = link.clone();
-        thread::spawn(move || run(core, rx, Some(run_link)));
-        Ok(HostHandle { tx, port: None, server: Some((link, hosted.id)), next_local: 1 << 62 })
+        let runner = thread::spawn(move || run(core, rx, Some(run_link)));
+        let server = Some((link, hosted.id, done));
+        Ok(HostHandle { tx, port: None, server, next_local: 1 << 62, runner: Some(runner) })
     }
 
     /// The port it listens on, hosted directly.
@@ -160,7 +164,7 @@ impl HostHandle {
 
     /// Its number on the common server, listed there.
     pub fn match_id(&self) -> Option<MatchId> {
-        self.server.as_ref().map(|(_, id)| *id)
+        self.server.as_ref().map(|(_, id, _)| *id)
     }
 
     /// A connection from this app to its own match, for the hosting player.
@@ -180,8 +184,13 @@ impl Drop for HostHandle {
             // Wake the accept loop so it notices.
             TcpStream::connect(("127.0.0.1", port)).ok();
         }
-        if let Some((link, _)) = &self.server {
+        // Let the match send what it has left, such as the result.
+        if let Some(runner) = self.runner.take() {
+            runner.join().ok();
+        }
+        if let Some((link, _, done)) = &self.server {
             link.close();
+            done.recv_timeout(Duration::from_secs(3)).ok();
         }
     }
 }
@@ -210,6 +219,7 @@ fn accept(listener: TcpListener, tx: Sender<Input>) {
 fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
     let mut peers: HashMap<ConnId, Peer> = HashMap::new();
     let mut listed = None;
+    let mut over = false;
     loop {
         let out = match rx.recv_timeout(Duration::from_secs(1)) {
             Err(RecvTimeoutError::Disconnected) => break,
@@ -244,6 +254,11 @@ fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
             if listed.as_ref() != Some(&lobby) {
                 send_link(link, &HostOut::Lobby(lobby.clone()));
                 listed = Some(lobby);
+            }
+            let outcome = core.state().and_then(|s| s.outcome);
+            if let (Some(outcome), false) = (outcome, over) {
+                send_link(link, &HostOut::Over(outcome));
+                over = true;
             }
         }
     }

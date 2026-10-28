@@ -512,16 +512,31 @@ pub fn event(ev: &Event, voice: &Voice, name: &dyn Fn(CardId) -> String) -> Opti
     })
 }
 
+/// How a match was won: "por Pinfall".
+pub fn win_method(method: WinMethod) -> &'static str {
+    match method {
+        WinMethod::Pinfall => "por Pinfall",
+        WinMethod::CountOut => "por Count Out",
+        WinMethod::Disqualification => "por descalificación",
+        WinMethod::Forfeit => "por abandono",
+    }
+}
+
+/// How long ago, in seconds since 1970: "hoy", "hace 3 días".
+pub fn ago(when: u64) -> String {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    match now.saturating_sub(when) / 86_400 {
+        0 => "hoy".into(),
+        1 => "ayer".into(),
+        days => format!("hace {days} días"),
+    }
+}
+
 pub fn outcome(o: &Outcome, voice: &Voice) -> String {
     match o {
         Outcome::Draw => "¡Empate!".into(),
         Outcome::Win { winner, method } => {
-            let how = match method {
-                WinMethod::Pinfall => "por Pinfall",
-                WinMethod::CountOut => "por Count Out",
-                WinMethod::Disqualification => "por descalificación",
-                WinMethod::Forfeit => "por abandono",
-            };
+            let how = win_method(*method);
             match voice {
                 Voice::Player(me) if winner == me => format!("¡Ganaste {how}!"),
                 Voice::Player(_) => format!("Perdiste: el rival gana {how}."),

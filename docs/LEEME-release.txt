@@ -20,6 +20,7 @@ En línea (sección "En línea" del menú):
   En el servidor cada jugador entra con su cuenta ("Crear cuenta" la primera vez);
   el nombre queda reservado y la conexión va cifrada. Si olvidas la contraseña,
   el administrador pone una nueva: openwwx-server --reset-password NOMBRE CLAVE
+  "Ranking" y "Mi historial" muestran el puntaje (Elo) y las partidas jugadas ahí.
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas.
 
 macOS: el programa no está firmado. La primera vez, haz clic derecho sobre openwwx y

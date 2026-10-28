@@ -77,6 +77,12 @@ recuperarlas: el administrador pone una nueva con `openwwx-server --reset-passwo
 guarda cuentas y certificado en la carpeta `openwwx-server-data` (o la que se pase con `--data`), y al arrancar
 muestra la huella del certificado. Las partidas directas (Hospedar / Unirse directo) siguen sin cuentas ni cifrado.
 
+El servidor guarda el **historial** de cada partida terminada entre dos cuentas y lleva un **ranking** con puntaje Elo
+(todos empiezan con 1000). "Ranking" muestra los mejores jugadores del servidor y "Mi historial" tus últimas
+partidas (rival, resultado, reglas y puntos ganados o perdidos); un clic en un nombre abre su historial. Si quien
+hospeda se va con la partida empezada, pierde por abandono. El resultado lo informa la app de quien hospeda, así que
+una app modificada podría mentir; el servidor no corre las partidas.
+
 Durante la partida hay un chat arriba del relato. Si a un jugador se le corta la conexión, la app vuelve a conectarse
 sola y lo devuelve a su asiento; si no vuelve en 2 minutos, pierde por abandono, y "Salir" en medio de la partida
 también cuenta como abandono. Si sale quien hospeda, la partida se cierra para todos.

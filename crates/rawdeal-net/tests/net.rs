@@ -9,7 +9,7 @@ use rawdeal_ai::RandomBot;
 use rawdeal_core::{Mode, Outcome, PlayerId, RevolutionRules, WinMethod};
 use rawdeal_net::{
     APP_VERSION, Accounts, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Refusal, Rejection, Role, ServerMsg,
-    Update, relay, secure,
+    Stats, Update, relay, secure,
 };
 
 fn core() -> HostCore {
@@ -66,7 +66,7 @@ fn two_players_and_a_spectator_play_a_match() {
 }
 
 /// Sends both decks and lets random bots play the match out.
-fn play(mut me: Connection, mut rival: Connection, watcher: Connection) {
+fn play(mut me: Connection, mut rival: Connection, watcher: Connection) -> Outcome {
     me.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/technician"))).unwrap();
     rival.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/brawler"))).unwrap();
 
@@ -107,6 +107,7 @@ fn play(mut me: Connection, mut rival: Connection, watcher: Connection) {
             assert!(p1.def_of(c).is_none(), "P1 cannot see P2's hand");
         }
     }
+    outcomes[0].unwrap()
 }
 
 /// A common server on a free port, with its data in a new folder.
@@ -117,9 +118,10 @@ fn server() -> (std::net::SocketAddr, std::path::PathBuf) {
     std::fs::remove_dir_all(&dir).ok();
     let (tls, _) = secure::server_config(&dir).unwrap();
     let accounts = Arc::new(Accounts::open(dir.join("accounts.json")).unwrap());
+    let stats = Arc::new(Stats::open(dir.join("results.json")).unwrap());
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
-    std::thread::spawn(move || relay::serve(listener, tls, accounts));
+    std::thread::spawn(move || relay::serve(listener, tls, accounts, stats));
     (addr, dir)
 }
 
@@ -207,11 +209,66 @@ fn a_match_through_the_common_server() {
         |lobby| lobby.spectators == ["Fan"] && lobby.players[1].as_ref().is_some_and(|p| p.name == "Beto")
     )));
 
-    play(me, rival, watcher);
+    let outcome = play(me, rival, watcher);
 
     // When the host leaves, the match leaves the list.
     drop(h);
     assert!(listed(&|l| l.is_empty()));
+
+    // The result is in both players' history and in the ranking.
+    let ana = relay::history(server, &pin, "ana").unwrap();
+    assert_eq!(ana.records.len(), 1);
+    let record = &ana.records[0];
+    assert_eq!(record.players, ["Ana".to_string(), "Beto".to_string()]);
+    let ranking = relay::ranking(server, &pin).unwrap();
+    assert_eq!(ranking.len(), 2);
+    match outcome {
+        Outcome::Win { winner, method } => {
+            assert_eq!(record.winner, Some(winner.index() as u8));
+            assert_eq!(record.method, Some(method));
+            assert_eq!(ranking[0].name, if winner == PlayerId::ONE { "Ana" } else { "Beto" });
+            assert_eq!((ranking[0].rating, ranking[0].wins, ranking[1].rating, ranking[1].losses), (1016, 1, 984, 1));
+        }
+        Outcome::Draw => assert_eq!(record.winner, None),
+    }
+    assert_eq!(relay::history(server, &pin, "Fan").unwrap().standing, None);
+}
+
+#[test]
+fn a_host_who_leaves_a_match_on_the_server_loses_it() {
+    let (server, _) = server();
+    let pin = secure::pin(None);
+    let account = |name: &str| relay::register(server, &pin, name, "secreto1").unwrap().unwrap().token;
+    let (ana, beto) = (account("Ana"), account("Beto"));
+    let mut h = HostHandle::start_on_server(core(), server, &ana, &pin).unwrap();
+    let id = h.match_id().unwrap();
+    let mut me = h.connect_local();
+    me.send(hello(Role::Player, "Ana")).unwrap();
+    let mut rival = Connection::join_on_server(server, id, &beto, &pin).unwrap();
+    rival.send(hello(Role::Player, "Beto")).unwrap();
+    me.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/technician"))).unwrap();
+    rival.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/brawler"))).unwrap();
+    wait_for(&rival, |m| matches!(m, ServerMsg::Update(_)));
+    // The server must have heard the match started before the host leaves.
+    let start = Instant::now();
+    while !relay::list(server, &pin).unwrap()[0].lobby.as_ref().is_some_and(|l| l.started) {
+        assert!(start.elapsed() < Duration::from_secs(10));
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    drop(me);
+    drop(h);
+    let start = Instant::now();
+    let beto = loop {
+        let h = relay::history(server, &pin, "Beto").unwrap();
+        if !h.records.is_empty() {
+            break h;
+        }
+        assert!(start.elapsed() < Duration::from_secs(10), "the result was recorded");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(beto.records[0].winner, Some(1));
+    assert_eq!(beto.records[0].method, Some(WinMethod::Forfeit));
+    assert_eq!(beto.standing.unwrap().wins, 1);
 }
 
 #[test]

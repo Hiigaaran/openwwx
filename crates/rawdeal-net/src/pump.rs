@@ -43,6 +43,8 @@ pub struct Pump {
     /// Lines read, without the newline. Disconnected once the connection
     /// ends.
     pub lines: Receiver<Vec<u8>>,
+    /// Disconnected once the thread is done, with what was queued written.
+    pub done: Receiver<()>,
 }
 
 impl Pump {
@@ -66,7 +68,9 @@ pub fn pump<S: Socket>(mut stream: S) -> io::Result<Pump> {
     stream.socket().set_read_timeout(Some(POLL))?;
     let (out_tx, out_rx) = mpsc::channel::<Vec<u8>>();
     let (in_tx, in_rx) = mpsc::channel();
+    let (done_tx, done) = mpsc::channel::<()>();
     thread::spawn(move || {
+        let _done = done_tx;
         let mut buf = Vec::new();
         let mut chunk = [0u8; 16 << 10];
         'run: loop {
@@ -103,5 +107,5 @@ pub fn pump<S: Socket>(mut stream: S) -> io::Result<Pump> {
         }
         stream.socket().shutdown(Shutdown::Both).ok();
     });
-    Ok(Pump { writer: Writer(out_tx), lines: in_rx })
+    Ok(Pump { writer: Writer(out_tx), lines: in_rx, done })
 }

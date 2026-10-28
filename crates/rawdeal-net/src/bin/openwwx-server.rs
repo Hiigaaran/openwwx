@@ -4,8 +4,8 @@
 //!
 //! Usage:
 //! - `openwwx-server [PORT] [--data DIR]`: runs the server (port 7778 by
-//!   default). DIR (`openwwx-server-data` by default) keeps the accounts and
-//!   the server's certificate; keep it to keep both.
+//!   default). DIR (`openwwx-server-data` by default) keeps the accounts,
+//!   the match history and the server's certificate; keep it to keep them.
 //! - `openwwx-server [--data DIR] --reset-password NAME PASSWORD`: sets a
 //!   player's password, for when they forget it.
 
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use rawdeal_net::{Accounts, DEFAULT_SERVER_PORT, relay, secure};
+use rawdeal_net::{Accounts, DEFAULT_SERVER_PORT, Stats, relay, secure};
 
 const USAGE: &str =
     "usage: openwwx-server [PORT] [--data DIR]\n       openwwx-server [--data DIR] --reset-password NAME PASSWORD";
@@ -63,6 +63,13 @@ fn main() -> ExitCode {
             }
         };
     }
+    let stats = match Stats::open(data.join("results.json")) {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            eprintln!("cannot read the match history in {}: {e}", data.display());
+            return ExitCode::FAILURE;
+        }
+    };
     let (tls, fingerprint) = match secure::server_config(&data) {
         Ok(c) => c,
         Err(e) => {
@@ -80,7 +87,7 @@ fn main() -> ExitCode {
     println!("OpenWWX server {} listening on port {port}", rawdeal_net::APP_VERSION);
     println!("Data in {} ({} accounts)", data.display(), accounts.len());
     println!("Certificate fingerprint: {fingerprint}");
-    relay::serve(listener, tls, accounts);
+    relay::serve(listener, tls, accounts, stats);
     ExitCode::SUCCESS
 }
 

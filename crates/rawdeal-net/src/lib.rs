@@ -12,6 +12,7 @@ pub mod host;
 pub mod pump;
 pub mod relay;
 pub mod secure;
+pub mod stats;
 pub mod tcp;
 pub mod wire;
 
@@ -20,8 +21,9 @@ use serde::{Deserialize, Serialize};
 
 pub use accounts::{Accounts, Session};
 pub use host::{ConnId, HostCore};
-pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId, Refusal};
+pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId, PlayerHistory, Refusal};
 pub use secure::Pin;
+pub use stats::{Record, Standing, Stats};
 pub use tcp::{Connection, Dial, HostHandle};
 
 /// Port a host listens on unless told otherwise.

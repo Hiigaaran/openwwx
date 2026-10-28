@@ -20,7 +20,9 @@
 //!   `--join ID` / `--spectate ID` take the match number from `--list ADDR`,
 //!   which prints the open matches. The server needs an account:
 //!   `--user NAME --password PASSWORD` logs in, and `--register` makes the
-//!   account first. Others see you by the account's name.
+//!   account first. Others see you by the account's name. `--ranking ADDR`
+//!   prints the server's best players and `--history NAME --server ADDR` a
+//!   player's latest matches.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
 //!   `--superstar1`/`--superstar2` build a quick deck for that Superstar id.
@@ -86,6 +88,47 @@ fn main() -> ExitCode {
         };
     }
     let server = arg(&args, "--server").map(|a| with_port(a, DEFAULT_SERVER_PORT));
+    if let Some(addr) = arg(&args, "--ranking") {
+        let addr = with_port(addr, DEFAULT_SERVER_PORT);
+        return match relay::ranking(addr.as_str(), &secure::pin(None)) {
+            Ok(list) if list.is_empty() => {
+                println!("No finished matches on {addr} yet.");
+                ExitCode::SUCCESS
+            }
+            Ok(list) => {
+                for (i, p) in list.iter().enumerate() {
+                    println!("{:>3}. {:<20} {:>5}  {}W {}L {}D", i + 1, p.name, p.rating, p.wins, p.losses, p.draws);
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(format!("cannot reach the server at {addr}: {e}")),
+        };
+    }
+    if let Some(name) = arg(&args, "--history") {
+        let Some(addr) = &server else { return fail("--history needs --server ADDR") };
+        return match relay::history(addr.as_str(), &secure::pin(None), name) {
+            Ok(h) => {
+                match h.standing {
+                    Some(p) => println!("{}: {} points, {}W {}L {}D", p.name, p.rating, p.wins, p.losses, p.draws),
+                    None => println!("{name} has no finished matches on {addr}."),
+                }
+                for r in h.records {
+                    let me = usize::from(r.players[1].eq_ignore_ascii_case(name));
+                    let result = match r.winner {
+                        None => "draw".to_string(),
+                        Some(w) if usize::from(w) == me => {
+                            format!("won ({:?})", r.method.unwrap_or(WinMethod::Pinfall))
+                        }
+                        Some(_) => format!("lost ({:?})", r.method.unwrap_or(WinMethod::Pinfall)),
+                    };
+                    let change = if me == 0 { r.change } else { -r.change };
+                    println!("  vs {:<20} {result:<24} {:?} {change:+}", r.players[1 - me], r.mode);
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(format!("cannot reach the server at {addr}: {e}")),
+        };
+    }
     let seed = args
         .iter()
         .position(|a| a == "--seed")

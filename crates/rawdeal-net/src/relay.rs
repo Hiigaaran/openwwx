@@ -6,15 +6,16 @@
 //!
 //! Connections are encrypted ([`crate::secure`]). A connection's first line
 //! says what it is for ([`ToServer`]):
-//! - `Register`, `Login`, `Logout`, `List`: the server answers once and
-//!   closes.
+//! - `Register`, `Login`, `Logout`, `List`, `Ranking`, `History`: the
+//!   server answers once and closes.
 //! - `Host`: the server answers `Result<Hosted, Refusal>`, then sends
 //!   [`HostIn`] lines and takes [`HostOut`] lines.
 //! - `Join`: from then on the connection is a guest's link to that match,
 //!   with the same messages as a direct connection to the host. The server
 //!   puts the account's name in the guest's `Hello`.
 //!
-//! Hosting and joining need a session from `Register` or `Login`.
+//! Hosting and joining need a session from `Register` or `Login`. The
+//! server keeps each finished match between two accounts ([`crate::stats`]).
 
 use std::collections::HashMap;
 use std::io::{self, BufReader};
@@ -27,10 +28,13 @@ use rustls::ServerConfig;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use rawdeal_core::{Outcome, PlayerId, WinMethod};
+
 use crate::accounts::{Accounts, Session};
 use crate::host::ConnId;
 use crate::pump::{Writer, parse, pump};
 use crate::secure::{self, Pin};
+use crate::stats::{Record, Standing, Stats};
 use crate::wire::{read_msg, write_msg};
 use crate::{ClientMsg, Lobby, MatchInfo, Rejection, ServerMsg};
 
@@ -62,6 +66,18 @@ pub enum ToServer {
     Join { id: MatchId, session: String },
     /// Ask for the open matches.
     List,
+    /// Ask for the best players; answered with `Vec<Standing>`.
+    Ranking,
+    /// Ask for a player's matches; answered with [`PlayerHistory`].
+    History { name: String },
+}
+
+/// A player's rating and latest matches, newest first.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlayerHistory {
+    /// `None` until they finish a match.
+    pub standing: Option<Standing>,
+    pub records: Vec<Record>,
 }
 
 /// Why the server said no.
@@ -117,6 +133,8 @@ pub enum HostOut {
     Close { conn: ConnId },
     /// Who is at the table now, for the list.
     Lobby(Lobby),
+    /// The match ended so, for the history.
+    Over(Outcome),
 }
 
 /// Sends `msg` to the server at `addr` and reads its one answer.
@@ -146,6 +164,16 @@ pub fn login(addr: impl ToSocketAddrs, pin: &Pin, name: &str, password: &str) ->
     ask(addr, pin, &ToServer::Login { name: name.into(), password: password.into() })
 }
 
+/// The best players on the server at `addr`, best first.
+pub fn ranking(addr: impl ToSocketAddrs, pin: &Pin) -> io::Result<Vec<Standing>> {
+    ask(addr, pin, &ToServer::Ranking)
+}
+
+/// `name`'s rating and latest matches on the server at `addr`.
+pub fn history(addr: impl ToSocketAddrs, pin: &Pin, name: &str) -> io::Result<PlayerHistory> {
+    ask(addr, pin, &ToServer::History { name: name.into() })
+}
+
 pub fn logout(addr: impl ToSocketAddrs, pin: &Pin, session: &str) -> io::Result<()> {
     ask(addr, pin, &ToServer::Logout { session: session.into() })
 }
@@ -162,7 +190,45 @@ type Shared<T> = Arc<Mutex<T>>;
 struct Listed {
     listing: Listing,
     host: Writer,
-    guests: HashMap<ConnId, Writer>,
+    /// Each guest and their account.
+    guests: HashMap<ConnId, (Writer, String)>,
+    /// The accounts the host seated as players.
+    seats: [Option<String>; 2],
+    /// The result is in the history.
+    recorded: bool,
+}
+
+impl Listed {
+    fn started(&self) -> bool {
+        self.listing.lobby.as_ref().is_some_and(|l| l.started)
+    }
+
+    /// The two players' accounts: guests in the seats the host gave them,
+    /// and the host in the other one.
+    fn players(&self) -> Option<[String; 2]> {
+        let host = || Some(self.listing.host.clone());
+        let players = match &self.seats {
+            [Some(a), Some(b)] => [a.clone(), b.clone()],
+            [Some(a), None] => [a.clone(), host()?],
+            [None, Some(b)] => [host()?, b.clone()],
+            [None, None] => return None,
+        };
+        (players[0].to_lowercase() != players[1].to_lowercase()).then_some(players)
+    }
+
+    /// Puts the result in the history, once.
+    fn record(&mut self, stats: &Stats, outcome: Outcome) {
+        if self.recorded {
+            return;
+        }
+        let Some(players) = self.players() else { return };
+        self.recorded = true;
+        let (winner, method) = match outcome {
+            Outcome::Win { winner, method } => (Some(winner.index() as u8), Some(method)),
+            Outcome::Draw => (None, None),
+        };
+        stats.record(players, winner, method, self.listing.info.mode);
+    }
 }
 
 #[derive(Default)]
@@ -175,6 +241,7 @@ struct Matches {
 struct Server {
     matches: Shared<Matches>,
     accounts: Arc<Accounts>,
+    stats: Arc<Stats>,
 }
 
 impl Server {
@@ -184,8 +251,8 @@ impl Server {
 }
 
 /// Runs the common server on `listener` until the process ends.
-pub fn serve(listener: TcpListener, tls: Arc<ServerConfig>, accounts: Arc<Accounts>) {
-    let server = Arc::new(Server { matches: Arc::default(), accounts });
+pub fn serve(listener: TcpListener, tls: Arc<ServerConfig>, accounts: Arc<Accounts>, stats: Arc<Stats>) {
+    let server = Arc::new(Server { matches: Arc::default(), accounts, stats });
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         stream.set_nodelay(true).ok();
@@ -224,6 +291,13 @@ fn serve_one(server: &Server, stream: secure::Tls<rustls::ServerConnection>) {
             list.sort_by_key(|l| l.id);
             w.send(&list);
         }
+        ToServer::Ranking => {
+            w.send(&server.stats.ranking());
+        }
+        ToServer::History { name } => {
+            let (standing, records) = server.stats.history(&name);
+            w.send(&PlayerHistory { standing, records });
+        }
         ToServer::Host { app, session, info } => match accounts.session(&session) {
             Some(name) => return serve_host(server, pump, app, name, info),
             None => {
@@ -260,7 +334,9 @@ fn serve_host(server: &Server, pump: crate::pump::Pump, app: String, host: Strin
         let id = s.next_id;
         info.name = short(info.name);
         let listing = Listing { id, app: short(app), host, info, lobby: None };
-        s.matches.insert(id, Listed { listing, host: pump.writer.clone(), guests: HashMap::new() });
+        let listed =
+            Listed { listing, host: pump.writer.clone(), guests: HashMap::new(), seats: [None, None], recorded: false };
+        s.matches.insert(id, listed);
         id
     };
     if pump.writer.send(&Ok::<_, Refusal>(Hosted { id })) {
@@ -270,22 +346,37 @@ fn serve_host(server: &Server, pump: crate::pump::Pump, app: String, host: Strin
             let Some(m) = s.matches.get_mut(&id) else { break };
             match out {
                 HostOut::Send { conn, msg } => {
-                    if let Some(guest) = m.guests.get(&conn) {
+                    if let Some((guest, name)) = m.guests.get(&conn) {
+                        if let ServerMsg::Welcome { seat: Some(seat), .. } = &msg {
+                            m.seats[seat.index()] = Some(name.clone());
+                        }
                         guest.send(&msg);
                     }
                 }
                 HostOut::Close { conn } => {
-                    if let Some(guest) = m.guests.remove(&conn) {
+                    if let Some((guest, _)) = m.guests.remove(&conn) {
                         guest.close();
                     }
                 }
                 HostOut::Lobby(lobby) => m.listing.lobby = Some(lobby),
+                HostOut::Over(outcome) => m.record(&server.stats, outcome),
             }
         }
     }
     let gone = server.matches().matches.remove(&id);
-    for guest in gone.iter().flat_map(|m| m.guests.values()) {
-        guest.close();
+    if let Some(mut m) = gone {
+        // A host who leaves a match unfinished loses it.
+        let host_seat = match m.seats {
+            [None, Some(_)] => Some(PlayerId::ONE),
+            [Some(_), None] => Some(PlayerId::TWO),
+            _ => None,
+        };
+        if let (true, Some(seat)) = (m.started(), host_seat) {
+            m.record(&server.stats, Outcome::Win { winner: seat.opponent(), method: WinMethod::Forfeit });
+        }
+        for (guest, _) in m.guests.values() {
+            guest.close();
+        }
     }
     pump.writer.close();
 }
@@ -296,7 +387,7 @@ fn serve_guest(server: &Server, pump: crate::pump::Pump, id: MatchId, name: Stri
         s.next_conn += 1;
         let conn = s.next_conn;
         s.matches.get_mut(&id).map(|m| {
-            m.guests.insert(conn, pump.writer.clone());
+            m.guests.insert(conn, (pump.writer.clone(), name.clone()));
             (conn, m.host.clone())
         })
     };
