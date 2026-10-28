@@ -2,12 +2,16 @@
 
 Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE), para escritorio.
 
-Estado: motor de reglas (Quick Start y Advanced), app de escritorio y los sets Premiere, Fully Loaded, Backlash,
-Survivor Series, It's All About The Game, Mania, Summerslam, Ruthless Aggression, Velocity, Survivor Series 2,
-Insurrextion, Absolutely Raw and Ultimate Smackdown, Divas Overload, Wrestlemania Tin, Vengeance, Summerslam Tin,
-Lethal Library, Survivor Series 3, Armageddon, Unforgiven, Royal Rumble, No Way Out y Great American Bash con sus
-efectos programados. El diseño completo está en
-[docs/motor-de-reglas.md](docs/motor-de-reglas.md).
+Estado: motor de reglas (Quick Start, Advanced, Virtual y Revolution) con los 53 sets de OCTGN (los 26 oficiales,
+de Premiere a Revolution, los Virtual hechos por fans, Promos y Prize Cards) y sus efectos programados; app de escritorio para jugar contra
+la computadora en tres niveles de dificultad, con animaciones y arte opcional importado de OCTGN; y juego en línea
+directo o por un servidor común, con espectadores, chat, cuentas, historial, ranking y amigos. El diseño completo está
+en [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
+
+![Una lucha contra la computadora: mano, Ring de cada Superstar, visor de la carta y relato](docs/img/partida.png)
+
+*Las capturas usan el set de prueba del repositorio, con cartas y Superstars inventados: OpenWWX no incluye texto
+ni arte de Raw Deal.*
 
 ## Crates
 
@@ -25,6 +29,8 @@ efectos programados. El diseño completo está en
 Descarga la versión para tu sistema desde [Releases](https://github.com/Hiigaaran/openwwx/releases), descomprímela,
 pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`.
 
+![El menú: cartas, Superstars, dificultad, reglas y la sección En línea](docs/img/menu.png)
+
 Antes de empezar eliges la dificultad de la computadora:
 
 - **Fácil**: juega cartas al azar.
@@ -40,6 +46,8 @@ La mesa repite cada jugada con animaciones: la carta vuela de la mano a "En jueg
 caen al Ringside con un destello rojo, y los avisos grandes marcan turnos, reversals, daño recibido y manos mostradas.
 La velocidad se cambia arriba del relato (lentas, normales, rápidas o sin animaciones) y "Saltar" las termina al
 instante.
+
+![Aviso de turno durante las animaciones](docs/img/animacion.png)
 
 Las Superstars de la lucha aparecen como cartas junto a sus pilas, y el visor a la izquierda del relato muestra en grande
 la última carta por la que pasó el mouse. Sin arte, cada carta se dibuja con la estructura de Raw Deal (título,
@@ -77,20 +85,28 @@ recuperarlas: el administrador pone una nueva con `openwwx-server --reset-passwo
 guarda cuentas y certificado en la carpeta `openwwx-server-data` (o la que se pase con `--data`), y al arrancar
 muestra la huella del certificado. Las partidas directas (Hospedar / Unirse directo) siguen sin cuentas ni cifrado.
 
+![Sesión abierta en el servidor: amigos, una invitación, una solicitud y la lista de partidas](docs/img/servidor.png)
+
 El servidor guarda el **historial** de cada partida terminada entre dos cuentas y lleva un **ranking** con puntaje Elo
 (todos empiezan con 1000). "Ranking" muestra los mejores jugadores del servidor y "Mi historial" tus últimas
 partidas (rival, resultado, reglas y puntos ganados o perdidos); un clic en un nombre abre su historial. Si quien
 hospeda se va con la partida empezada, pierde por abandono. El resultado lo informa la app de quien hospeda, así que
 una app modificada podría mentir; el servidor no corre las partidas.
 
+![Ranking del servidor e historial de una jugadora](docs/img/ranking.png)
+
 Con la sesión abierta aparece la sección **Amigos**: "Agregar amigo" le manda una solicitud a ese nombre, y son amigos
 cuando la acepta. La lista muestra quién está en línea. Mientras esperas rival en una partida publicada en el servidor,
 la ventana "Invitar amigos" invita a los que están en línea, y a ellos les aparece la invitación con botones para
 jugar o mirar.
 
+![Sala de espera de una partida publicada, con la ventana para invitar amigos](docs/img/sala.png)
+
 Durante la partida hay un chat arriba del relato. Si a un jugador se le corta la conexión, la app vuelve a conectarse
 sola y lo devuelve a su asiento; si no vuelve en 2 minutos, pierde por abandono, y "Salir" en medio de la partida
 también cuenta como abandono. Si sale quien hospeda, la partida se cierra para todos.
+
+![Partida en línea vista por el invitado, con el chat en el relato](docs/img/en-linea.png)
 
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas; si no coinciden, la sala de espera dice qué
 sets faltan o son distintos. Quien hospeda valida los mazos con las reglas de la partida. Nadie recibe las cartas
