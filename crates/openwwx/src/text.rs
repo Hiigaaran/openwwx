@@ -6,6 +6,41 @@ use rawdeal_core::{
     PlayerId, PreMatchType, Who, WinMethod, YesNoPurpose, Zone,
 };
 
+/// The title of the card or the name of the Superstar with this id.
+pub fn card_title(db: &rawdeal_core::CardDb, id: &str) -> String {
+    if let Some(i) = db.card_by_id(id) {
+        db.card(i).title.clone()
+    } else if let Some(i) = db.superstar_by_id(id) {
+        db.superstar(i).name.clone()
+    } else {
+        id.to_string()
+    }
+}
+
+/// What is wrong with a deck, in words. `title` names a card by its id.
+pub fn deck_problem(p: &rawdeal_core::DeckProblem, title: impl Fn(&str) -> String) -> String {
+    use rawdeal_core::DeckProblem::*;
+    match p {
+        WrongSize(n) => format!("El Arsenal tiene {n} cartas; debe tener 60."),
+        UnknownCard(id) => format!("{id} no está en tus sets."),
+        UnknownSuperstar(id) => format!("La Superstar {id} no está en tus sets."),
+        TooManyCopies { card, copies, max } => {
+            format!("Hay {copies} copias de {}; el máximo es {max}.", title(card))
+        }
+        Conflict(a, b) => format!("No puedes mezclar cartas {a:?} y {b:?}."),
+        WrongSuperstar { card } => format!("{} es de otra Superstar.", title(card)),
+        BacklashCardInArsenal { card } => format!("{} va en el mazo de Backlash, no en el Arsenal.", title(card)),
+        NotABacklashCard { card } => format!("{} no es Pre-match ni Mid-match: no va en el Backlash.", title(card)),
+        BacklashTooLarge(n) => format!("El Backlash tiene {n} cartas; son demasiadas."),
+        TooManyPreMatch(n) => format!("El Backlash tiene {n} cartas Pre-match; son demasiadas."),
+        TooManyMidMatch(n) => format!("El Backlash tiene {n} cartas Mid-match; son demasiadas."),
+        Forbidden { card } => format!("Esta Superstar no puede llevar {}.", title(card)),
+        Backstage { card } => format!("{} no puede ir en el Backstage de esta Superstar.", title(card)),
+        NotRevolution { card } => format!("{} no tiene el logo Revolution.", title(card)),
+        Exclusive { card, other } => format!("{} y {} no pueden ir en el mismo mazo.", title(card), title(other)),
+    }
+}
+
 pub fn kind(k: CardKind) -> String {
     match k {
         CardKind::Maneuver(t) => format!("Maniobra {}", maneuver(t)),
@@ -32,7 +67,7 @@ pub fn kind(k: CardKind) -> String {
     }
 }
 
-fn maneuver(t: ManeuverType) -> &'static str {
+pub fn maneuver(t: ManeuverType) -> &'static str {
     match t {
         ManeuverType::Strike => "Strike",
         ManeuverType::Grapple => "Grapple",

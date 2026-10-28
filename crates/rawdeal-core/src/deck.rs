@@ -13,7 +13,7 @@ pub const BACKLASH_MAX: usize = 20;
 pub const BACKLASH_MAX_PER_KIND: usize = 10;
 
 /// A player's deck: Superstar plus Arsenal, by card id.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeckList {
     pub superstar: String,
     pub arsenal: Vec<String>,

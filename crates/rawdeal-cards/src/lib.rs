@@ -82,6 +82,13 @@ pub fn load_deck(path: &Path) -> Result<DeckList, LoadError> {
     ron::from_str(&text).map_err(|e| LoadError::File(path.to_path_buf(), Box::new(e)))
 }
 
+/// Writes `deck` to `path` in the format [`load_deck`] reads.
+pub fn save_deck(path: &Path, deck: &DeckList) -> Result<(), LoadError> {
+    let text = ron::ser::to_string_pretty(deck, ron::ser::PrettyConfig::default())
+        .map_err(|e| LoadError::Io(path.to_path_buf(), std::io::Error::other(e)))?;
+    std::fs::write(path, text).map_err(|e| LoadError::Io(path.to_path_buf(), e))
+}
+
 /// Builds a legal 60-card Arsenal for `superstar` from `db`, deterministically:
 /// the Superstar's own logo cards first, then every other card that fits
 /// (one alignment only, no Tag cards), three copies each (one if Unique),
@@ -242,5 +249,16 @@ mod tests {
         for s in db.superstars() {
             assert_eq!(rawdeal_core::validate_deck(&db, &test_deck(&s.id)), vec![]);
         }
+    }
+
+    #[test]
+    fn saved_decks_load_back() {
+        let db = test_db();
+        let deck = test_deck(&db.superstars()[0].id);
+        let path = std::env::temp_dir().join(format!("openwwx-deck-{}.ron", std::process::id()));
+        save_deck(&path, &deck).unwrap();
+        let loaded = load_deck(&path);
+        std::fs::remove_file(&path).ok();
+        assert_eq!(loaded.unwrap(), deck);
     }
 }

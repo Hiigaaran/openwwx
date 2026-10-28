@@ -15,6 +15,7 @@ use rawdeal_net::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::builder::{Builder, Exit};
 use crate::game::{Leave, Match, Speed};
 use crate::social::Social;
 use crate::table::Table;
@@ -94,6 +95,9 @@ struct SavedSession {
 pub struct App {
     settings: Settings,
     db: Arc<CardDb>,
+    /// Card sets by id prefix, with their names, for the deck builder.
+    sets: Vec<(String, String)>,
+    builder: Option<Builder>,
     /// Where the cards came from, for display.
     source: String,
     error: Option<String>,
@@ -135,6 +139,8 @@ impl App {
         let mut app = App {
             settings,
             db: Arc::new(rawdeal_cards::test_db()),
+            sets: Vec::new(),
+            builder: None,
             source: String::new(),
             error: None,
             game: None,
@@ -166,8 +172,12 @@ impl App {
         self.error = None;
         match dir {
             None => self.use_test_set(),
-            Some(dir) => match rawdeal_cards::load_dir(&dir).and_then(rawdeal_cards::build_db) {
-                Ok(db) if !db.superstars().is_empty() => {
+            Some(dir) => match rawdeal_cards::load_dir(&dir).and_then(|sets| {
+                let names = crate::builder::set_names(&sets);
+                rawdeal_cards::build_db(sets).map(|db| (db, names))
+            }) {
+                Ok((db, names)) if !db.superstars().is_empty() => {
+                    self.sets = names;
                     self.source = format!(
                         "{} ({} cartas, {} Superstars)",
                         dir.display(),
@@ -240,6 +250,7 @@ impl App {
 
     fn use_test_set(&mut self) {
         self.db = Arc::new(rawdeal_cards::test_db());
+        self.sets = crate::builder::set_names(&[rawdeal_cards::test_set()]);
         self.source = "cartas de prueba (inventadas)".into();
         self.settings.cards_dir = None;
     }
@@ -276,11 +287,24 @@ impl App {
                 if problems.is_empty() {
                     Ok(deck)
                 } else {
-                    Err(format!("El mazo {} no es legal: {problems:?}", path.display()))
+                    let problems: Vec<String> =
+                        problems.iter().map(|p| text::deck_problem(p, |id| text::card_title(&self.db, id))).collect();
+                    Err(format!("El mazo {} no es legal: {}", file_name(path), problems.join(" ")))
                 }
             }
             None => rawdeal_cards::auto_deck_with(&self.db, &star, self.mode(), self.revolution_rules())
                 .ok_or(format!("No se pudo armar un mazo para {star}.")),
+        }
+    }
+
+    /// Plays seat `i` with the deck in `file`, and its Superstar.
+    fn use_deck(&mut self, i: usize, file: PathBuf) {
+        match rawdeal_cards::load_deck(&file) {
+            Ok(d) => {
+                self.settings.superstars[i] = Some(d.superstar);
+                self.settings.decks[i] = Some(file);
+            }
+            Err(e) => self.error = Some(e.to_string()),
         }
     }
 
@@ -1109,23 +1133,28 @@ impl App {
                         }
                     });
                     let deck = match &self.settings.decks[i] {
-                        Some(p) => format!("Mazo: {}", file_name(p)),
-                        None => "Mazo: automático".into(),
+                        Some(p) => p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                        None => "Automático".into(),
                     };
-                    ui.label(deck);
-                    if ui.button("Cargar mazo…").clicked()
-                        && let Some(file) = rfd::FileDialog::new().add_filter("Mazo", &["ron"]).pick_file()
-                    {
-                        match rawdeal_cards::load_deck(&file) {
-                            Ok(d) => {
-                                self.settings.superstars[i] = Some(d.superstar);
-                                self.settings.decks[i] = Some(file);
+                    let mut picked = None;
+                    egui::ComboBox::from_id_salt(("deck", i))
+                        .width(200.0)
+                        .selected_text(format!("Mazo: {deck}"))
+                        .show_ui(ui, |ui| {
+                            if ui.selectable_label(self.settings.decks[i].is_none(), "Automático").clicked() {
+                                self.settings.decks[i] = None;
                             }
-                            Err(e) => self.error = Some(e.to_string()),
-                        }
-                    }
-                    if self.settings.decks[i].is_some() && ui.button("Automático").clicked() {
-                        self.settings.decks[i] = None;
+                            for name in crate::builder::saved_decks() {
+                                if ui.selectable_label(name == deck, &name).clicked() {
+                                    picked = crate::builder::deck_path(&name);
+                                }
+                            }
+                            if ui.selectable_label(false, "Otro archivo…").clicked() {
+                                picked = rfd::FileDialog::new().add_filter("Mazo", &["ron"]).pick_file();
+                            }
+                        });
+                    if let Some(file) = picked {
+                        self.use_deck(i, file);
                     }
                 });
                 ui.end_row();
@@ -1193,9 +1222,23 @@ impl App {
             ui.colored_label(egui::Color32::from_rgb(240, 110, 110), e);
             ui.add_space(8.0);
         }
-        if ui.button(RichText::new("Empezar lucha").size(20.0)).clicked() {
-            self.start();
-        }
+        ui.horizontal(|ui| {
+            if ui.button(RichText::new("Empezar lucha").size(20.0)).clicked() {
+                self.start();
+            }
+            ui.add_space(16.0);
+            if ui.button(RichText::new("Construir mazos").size(20.0)).clicked() {
+                let mut builder =
+                    Builder::new(self.db.clone(), self.sets.clone(), self.mode(), self.settings.superstars[0].clone());
+                // Opens the deck "Tu Superstar" plays with, when it is a saved one.
+                if let Some(name) = self.settings.decks[0].as_ref().and_then(|p| p.file_stem())
+                    && crate::builder::saved_decks().iter().any(|n| n.as_str() == name)
+                {
+                    builder.open(&name.to_string_lossy());
+                }
+                self.builder = Some(builder);
+            }
+        });
         ui.add_space(24.0);
         ui.separator();
         self.online_form(ui);
@@ -1214,6 +1257,21 @@ impl eframe::App for App {
         if self.game.is_some() {
             let ctx = ui.ctx().clone();
             self.invite_window(&ctx);
+        }
+        if let Some(builder) = &mut self.builder {
+            let exit = egui::CentralPanel::default().show(ui, |ui| builder.ui(ui)).inner;
+            if let Exit::Menu(saved) = exit {
+                self.builder = None;
+                for deck in &mut self.settings.decks {
+                    if deck.as_ref().is_some_and(|p| !p.exists()) {
+                        *deck = None;
+                    }
+                }
+                if let Some(file) = saved.and_then(|name| crate::builder::deck_path(&name)) {
+                    self.use_deck(0, file);
+                }
+            }
+            return;
         }
         if let Some(game) = &mut self.game {
             let leave = game.ui(ui);

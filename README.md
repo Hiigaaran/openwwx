@@ -5,7 +5,8 @@ Implementación en Rust del juego de cartas coleccionables **Raw Deal** (WWF/WWE
 Estado: motor de reglas (Quick Start, Advanced, Virtual y Revolution) con los 53 sets de OCTGN (los 26 oficiales,
 de Premiere a Revolution, los Virtual hechos por fans, Promos y Prize Cards) y sus efectos programados; app de escritorio para jugar contra
 la computadora en tres niveles de dificultad, con animaciones y arte opcional importado de OCTGN; y juego en línea
-directo o por un servidor común, con espectadores, chat, cuentas, historial, ranking y amigos. El diseño completo está
+directo o por un servidor común, con espectadores, chat, cuentas, historial, ranking y amigos; y un constructor de
+mazos. El diseño completo está
 en [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
 ![Una lucha contra la computadora: mano, Ring de cada Superstar, visor de la carta y relato](docs/img/partida.png)
@@ -56,6 +57,20 @@ subcarpeta, por ejemplo `art`) hay imágenes `.png` o `.jpg` cuyo nombre es el G
 título, se usa la imagen tal cual. Con "Importar imágenes de OCTGN (.o8c)…" en el menú eliges uno o varios paquetes de
 imágenes de OCTGN y el juego copia sus imágenes a la subcarpeta `art` de tu carpeta de cartas; como vienen nombradas
 por el GUID de cada carta, todas las cartas importadas desde OCTGN quedan con su imagen.
+
+### Construir mazos
+
+"Construir mazos" en el menú abre el constructor. A la izquierda está el catálogo con todas tus cartas, que se filtra
+por texto (título o texto de la carta), set, tipo, rango de Fortitude y de Daño, y por defecto muestra solo las cartas
+que puede llevar la Superstar elegida en el formato elegido (Inicio rápido, Avanzadas, Virtual o Revolution). Clic en
+una carta la agrega al mazo y clic derecho la quita. A la derecha está el mazo agrupado por tipo, con botones − y +,
+el conteo del Arsenal y los problemas en vivo ("Hay 4 copias de Haymaker; el máximo es 3."): las reglas son las mismas
+que se revisan al empezar una lucha. "Completar" llena lo que falta con el armado automático.
+
+Los mazos se guardan con un nombre en la carpeta `mazos` de los datos de la app, y en el menú "Tu Superstar" y "Rival"
+pueden jugar con cualquier mazo guardado, con el automático o con otro archivo `.ron`.
+
+![El constructor de mazos: catálogo con filtros, mazo legal de 60 cartas y el visor de la carta](docs/img/constructor.png)
 
 ### En línea
 

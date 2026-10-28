@@ -6,6 +6,7 @@
 mod anim;
 mod app;
 mod art;
+mod builder;
 mod cards;
 mod game;
 mod o8c;
