@@ -180,18 +180,22 @@ fn accept(listener: TcpListener, tx: Sender<Input>) {
 fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
     let mut peers: HashMap<ConnId, Peer> = HashMap::new();
     let mut listed = None;
-    while let Ok(input) = rx.recv() {
-        let out = match input {
-            Input::Stop => break,
-            Input::Joined(id, peer) => {
-                peers.insert(id, peer);
-                vec![]
-            }
-            Input::Msg(id, msg) => core.handle(id, msg),
-            Input::Gone(id) => {
-                peers.remove(&id);
-                core.disconnected(id)
-            }
+    loop {
+        let out = match rx.recv_timeout(Duration::from_secs(1)) {
+            Err(RecvTimeoutError::Disconnected) => break,
+            Err(RecvTimeoutError::Timeout) => core.tick(),
+            Ok(input) => match input {
+                Input::Stop => break,
+                Input::Joined(id, peer) => {
+                    peers.insert(id, peer);
+                    vec![]
+                }
+                Input::Msg(id, msg) => core.handle(id, msg),
+                Input::Gone(id) => {
+                    peers.remove(&id);
+                    core.disconnected(id)
+                }
+            },
         };
         let mut gone = Vec::new();
         for (id, msg) in out {
@@ -221,6 +225,24 @@ fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
 enum Out {
     Tcp(TcpStream),
     Local { id: ConnId, tx: Sender<Input> },
+}
+
+/// How to reach a match again after losing the connection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Dial {
+    /// A host's address, "192.168.0.10:7777".
+    Direct(String),
+    /// A match on the common server at an address.
+    Server(String, MatchId),
+}
+
+impl Dial {
+    pub fn connect(&self) -> io::Result<Connection> {
+        match self {
+            Dial::Direct(addr) => Connection::connect(addr.as_str()),
+            Dial::Server(addr, id) => Connection::join_on_server(addr.as_str(), *id),
+        }
+    }
 }
 
 /// A guest's link to a hosted match.

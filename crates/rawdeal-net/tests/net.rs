@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rawdeal_ai::RandomBot;
-use rawdeal_core::{Mode, PlayerId, RevolutionRules};
+use rawdeal_core::{Mode, Outcome, PlayerId, RevolutionRules, WinMethod};
 use rawdeal_net::{
     APP_VERSION, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Rejection, Role, ServerMsg, Update, relay,
 };
@@ -23,7 +23,7 @@ fn host() -> HostHandle {
 
 fn hello(role: Role, name: &str) -> ClientMsg {
     let sets = rawdeal_cards::test_db().fingerprints();
-    ClientMsg::Hello { app: APP_VERSION.into(), name: name.into(), role, sets }
+    ClientMsg::Hello { app: APP_VERSION.into(), name: name.into(), role, sets, rejoin: None }
 }
 
 fn next(c: &Connection) -> ServerMsg {
@@ -159,14 +159,22 @@ fn guests_with_other_versions_or_sets_are_turned_away() {
     let h = host();
     let port = h.port().unwrap();
     let mut c = Connection::connect(("127.0.0.1", port)).unwrap();
-    c.send(ClientMsg::Hello { app: "0.0.1".into(), name: "Old".into(), role: Role::Player, sets: vec![] }).unwrap();
+    c.send(ClientMsg::Hello {
+        app: "0.0.1".into(),
+        name: "Old".into(),
+        role: Role::Player,
+        sets: vec![],
+        rejoin: None,
+    })
+    .unwrap();
     assert!(matches!(next(&c), ServerMsg::Rejected(Rejection::WrongVersion { .. })));
 
     let mut c = Connection::connect(("127.0.0.1", port)).unwrap();
     let mut sets = rawdeal_cards::test_db().fingerprints();
     sets[0].1 ^= 1;
     sets.push(("homebrew".into(), 1));
-    c.send(ClientMsg::Hello { app: APP_VERSION.into(), name: "Other".into(), role: Role::Player, sets }).unwrap();
+    c.send(ClientMsg::Hello { app: APP_VERSION.into(), name: "Other".into(), role: Role::Player, sets, rejoin: None })
+        .unwrap();
     match next(&c) {
         ServerMsg::Rejected(Rejection::SetsDiffer { missing, different, extra }) => {
             assert!(missing.is_empty());
@@ -194,4 +202,96 @@ fn an_illegal_deck_is_rejected() {
             other => panic!("{other:?}"),
         }
     }
+}
+
+/// A match with both decks in, the host's player local and the rival over
+/// TCP: the rival's connection and their rejoin token.
+fn started(h: &mut HostHandle) -> (Connection, Connection, u64) {
+    let mut me = h.connect_local();
+    me.send(hello(Role::Player, "Host")).unwrap();
+    let mut rival = Connection::connect(("127.0.0.1", h.port().unwrap())).unwrap();
+    rival.send(hello(Role::Player, "Rival")).unwrap();
+    let token = loop {
+        if let ServerMsg::Welcome { token, .. } = next(&rival) {
+            break token.expect("players get a token");
+        }
+    };
+    me.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/technician"))).unwrap();
+    rival.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/brawler"))).unwrap();
+    wait_for(&rival, |m| matches!(m, ServerMsg::Update(_)));
+    (me, rival, token)
+}
+
+/// Reads `c` until a message matches.
+fn wait_for(c: &Connection, pred: impl Fn(&ServerMsg) -> bool) -> ServerMsg {
+    loop {
+        let msg = next(c);
+        if pred(&msg) {
+            return msg;
+        }
+    }
+}
+
+fn forfeit_win(m: &ServerMsg) -> bool {
+    matches!(m, ServerMsg::Update(u) if u.view.outcome.is_some_and(|o| matches!(o, Outcome::Win { winner: PlayerId::ONE, method: WinMethod::Forfeit })))
+}
+
+#[test]
+fn a_player_who_loses_the_connection_gets_back_into_their_seat() {
+    let mut h = host();
+    let (me, rival, token) = started(&mut h);
+    drop(rival);
+    wait_for(&me, |m| matches!(m, ServerMsg::Lobby(l) if l.players[1].as_ref().is_some_and(|p| p.away)));
+
+    let mut back = Connection::connect(("127.0.0.1", h.port().unwrap())).unwrap();
+    let sets = rawdeal_cards::test_db().fingerprints();
+    back.send(ClientMsg::Hello {
+        app: APP_VERSION.into(),
+        name: "Rival".into(),
+        role: Role::Player,
+        sets,
+        rejoin: Some(token),
+    })
+    .unwrap();
+    assert!(matches!(next(&back), ServerMsg::Welcome { seat: Some(PlayerId::TWO), token: Some(t), .. } if t == token));
+    match wait_for(&back, |m| matches!(m, ServerMsg::Update(_))) {
+        ServerMsg::Update(u) => assert!(u.view.outcome.is_none() && !u.view.spectator && !u.view.hand.is_empty()),
+        _ => unreachable!(),
+    }
+    wait_for(&me, |m| matches!(m, ServerMsg::Lobby(l) if l.players[1].as_ref().is_some_and(|p| !p.away)));
+
+    // A wrong token is not a way in.
+    let (mut other, _) = (Connection::connect(("127.0.0.1", h.port().unwrap())).unwrap(), ());
+    let sets = rawdeal_cards::test_db().fingerprints();
+    other
+        .send(ClientMsg::Hello {
+            app: APP_VERSION.into(),
+            name: "X".into(),
+            role: Role::Player,
+            sets,
+            rejoin: Some(token ^ 1),
+        })
+        .unwrap();
+    assert_eq!(next(&other), ServerMsg::Rejected(Rejection::Full));
+}
+
+#[test]
+fn a_player_who_does_not_come_back_loses_by_forfeit() {
+    let mut h = HostHandle::start(core().with_abandon_after(Duration::from_millis(300)), 0).unwrap();
+    let (me, rival, _) = started(&mut h);
+    drop(rival);
+    wait_for(&me, forfeit_win);
+}
+
+#[test]
+fn chat_and_conceding() {
+    let mut h = host();
+    let (mut me, mut rival, _) = started(&mut h);
+    me.send(ClientMsg::Chat("  ¡suerte!  ".into())).unwrap();
+    assert_eq!(
+        wait_for(&rival, |m| matches!(m, ServerMsg::Chat { .. })),
+        ServerMsg::Chat { from: "Host".into(), text: "¡suerte!".into() }
+    );
+    rival.send(ClientMsg::Concede).unwrap();
+    wait_for(&me, forfeit_win);
 }

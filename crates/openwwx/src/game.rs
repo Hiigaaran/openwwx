@@ -11,6 +11,8 @@ use rawdeal_core::{
     Action, CardDb, CardDef, CardId, CardKind, Decision, DecisionKind, Event, PlayerId, PlayerView, Zone,
 };
 
+use rawdeal_net::host::ABANDON_AFTER;
+
 use crate::anim::{Banner, Display, Float, Fly, Layout, Step, ease};
 use crate::cards::{self, Look};
 use crate::table::Table;
@@ -75,6 +77,8 @@ pub struct Match {
     selected: Vec<CardId>,
     /// Hybrid card waiting for you to pick how to play it.
     kind_menu: Option<CardId>,
+    /// The chat line being typed.
+    chat: String,
     /// Whose Ringside pile is open in a window.
     ringside: Option<PlayerId>,
     pub speed: Speed,
@@ -107,6 +111,7 @@ impl Match {
             log: vec![],
             selected: vec![],
             kind_menu: None,
+            chat: String::new(),
             ringside: None,
             speed,
             display: Display::default(),
@@ -250,13 +255,32 @@ impl Match {
                     self.skip = true;
                 }
                 if self.table.online_state().is_some() && view.outcome.is_none() {
-                    let hint = if self.table.hosting() { "Cierra la partida para todos." } else { "Deja la partida." };
+                    let hint = match (self.spectator, self.table.hosting()) {
+                        (true, _) => "Dejas de mirar la partida.",
+                        (false, true) => "Abandonas la partida (tu rival gana) y la cierras para todos.",
+                        (false, false) => "Abandonas la partida: tu rival gana.",
+                    };
                     if ui.button("Salir").on_hover_text(hint).clicked() {
+                        self.table.leave();
                         leave = Leave::Menu;
                     }
                 }
             });
             ui.separator();
+            if self.table.online_state().is_some() {
+                let r = ui.add(
+                    egui::TextEdit::singleline(&mut self.chat)
+                        .hint_text("Chat: escribe y pulsa Enter")
+                        .desired_width(f32::INFINITY),
+                );
+                if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    let text = std::mem::take(&mut self.chat);
+                    if !text.trim().is_empty() {
+                        self.table.chat(&text);
+                    }
+                    r.request_focus();
+                }
+            }
             ui.heading("Relato");
             ScrollArea::vertical().stick_to_bottom(true).auto_shrink([false; 2]).show(ui, |ui| {
                 for line in &self.log {
@@ -763,6 +787,19 @@ impl Match {
         let problem = self.table.online_state().and_then(|o| o.problem.clone());
         if let Some(problem) = &problem {
             ui.colored_label(Color32::from_rgb(240, 110, 110), problem);
+        }
+        let away = self.table.online_state().and_then(|o| o.lobby.as_ref()).map(|l| l.players.clone());
+        for slot in away.iter().flatten().flatten().filter(|s| s.away) {
+            if view.outcome.is_none() {
+                let minutes = ABANDON_AFTER.as_secs() / 60;
+                ui.colored_label(
+                    Color32::from_rgb(255, 210, 90),
+                    format!(
+                        "{} perdió la conexión. Si no vuelve en {minutes} minutos, pierde por abandono.",
+                        slot.name
+                    ),
+                );
+            }
         }
         if let (Some(outcome), true) = (&view.outcome, self.idle()) {
             let mut leave = None;

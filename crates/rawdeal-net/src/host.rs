@@ -2,19 +2,36 @@
 //! messages, and [`HostCore`] answers with the messages to send to each.
 
 use std::collections::BTreeMap;
+use std::collections::hash_map::RandomState;
+use std::hash::BuildHasher;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
-use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, Event, GameSetup, GameState, PlayerId, validate_deck_with};
+use rawdeal_core::{
+    CardDb, DeckList, DeckProblem, Engine, Event, GameSetup, GameState, Outcome, PlayerId, WinMethod,
+    validate_deck_with,
+};
 
 use crate::{APP_VERSION, ClientMsg, Lobby, MatchInfo, PlayerSlot, Rejection, Role, ServerMsg, Update, compare_sets};
 
 /// A connection to the host, numbered by the transport.
 pub type ConnId = u64;
 
+/// How long a player who lost the connection during a match has to come
+/// back before losing by forfeit.
+pub const ABANDON_AFTER: Duration = Duration::from_secs(120);
+
+/// Longest chat line passed on, in characters.
+const MAX_CHAT: usize = 300;
+
 struct Member {
     name: String,
     seat: Option<PlayerId>,
     deck: Option<DeckList>,
+    /// Gets a player back into their seat.
+    token: u64,
+    /// When they lost the connection, if they did.
+    left: Option<Instant>,
 }
 
 pub struct HostCore {
@@ -24,6 +41,8 @@ pub struct HostCore {
     seed: u64,
     members: BTreeMap<ConnId, Member>,
     state: Option<GameState>,
+    abandon_after: Duration,
+    tokens: RandomState,
 }
 
 /// Messages to send, each to one connection.
@@ -32,7 +51,22 @@ pub type Outbox = Vec<(ConnId, ServerMsg)>;
 impl HostCore {
     pub fn new(db: Arc<CardDb>, info: MatchInfo, seed: u64) -> Self {
         let sets = db.fingerprints();
-        HostCore { engine: Engine::new(db), info, sets, seed, members: BTreeMap::new(), state: None }
+        HostCore {
+            engine: Engine::new(db),
+            info,
+            sets,
+            seed,
+            members: BTreeMap::new(),
+            state: None,
+            abandon_after: ABANDON_AFTER,
+            tokens: RandomState::new(),
+        }
+    }
+
+    /// Changes how long a player may be away before losing by forfeit.
+    pub fn with_abandon_after(mut self, after: Duration) -> Self {
+        self.abandon_after = after;
+        self
     }
 
     pub fn info(&self) -> &MatchInfo {
@@ -48,59 +82,135 @@ impl HostCore {
         let mut spectators = Vec::new();
         for m in self.members.values() {
             match m.seat {
-                Some(p) => players[p.index()] = Some(PlayerSlot { name: m.name.clone(), ready: m.deck.is_some() }),
+                Some(p) => {
+                    players[p.index()] =
+                        Some(PlayerSlot { name: m.name.clone(), ready: m.deck.is_some(), away: m.left.is_some() })
+                }
                 None => spectators.push(m.name.clone()),
             }
         }
         Lobby { players, spectators, started: self.state.is_some() }
     }
 
+    fn running(&self) -> bool {
+        self.state.as_ref().is_some_and(|s| s.outcome.is_none())
+    }
+
     /// Handles a message from `conn`. A [`ServerMsg::Rejected`] in the outbox
     /// means the transport should close that connection afterwards.
     pub fn handle(&mut self, conn: ConnId, msg: ClientMsg) -> Outbox {
         match (self.members.contains_key(&conn), msg) {
-            (false, ClientMsg::Hello { app, name, role, sets }) => self.join(conn, app, name, role, &sets),
+            (false, ClientMsg::Hello { app, name, role, sets, rejoin }) => {
+                self.join(conn, app, name, role, &sets, rejoin)
+            }
             (false, _) => vec![(conn, ServerMsg::Rejected(Rejection::NoHello))],
             (true, ClientMsg::Hello { .. }) => vec![],
             (true, ClientMsg::Deck(deck)) => self.take_deck(conn, deck),
             (true, ClientMsg::Act(action)) => self.act(conn, action),
+            (true, ClientMsg::Concede) => match self.members[&conn].seat {
+                Some(p) if self.running() => self.forfeit(p),
+                _ => vec![],
+            },
+            (true, ClientMsg::Chat(text)) => {
+                let text: String = text.trim().chars().take(MAX_CHAT).collect();
+                if text.is_empty() {
+                    return vec![];
+                }
+                let from = self.members[&conn].name.clone();
+                self.members.keys().map(|&c| (c, ServerMsg::Chat { from: from.clone(), text: text.clone() })).collect()
+            }
         }
     }
 
-    /// `conn` went away. Its player seat stays taken during a match.
+    /// `conn` went away. During a match its player seat stays taken: they
+    /// can come back with their token until [`HostCore::tick`] finds them
+    /// gone too long.
     pub fn disconnected(&mut self, conn: ConnId) -> Outbox {
-        let Some(member) = self.members.get(&conn) else { return vec![] };
-        if member.seat.is_some() && self.state.is_some() {
+        let running = self.running();
+        let Some(member) = self.members.get_mut(&conn) else { return vec![] };
+        if member.seat.is_some() && running {
+            member.left = Some(Instant::now());
+        } else if member.seat.is_some() && self.state.is_some() {
+            // The match is over: keep the seat for the lobby.
             return vec![];
+        } else {
+            self.members.remove(&conn);
         }
-        self.members.remove(&conn);
         self.broadcast_lobby()
     }
 
-    fn join(&mut self, conn: ConnId, app: String, name: String, role: Role, sets: &[(String, u64)]) -> Outbox {
+    /// Checks for players away too long; call it every second or so.
+    pub fn tick(&mut self) -> Outbox {
+        if !self.running() {
+            return vec![];
+        }
+        let gone = self.members.values().find(|m| m.left.is_some_and(|t| t.elapsed() >= self.abandon_after));
+        match gone.and_then(|m| m.seat) {
+            Some(p) => self.forfeit(p),
+            None => vec![],
+        }
+    }
+
+    /// `loser` gives up the match.
+    fn forfeit(&mut self, loser: PlayerId) -> Outbox {
+        let Some(state) = self.state.as_mut() else { return vec![] };
+        let outcome = Outcome::Win { winner: loser.opponent(), method: WinMethod::Forfeit };
+        state.outcome = Some(outcome);
+        state.decision = None;
+        self.broadcast_update(&[Event::GameOver(outcome)])
+    }
+
+    fn join(
+        &mut self,
+        conn: ConnId,
+        app: String,
+        name: String,
+        role: Role,
+        sets: &[(String, u64)],
+        rejoin: Option<u64>,
+    ) -> Outbox {
         if app != APP_VERSION {
             return vec![(conn, ServerMsg::Rejected(Rejection::WrongVersion { host: APP_VERSION.into() }))];
         }
         if let Some(r) = compare_sets(&self.sets, sets) {
             return vec![(conn, ServerMsg::Rejected(r))];
         }
-        let seat = match role {
-            Role::Spectator => None,
-            Role::Player => {
+        let back = rejoin.and_then(|t| self.members.iter().find(|(_, m)| m.seat.is_some() && m.token == t));
+        let seat = match (back.map(|(&old, _)| old), role) {
+            (Some(old), _) => {
+                let mut member = self.members.remove(&old).expect("found");
+                member.left = None;
+                let seat = member.seat;
+                self.members.insert(conn, member);
+                seat
+            }
+            (None, Role::Spectator) => {
+                self.add(conn, name, None);
+                None
+            }
+            (None, Role::Player) => {
                 let taken: Vec<PlayerId> = self.members.values().filter_map(|m| m.seat).collect();
                 match [PlayerId::ONE, PlayerId::TWO].into_iter().find(|p| !taken.contains(p)) {
-                    Some(p) if self.state.is_none() => Some(p),
+                    Some(p) if self.state.is_none() => {
+                        self.add(conn, name, Some(p));
+                        Some(p)
+                    }
                     _ => return vec![(conn, ServerMsg::Rejected(Rejection::Full))],
                 }
             }
         };
-        self.members.insert(conn, Member { name, seat, deck: None });
-        let mut out = vec![(conn, ServerMsg::Welcome { seat, info: self.info.clone() })];
+        let token = seat.map(|_| self.members[&conn].token);
+        let mut out = vec![(conn, ServerMsg::Welcome { seat, info: self.info.clone(), token })];
         out.extend(self.broadcast_lobby());
         if self.state.is_some() {
             out.push((conn, self.update_for(conn, &[])));
         }
         out
+    }
+
+    fn add(&mut self, conn: ConnId, name: String, seat: Option<PlayerId>) {
+        let token = self.tokens.hash_one((conn, self.seed, Instant::now()));
+        self.members.insert(conn, Member { name, seat, deck: None, token, left: None });
     }
 
     fn take_deck(&mut self, conn: ConnId, deck: DeckList) -> Outbox {
@@ -152,13 +262,18 @@ impl HostCore {
         }
     }
 
+    /// Connections that get messages: everyone but players who are away.
+    fn present(&self) -> impl Iterator<Item = ConnId> + '_ {
+        self.members.iter().filter(|(_, m)| m.left.is_none()).map(|(&c, _)| c)
+    }
+
     fn broadcast_lobby(&self) -> Outbox {
         let lobby = self.lobby();
-        self.members.keys().map(|&c| (c, ServerMsg::Lobby(lobby.clone()))).collect()
+        self.present().map(|c| (c, ServerMsg::Lobby(lobby.clone()))).collect()
     }
 
     fn broadcast_update(&self, events: &[Event]) -> Outbox {
-        self.members.keys().map(|&c| (c, self.update_for(c, events))).collect()
+        self.present().map(|c| (c, self.update_for(c, events))).collect()
     }
 
     /// `events` and the table as `conn`'s seat sees them.

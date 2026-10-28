@@ -505,6 +505,7 @@ pub fn outcome(o: &Outcome, voice: &Voice) -> String {
                 WinMethod::Pinfall => "por Pinfall",
                 WinMethod::CountOut => "por Count Out",
                 WinMethod::Disqualification => "por descalificación",
+                WinMethod::Forfeit => "por abandono",
             };
             match voice {
                 Voice::Player(me) if winner == me => format!("¡Ganaste {how}!"),

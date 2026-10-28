@@ -274,7 +274,8 @@ fn play_online(
     seed: u64,
 ) -> ExitCode {
     let role = if deck.is_some() { Role::Player } else { Role::Spectator };
-    let hello = ClientMsg::Hello { app: APP_VERSION.into(), name: name.into(), role, sets: db.fingerprints() };
+    let hello =
+        ClientMsg::Hello { app: APP_VERSION.into(), name: name.into(), role, sets: db.fingerprints(), rejoin: None };
     if let Err(e) = conn.send(hello) {
         return fail(e);
     }
@@ -294,7 +295,7 @@ fn play_online(
         };
         let mut legal = Vec::new();
         match msg {
-            ServerMsg::Welcome { seat, info } => {
+            ServerMsg::Welcome { seat, info, .. } => {
                 let seat = seat.map_or("a spectator".to_string(), |p| p.to_string());
                 println!("Joined \"{}\" ({:?}) as {seat}.", info.name, info.mode);
                 if let Some(deck) = deck.take() {
@@ -313,6 +314,7 @@ fn play_online(
                 }
             }
             ServerMsg::DeckRejected(problems) => return fail(format!("your deck is not legal here: {problems:?}")),
+            ServerMsg::Chat { from, text } => println!("[{from}] {text}"),
             ServerMsg::ActionRejected(e) => {
                 println!("Not legal: {e}");
                 legal = std::mem::take(&mut last_legal);

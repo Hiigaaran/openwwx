@@ -3,11 +3,18 @@
 //! what its seat may see.
 
 use std::collections::HashMap;
+use std::io;
 use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver};
+use std::time::{Duration, Instant};
 
 use rawdeal_ai::Bot;
 use rawdeal_core::{Action, CardDb, CardId, DeckList, DefIdx, Engine, Event, GameState, PlayerId, PlayerView, Seat};
-use rawdeal_net::{APP_VERSION, ClientMsg, Connection, HostHandle, Lobby, MatchInfo, Rejection, Role, ServerMsg};
+use rawdeal_net::host::ABANDON_AFTER;
+use rawdeal_net::{APP_VERSION, ClientMsg, Connection, Dial, HostHandle, Lobby, MatchInfo, Rejection, Role, ServerMsg};
+
+/// Wait between attempts to get back into a match.
+const RETRY: Duration = Duration::from_secs(3);
 
 pub struct Table {
     pub db: Arc<CardDb>,
@@ -25,6 +32,13 @@ pub struct Online {
     /// Keeps a match this app hosts running.
     host: Option<HostHandle>,
     deck: Option<DeckList>,
+    name: String,
+    role: Role,
+    /// How to reach the match again if the connection drops.
+    dial: Option<Dial>,
+    /// Gets you back into your seat.
+    token: Option<u64>,
+    reconnecting: Option<Reconnecting>,
     pub seat: Option<PlayerId>,
     pub info: Option<MatchInfo>,
     pub lobby: Option<Lobby>,
@@ -43,30 +57,36 @@ impl Table {
     }
 
     /// Joins a match through `conn`: as a player with `deck`, or as a
-    /// spectator without one. `host` is the match this app hosts, if any.
+    /// spectator without one. `host` is the match this app hosts, if any;
+    /// `dial` reaches the match again if the connection drops.
     pub fn online(
         db: Arc<CardDb>,
-        mut conn: Connection,
+        conn: Connection,
         name: &str,
         deck: Option<DeckList>,
         host: Option<HostHandle>,
+        dial: Option<Dial>,
     ) -> Self {
         let role = if deck.is_some() { Role::Player } else { Role::Spectator };
-        let hello = ClientMsg::Hello { app: APP_VERSION.into(), name: name.into(), role, sets: db.fingerprints() };
-        let problem = conn.send(hello).err().map(|e| format!("No se pudo conectar: {e}"));
-        let online = Online {
+        let mut online = Online {
             conn,
             host,
             deck,
+            name: name.into(),
+            role,
+            dial,
+            token: None,
+            reconnecting: None,
             seat: None,
             info: None,
             lobby: None,
             view: None,
             legal: vec![],
             known: HashMap::new(),
-            problem,
+            problem: None,
             notes: vec![],
         };
+        online.hello(&db);
         Table { db, source: Source::Online(Box::new(online)) }
     }
 
@@ -148,26 +168,28 @@ impl Table {
     /// Takes in what the host sent: new events to replay, if any.
     pub fn poll(&mut self) -> Vec<Event> {
         let Source::Online(o) = &mut self.source else { return vec![] };
+        o.reconnect(&self.db);
         let mut events = Vec::new();
-        loop {
+        while o.reconnecting.is_none() {
             let msg = match o.conn.try_recv() {
                 Ok(Some(msg)) => msg,
                 Ok(None) => break,
                 Err(_) => {
-                    if o.view.as_ref().is_none_or(|v| v.outcome.is_none()) && o.problem.is_none() {
-                        o.problem = Some("Se cortó la conexión con la partida.".into());
-                    }
+                    o.lost();
                     break;
                 }
             };
             match msg {
-                ServerMsg::Welcome { seat, info } => {
+                ServerMsg::Welcome { seat, info, token } => {
                     o.seat = seat;
                     o.info = Some(info);
-                    if let Some(deck) = o.deck.take() {
+                    o.token = token;
+                    o.problem = None;
+                    if let Some(deck) = o.deck.clone() {
                         o.conn.send(ClientMsg::Deck(deck)).ok();
                     }
                 }
+                ServerMsg::Chat { from, text } => o.notes.push(format!("» {from}: {text}")),
                 ServerMsg::Rejected(r) => o.problem = Some(rejection(&r)),
                 ServerMsg::Lobby(lobby) => o.lobby = Some(lobby),
                 ServerMsg::DeckRejected(problems) => {
@@ -183,6 +205,23 @@ impl Table {
             }
         }
         events
+    }
+
+    /// Says `text` in the table chat.
+    pub fn chat(&mut self, text: &str) {
+        if let Source::Online(o) = &mut self.source {
+            o.conn.send(ClientMsg::Chat(text.into())).ok();
+        }
+    }
+
+    /// Leaving an online match you play: you concede it.
+    pub fn leave(&mut self) {
+        if let Source::Online(o) = &mut self.source
+            && o.seat.is_some()
+            && o.view.as_ref().is_some_and(|v| v.outcome.is_none())
+        {
+            o.conn.send(ClientMsg::Concede).ok();
+        }
     }
 
     /// Log lines from the host since the last call.
@@ -201,6 +240,74 @@ impl Table {
     /// Does this app host the match?
     pub fn hosting(&self) -> bool {
         self.online_state().is_some_and(|o| o.host.is_some())
+    }
+}
+
+/// Trying to get back into a match after losing the connection.
+struct Reconnecting {
+    since: Instant,
+    /// The attempt under way.
+    attempt: Option<Receiver<io::Result<Connection>>>,
+    /// When to try again.
+    next: Instant,
+}
+
+impl Online {
+    fn hello(&mut self, db: &CardDb) {
+        let hello = ClientMsg::Hello {
+            app: APP_VERSION.into(),
+            name: self.name.clone(),
+            role: self.role,
+            sets: db.fingerprints(),
+            rejoin: self.token,
+        };
+        if let Err(e) = self.conn.send(hello) {
+            self.problem = Some(format!("No se pudo conectar: {e}"));
+        }
+    }
+
+    /// The connection dropped: try to get back in, while the match goes on.
+    fn lost(&mut self) {
+        let over = self.view.as_ref().is_some_and(|v| v.outcome.is_some());
+        if over || self.problem.is_some() {
+            return;
+        }
+        if self.dial.is_some() {
+            self.problem = Some("Se cortó la conexión. Intentando volver a la partida…".into());
+            let now = Instant::now();
+            self.reconnecting = Some(Reconnecting { since: now, attempt: None, next: now });
+        } else {
+            self.problem = Some("Se cortó la conexión con la partida.".into());
+        }
+    }
+
+    /// One step of getting back in: start an attempt, or take its result.
+    fn reconnect(&mut self, db: &CardDb) {
+        let Some(Reconnecting { since, attempt, next }) = &mut self.reconnecting else { return };
+        let Some(dial) = &self.dial else { return };
+        match attempt.as_ref().map(|rx| rx.try_recv()) {
+            None if Instant::now() >= *next => {
+                let (tx, rx) = mpsc::channel();
+                let dial = dial.clone();
+                std::thread::spawn(move || tx.send(dial.connect()).ok());
+                *attempt = Some(rx);
+            }
+            Some(Ok(Ok(conn))) => {
+                self.conn = conn;
+                self.reconnecting = None;
+                self.hello(db);
+            }
+            Some(Ok(Err(_)) | Err(mpsc::TryRecvError::Disconnected)) => {
+                if since.elapsed() >= ABANDON_AFTER {
+                    self.reconnecting = None;
+                    self.problem = Some("No se pudo volver a la partida.".into());
+                } else {
+                    *attempt = None;
+                    *next = Instant::now() + RETRY;
+                }
+            }
+            _ => {}
+        }
     }
 }
 

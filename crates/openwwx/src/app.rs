@@ -9,8 +9,7 @@ use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
 use rawdeal_net::{
-    APP_VERSION, Connection, DEFAULT_PORT, DEFAULT_SERVER_PORT, HostCore, HostHandle, Listing, MatchId, MatchInfo,
-    relay,
+    APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, HostCore, HostHandle, Listing, MatchId, MatchInfo, relay,
 };
 use serde::{Deserialize, Serialize};
 
@@ -294,7 +293,7 @@ impl App {
         match started {
             Ok(mut host) => {
                 let conn = host.connect_local();
-                let table = Table::online(self.db.clone(), conn, &name, Some(deck), Some(host));
+                let table = Table::online(self.db.clone(), conn, &name, Some(deck), Some(host), None);
                 self.game = Some(Match::new(table, vec![], self.settings.speed));
             }
             Err(e) => self.error = Some(e),
@@ -311,21 +310,20 @@ impl App {
             let Some(deck) = self.online_deck() else { return };
             Some(deck)
         };
-        let conn = match on_server {
-            Some(id) => {
-                let addr = self.server_addr();
-                Connection::join_on_server(addr.as_str(), id)
-                    .map_err(|e| format!("No se pudo conectar al servidor {addr}: {e}"))
-            }
+        let dial = match on_server {
+            Some(id) => Dial::Server(self.server_addr(), id),
             None => {
                 let addr = self.settings.online_addr.trim().to_string();
-                let addr = if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") };
-                Connection::connect(addr.as_str()).map_err(|e| format!("No se pudo conectar a {addr}: {e}"))
+                Dial::Direct(if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") })
             }
         };
+        let conn = dial.connect().map_err(|e| match &dial {
+            Dial::Server(addr, _) => format!("No se pudo conectar al servidor {addr}: {e}"),
+            Dial::Direct(addr) => format!("No se pudo conectar a {addr}: {e}"),
+        });
         match conn {
             Ok(conn) => {
-                let table = Table::online(self.db.clone(), conn, &self.online_name(), deck, None);
+                let table = Table::online(self.db.clone(), conn, &self.online_name(), deck, None, Some(dial));
                 self.game = Some(Match::new(table, vec![], self.settings.speed));
             }
             Err(e) => self.error = Some(e),

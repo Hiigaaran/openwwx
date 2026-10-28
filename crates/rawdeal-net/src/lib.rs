@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 pub use host::{ConnId, HostCore};
 pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId};
-pub use tcp::{Connection, HostHandle};
+pub use tcp::{Connection, Dial, HostHandle};
 
 /// Port a host listens on unless told otherwise.
 pub const DEFAULT_PORT: u16 = 7777;
@@ -35,12 +35,25 @@ pub enum Role {
 pub enum ClientMsg {
     /// First message: who you are and which card sets you have
     /// ([`rawdeal_core::CardDb::fingerprints`]).
-    Hello { app: String, name: String, role: Role, sets: Vec<(String, u64)> },
+    Hello {
+        app: String,
+        name: String,
+        role: Role,
+        sets: Vec<(String, u64)>,
+        /// Back to your seat after losing the connection: the token from
+        /// your [`ServerMsg::Welcome`].
+        #[serde(default)]
+        rejoin: Option<u64>,
+    },
     /// Your deck, as a player. Sending another one before the match starts
     /// replaces it.
     Deck(DeckList),
     /// An action for your pending decision.
     Act(Action),
+    /// Give up the match: the other player wins by forfeit.
+    Concede,
+    /// A line for the table chat.
+    Chat(String),
 }
 
 /// The match settings the host chose.
@@ -56,6 +69,10 @@ pub struct PlayerSlot {
     pub name: String,
     /// Their deck is in and legal.
     pub ready: bool,
+    /// They lost the connection during the match; they lose by forfeit if
+    /// they do not come back in time ([`host::ABANDON_AFTER`]).
+    #[serde(default)]
+    pub away: bool,
 }
 
 /// Who is at the table.
@@ -98,10 +115,13 @@ pub struct Update {
 /// What the host sends.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ServerMsg {
-    /// You are in: your player seat, or `None` as a spectator.
+    /// You are in: your player seat, or `None` as a spectator. `token` gets
+    /// you back into your seat if the connection drops.
     Welcome {
         seat: Option<PlayerId>,
         info: MatchInfo,
+        #[serde(default)]
+        token: Option<u64>,
     },
     /// You were turned away; the connection closes.
     Rejected(Rejection),
@@ -112,6 +132,11 @@ pub enum ServerMsg {
     Update(Box<Update>),
     /// Your action was not legal; the match still waits on you.
     ActionRejected(String),
+    /// A line of the table chat.
+    Chat {
+        from: String,
+        text: String,
+    },
 }
 
 /// Compares the host's card sets with a guest's.

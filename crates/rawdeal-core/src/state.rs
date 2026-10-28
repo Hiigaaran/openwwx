@@ -138,6 +138,8 @@ pub enum WinMethod {
     Pinfall,
     CountOut,
     Disqualification,
+    /// The other player left an online match, or conceded.
+    Forfeit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

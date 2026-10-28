@@ -67,6 +67,10 @@ con las reglas elegidas y la pone en la lista, y "Ver partidas" muestra las part
 esperando rival o jugando, cuántos miran) con botones para jugar o mirar. La lista se actualiza sola. El servidor no
 corre las partidas ni necesita las cartas: solo reenvía los mensajes entre quien hospeda y quienes se unen.
 
+Durante la partida hay un chat arriba del relato. Si a un jugador se le corta la conexión, la app vuelve a conectarse
+sola y lo devuelve a su asiento; si no vuelve en 2 minutos, pierde por abandono, y "Salir" en medio de la partida
+también cuenta como abandono. Si sale quien hospeda, la partida se cierra para todos.
+
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas; si no coinciden, la sala de espera dice qué
 sets faltan o son distintos. Quien hospeda valida los mazos con las reglas de la partida. Nadie recibe las cartas
 ocultas de los demás.
@@ -254,8 +258,6 @@ cargo run -p rawdeal-cli -- --server mi-servidor.com --join 3 --name Beto # unir
 - "Debajo de una carta Backstage" se trata igual que debajo de la Superstar (confirmado por Simon el 2026-10-24).
 
 ## Pendiente
-
-En línea: reconexión si se corta la conexión, derrota por abandono y chat en la mesa.
 
 Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team, Trip, Partner
 Interference y la parte de compañero de Combination Attack). Todos los sets de OCTGN (01-51, Promos y Prize Cards)
