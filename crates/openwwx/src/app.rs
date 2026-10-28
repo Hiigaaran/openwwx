@@ -1,7 +1,7 @@
 //! Start screen and app state: choose the card folder, Superstars and decks.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, RichText, Ui};
 use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, is_revolution, validate_deck_in};
@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 use crate::game::{Leave, Match, Speed};
 
 const SETTINGS_KEY: &str = "openwwx-settings";
+
+/// Where a background image import leaves its result: images copied, or an error.
+type ImportResult = Arc<Mutex<Option<Result<usize, String>>>>;
 
 /// Remembered between runs.
 #[derive(Default, Serialize, Deserialize)]
@@ -37,6 +40,10 @@ pub struct App {
     game: Option<Match>,
     /// Folder typed by hand, for systems without a folder picker.
     typed_dir: String,
+    /// An image pack import running in the background, and its result.
+    importing: Option<ImportResult>,
+    /// The last import's result, for display.
+    notice: Option<String>,
     ctx: egui::Context,
 }
 
@@ -50,6 +57,8 @@ impl App {
             error: None,
             game: None,
             typed_dir: String::new(),
+            importing: None,
+            notice: None,
             ctx: cc.egui_ctx.clone(),
         };
         // Cards next to the program (a "cards" folder) are used when nothing was chosen yet.
@@ -95,6 +104,42 @@ impl App {
             if s.as_ref().is_none_or(|id| self.db.superstar_by_id(id).is_none()) {
                 *s = self.db.superstars().get(i.min(self.db.superstars().len() - 1)).map(|s| s.id.clone());
             }
+        }
+    }
+
+    /// Copies the images of OCTGN packs into the card folder's `art` subfolder,
+    /// in the background.
+    fn import_images(&mut self, packs: Vec<PathBuf>) {
+        let Some(dir) = self.settings.cards_dir.clone() else { return };
+        let result: ImportResult = Arc::new(Mutex::new(None));
+        self.importing = Some(result.clone());
+        self.notice = None;
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let r = crate::o8c::extract(&packs, &dir.join("art"));
+            if let Ok(mut slot) = result.lock() {
+                *slot = Some(r);
+            }
+            ctx.request_repaint();
+        });
+    }
+
+    /// Picks up a finished import: re-indexes the art and says how many cards got a picture.
+    fn poll_import(&mut self) {
+        let Some(result) = self.importing.as_ref().and_then(|r| r.lock().ok().and_then(|mut s| s.take())) else {
+            return;
+        };
+        self.importing = None;
+        match result {
+            Ok(copied) => {
+                self.load_cards(self.settings.cards_dir.clone());
+                let with_art = self.db.cards().iter().filter(|c| crate::art::has_card_art(&self.ctx, c)).count();
+                self.notice = Some(format!(
+                    "Se copiaron {copied} imágenes. {with_art} de {} cartas tienen imagen.",
+                    self.db.cards().len()
+                ));
+            }
+            Err(e) => self.error = Some(e),
         }
     }
 
@@ -206,6 +251,30 @@ impl App {
             });
             ui.end_row();
 
+            if self.settings.cards_dir.is_some() {
+                ui.label("Imágenes:");
+                ui.horizontal(|ui| {
+                    if self.importing.is_some() {
+                        ui.spinner();
+                        ui.label("Importando imágenes…");
+                    } else if ui
+                        .button("Importar imágenes de OCTGN (.o8c)…")
+                        .on_hover_text("Copia las imágenes de un paquete de OCTGN a la carpeta \"art\" de tus cartas")
+                        .clicked()
+                        && let Some(packs) = rfd::FileDialog::new()
+                            .set_title("Paquetes de imágenes de OCTGN")
+                            .add_filter("Paquete de imágenes de OCTGN", &["o8c", "zip"])
+                            .pick_files()
+                    {
+                        self.import_images(packs);
+                    }
+                    if let Some(n) = &self.notice {
+                        ui.label(n);
+                    }
+                });
+                ui.end_row();
+            }
+
             for (i, who) in ["Tu Superstar:", "Rival:"].into_iter().enumerate() {
                 ui.label(who);
                 ui.horizontal(|ui| {
@@ -281,6 +350,7 @@ impl App {
             ui.end_row();
         });
         ui.add_space(16.0);
+        self.poll_import();
         if let Some(e) = &self.error {
             ui.colored_label(egui::Color32::from_rgb(240, 110, 110), e);
             ui.add_space(8.0);

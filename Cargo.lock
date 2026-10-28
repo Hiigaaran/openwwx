@@ -59,6 +59,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "arbitrary"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bc62ac97cc33321f50863d514c3bc38a453947a8f9e781137e47c7401020aed"
+dependencies = [
+ "derive_arbitrary",
+]
+
+[[package]]
 name = "arboard"
 version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -452,6 +461,17 @@ name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+
+[[package]]
+name = "derive_arbitrary"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b034bd7d5f032402a2479444dcc6f74e36a03f31854d41680fb240ef682a1ac"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
+]
 
 [[package]]
 name = "dispatch"
@@ -1798,7 +1818,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "openwwx"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "eframe",
  "image",
@@ -1807,6 +1827,7 @@ dependencies = [
  "rawdeal-core",
  "rfd",
  "serde",
+ "zip",
 ]
 
 [[package]]
@@ -2111,7 +2132,7 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "rawdeal-ai"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "rand",
  "rand_chacha",
@@ -2120,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-cards"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "rand",
  "rand_chacha",
@@ -2133,7 +2154,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-cli"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "rawdeal-ai",
  "rawdeal-cards",
@@ -2142,7 +2163,7 @@ dependencies = [
 
 [[package]]
 name = "rawdeal-core"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "proptest",
  "rand",
@@ -3590,10 +3611,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "zip"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dcb24d0152526ae49b9b96c1dcf71850ca1e0b882e4e28ed898a93c41334744"
+dependencies = [
+ "arbitrary",
+ "crc32fast",
+ "crossbeam-utils",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "zopfli",
+]
+
+[[package]]
 name = "zlib-rs"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b268e58e7c693d7c271f93ffc4ba3b380412554231c85bf61ca7af91042a4112"
+
+[[package]]
+name = "zopfli"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaf7fc5d30c28483d93805c4a5e12b05bbb52407fa67c5f8bd552374cd01fb11"
+dependencies = [
+ "bumpalo",
+ "crc32fast",
+ "log",
+ "simd-adler32",
+]
 
 [[package]]
 name = "zune-core"

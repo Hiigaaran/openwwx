@@ -8,6 +8,7 @@ mod app;
 mod art;
 mod cards;
 mod game;
+mod o8c;
 mod text;
 
 fn main() -> eframe::Result {

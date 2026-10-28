@@ -95,3 +95,10 @@ pub fn card(ctx: &Context, def: &CardDef) -> Option<TextureHandle> {
 pub fn superstar(ctx: &Context, star: &SuperstarDef) -> Option<TextureHandle> {
     lookup(ctx, &keys(&star.id, &star.name, star.source_id.as_deref()))
 }
+
+/// Is there an image for this card (without loading it)?
+pub fn has_card_art(ctx: &Context, def: &CardDef) -> bool {
+    let Some(shared) = ctx.data(|d| d.get_temp::<Shared>(id())) else { return false };
+    let Ok(art) = shared.lock() else { return false };
+    keys(&def.id, &def.title, def.source_id.as_deref()).iter().any(|k| art.files.contains_key(k))
+}
