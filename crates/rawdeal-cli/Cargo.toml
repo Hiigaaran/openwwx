@@ -9,3 +9,4 @@ license.workspace = true
 rawdeal-core.workspace = true
 rawdeal-cards.workspace = true
 rawdeal-ai.workspace = true
+rawdeal-net.workspace = true

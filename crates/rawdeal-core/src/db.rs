@@ -31,6 +31,9 @@ impl std::fmt::Display for DbError {
 
 impl std::error::Error for DbError {}
 
+const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+
 #[derive(Debug, Clone, Default)]
 pub struct CardDb {
     cards: Vec<CardDef>,
@@ -88,6 +91,33 @@ impl CardDb {
 
     pub fn superstars(&self) -> &[SuperstarDef] {
         &self.superstars
+    }
+
+    /// A fingerprint of every set loaded, by id prefix (`"premiere"` for
+    /// `"premiere/042"`), in load order. Two players with equal lists have the
+    /// same cards at the same indexes. Stable only within one app version.
+    pub fn fingerprints(&self) -> Vec<(String, u64)> {
+        let mut sets: Vec<(String, u64)> = Vec::new();
+        let items = self
+            .cards
+            .iter()
+            .map(|c| (c.id.as_str(), format!("{c:?}")))
+            .chain(self.superstars.iter().map(|s| (s.id.as_str(), format!("{s:?}"))));
+        for (id, text) in items {
+            let set = id.split('/').next().unwrap_or(id);
+            let i = match sets.iter().position(|(s, _)| s == set) {
+                Some(i) => i,
+                None => {
+                    sets.push((set.to_string(), FNV_OFFSET));
+                    sets.len() - 1
+                }
+            };
+            let hash = &mut sets[i].1;
+            for b in text.bytes() {
+                *hash = (*hash ^ b as u64).wrapping_mul(FNV_PRIME);
+            }
+        }
+        sets
     }
 }
 

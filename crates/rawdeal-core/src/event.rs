@@ -132,6 +132,36 @@ impl Event {
             _ => self.clone(),
         }
     }
+
+    /// The cards the event names (hidden ones are already left out of a
+    /// redacted event).
+    pub fn cards(&self) -> Vec<CardId> {
+        match self {
+            Event::CardDrawn { card, .. } | Event::CardMoved { card, .. } => card.iter().copied().collect(),
+            Event::CardPlayed { card, .. }
+            | Event::VolleyReversed { card, .. }
+            | Event::Revealed { card, .. }
+            | Event::EffectsResolved { card }
+            | Event::Overturned { card, .. } => vec![*card],
+            Event::Reversed { reversal, reversed, .. } => vec![*reversal, *reversed],
+            Event::PartialReversal { reversal, card, .. } => vec![*reversal, *card],
+            Event::HandShown { cards, .. } => cards.clone(),
+            _ => vec![],
+        }
+    }
+
+    /// The event as a spectator is allowed to see it: no hidden card of
+    /// either player.
+    pub fn redacted_for_spectator(&self) -> Event {
+        match *self {
+            Event::CardDrawn { player, card: Some(_) } => Event::CardDrawn { player, card: None },
+            Event::CardMoved { player, card: Some(_), from, to } if !is_public(from) && !is_public(to) => {
+                Event::CardMoved { player, card: None, from, to }
+            }
+            Event::HandShown { player, viewer, .. } => Event::HandShown { player, viewer, cards: vec![] },
+            _ => self.clone(),
+        }
+    }
 }
 
 fn is_public(zone: Zone) -> bool {

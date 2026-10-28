@@ -370,6 +370,11 @@ impl Engine {
         PlayerView::new(self, state, player)
     }
 
+    /// What a spectator sees: public cards only, from `side`'s side of the table.
+    pub fn spectator_view(&self, state: &GameState, side: PlayerId) -> PlayerView {
+        PlayerView::spectator(self, state, side)
+    }
+
     /// Fortitude Rating: total printed D of the cards in the player's Ring.
     pub fn fortitude(&self, state: &GameState, player: PlayerId) -> u16 {
         state.player(player).ring.iter().map(|&c| self.def(state, c).damage as u16).sum()

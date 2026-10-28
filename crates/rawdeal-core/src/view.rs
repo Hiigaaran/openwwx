@@ -42,12 +42,25 @@ pub struct PlayerView {
     pub decision: Option<Decision>,
     /// Who the game is waiting on.
     pub waiting_on: Option<PlayerId>,
+    /// A spectator's view: only public cards, seen from `me`'s side, with no
+    /// hand, Backlash or decision.
+    #[serde(default)]
+    pub spectator: bool,
     /// Card definitions this player can see, indexed by `CardId`.
     known: Vec<Option<DefIdx>>,
 }
 
 impl PlayerView {
     pub(crate) fn new(engine: &Engine, state: &GameState, me: PlayerId) -> Self {
+        Self::build(engine, state, me, false)
+    }
+
+    /// What someone watching the match sees, from `side`'s side of the table.
+    pub(crate) fn spectator(engine: &Engine, state: &GameState, side: PlayerId) -> Self {
+        Self::build(engine, state, side, true)
+    }
+
+    fn build(engine: &Engine, state: &GameState, me: PlayerId, spectator: bool) -> Self {
         let players = [PlayerId::ONE, PlayerId::TWO].map(|p| {
             let ps = state.player(p);
             PublicPlayer {
@@ -62,9 +75,16 @@ impl PlayerView {
                 backstage: ps.backstage.iter().map(|&c| (c, ps.hidden.contains(&c))).collect(),
             }
         });
-        let hand = state.player(me).hand.clone();
-        let backlash = state.player(me).backlash.clone();
-        let opponent_hand = engine.hand_revealed_to(state, me).then(|| state.player(me.opponent()).hand.clone());
+        let (hand, backlash, opponent_hand, under) = if spectator {
+            (vec![], vec![], None, &[][..])
+        } else {
+            (
+                state.player(me).hand.clone(),
+                state.player(me).backlash.clone(),
+                engine.hand_revealed_to(state, me).then(|| state.player(me.opponent()).hand.clone()),
+                &state.player(me).under[..],
+            )
+        };
 
         let mut known = vec![None; state.cards.len()];
         let visible = players
@@ -72,13 +92,15 @@ impl PlayerView {
             .flat_map(|p| p.ring.iter().chain(&p.ringside))
             .chain(&hand)
             .chain(&backlash)
-            .chain(&state.player(me).under)
+            .chain(under)
             .chain(opponent_hand.iter().flatten())
             .chain(state.in_play.as_ref().map(|p| &p.card));
         // Cards you are asked to choose from (an opponent's hand, the top of an
         // Arsenal) are shown to you.
         let choosing = match &state.decision {
-            Some(Decision { player, kind: DecisionKind::ChooseCards { options, .. } }) if *player == me => {
+            Some(Decision { player, kind: DecisionKind::ChooseCards { options, .. } })
+                if *player == me && !spectator =>
+            {
                 options.as_slice()
             }
             _ => &[],
@@ -97,8 +119,9 @@ impl PlayerView {
             backlash,
             opponent_hand,
             in_play: state.in_play,
-            decision: state.decision.clone().filter(|d| d.player == me),
+            decision: state.decision.clone().filter(|d| d.player == me && !spectator),
             waiting_on: state.decision.as_ref().map(|d| d.player),
+            spectator,
             known,
         }
     }

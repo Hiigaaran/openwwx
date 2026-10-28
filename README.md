@@ -16,6 +16,7 @@ efectos programados. El diseño completo está en
 | `rawdeal-core` | Motor de reglas puro y determinista: estado, turnos, daño, reversals, victoria. |
 | `rawdeal-cards` | Carga de cartas desde archivos RON. Incluye un set de prueba con cartas y Superstars inventados. |
 | `rawdeal-ai` | Oponentes por computadora en tres niveles: Fácil, Normal y Difícil. |
+| `rawdeal-net` | Juego en línea: protocolo, partida hospedada (quien hospeda corre el motor) y conexión de jugadores y espectadores. |
 | `rawdeal-cli` | Cliente de texto para jugar contra el bot y depurar el motor. |
 | `openwwx` | App de escritorio (egui): menú, tablero, mano, decisiones y relato de la lucha. |
 
@@ -64,6 +65,9 @@ Linux y crea el release con los archivos.
 cargo test                                  # tests de reglas + 200 partidas aleatorias entre todos los Superstars
 cargo run -p rawdeal-cli                    # jugar contra el bot (--level easy|normal|hard)
 cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
+cargo run -p rawdeal-cli -- --host --name Ana          # hospedar una partida en línea (puerto 7777)
+cargo run -p rawdeal-cli -- --join 192.168.0.10 --name Beto  # unirse como jugador
+cargo run -p rawdeal-cli -- --spectate 192.168.0.10    # mirar
 ```
 
 ## Qué funciona

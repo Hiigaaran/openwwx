@@ -11,10 +11,12 @@ license = "MIT OR Apache-2.0"
 rawdeal-core = { path = "crates/rawdeal-core" }
 rawdeal-cards = { path = "crates/rawdeal-cards" }
 rawdeal-ai = { path = "crates/rawdeal-ai" }
+rawdeal-net = { path = "crates/rawdeal-net" }
 rand = "0.10.3"
 rand_chacha = { version = "0.10.0", features = ["serde"] }
 ron = "0.12.2"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.145"
 proptest = "1.12.0"
 
 [profile.release]
