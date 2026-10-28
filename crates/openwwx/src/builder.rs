@@ -175,6 +175,15 @@ pub struct Builder {
     /// The shuffled Arsenal of the test hand, and how many cards are drawn.
     test_order: Vec<String>,
     drawn: usize,
+    share: Option<Share>,
+}
+
+/// The open Exportar or Importar window.
+enum Share {
+    /// The deck's code, already copied.
+    Export(String),
+    /// What was pasted so far.
+    Import(String),
 }
 
 /// What the deck panel shows.
@@ -216,6 +225,7 @@ impl Builder {
             analysis: Analysis::default(),
             test_order: vec![],
             drawn: 0,
+            share: None,
             deleting: None,
         };
         b.check();
@@ -432,6 +442,7 @@ impl Builder {
 
     pub fn ui(&mut self, ui: &mut Ui) -> Exit {
         let mut exit = Exit::Stay;
+        self.share_window(ui.ctx());
         egui::Panel::top("builder-top").show(ui, |ui| {
             ui.add_space(6.0);
             ui.horizontal_wrapped(|ui| {
@@ -475,6 +486,18 @@ impl Builder {
                             self.deleting = Some(name);
                         }
                     }
+                }
+                if ui
+                    .button("Exportar")
+                    .on_hover_text("Un código para compartir el mazo, o un archivo de OCTGN.")
+                    .clicked()
+                {
+                    let code = rawdeal_cards::share::deck_code(&self.deck);
+                    ui.ctx().copy_text(code.clone());
+                    self.share = Some(Share::Export(code));
+                }
+                if ui.button("Importar…").clicked() {
+                    self.share = Some(Share::Import(String::new()));
                 }
                 ui.separator();
                 ui.label("Superstar:");
@@ -751,6 +774,123 @@ impl Builder {
 }
 
 impl Builder {
+    fn share_window(&mut self, ctx: &egui::Context) {
+        let Some(share) = &mut self.share else { return };
+        let mut open = true;
+        let mut close = false;
+        let mut imported = None;
+        match share {
+            Share::Export(code) => {
+                egui::Window::new("Exportar mazo")
+                    .open(&mut open)
+                    .collapsible(false)
+                    .anchor(egui::Align2::CENTER_TOP, [0.0, 90.0])
+                    .default_width(420.0)
+                    .show(ctx, |ui| {
+                        ui.label("Código copiado. Funciona con quien tenga los mismos sets de cartas.");
+                        egui::ScrollArea::vertical().max_height(160.0).show(ui, |ui| {
+                            ui.add(egui::TextEdit::multiline(&mut code.as_str()).desired_width(f32::INFINITY));
+                        });
+                        ui.horizontal(|ui| {
+                            if ui.button("Copiar otra vez").clicked() {
+                                ui.ctx().copy_text(code.clone());
+                            }
+                            if ui.button("Guardar para OCTGN (.o8d)…").clicked()
+                                && let Some(path) = rfd::FileDialog::new()
+                                    .add_filter("Mazo de OCTGN", &["o8d"])
+                                    .set_file_name(format!(
+                                        "{}.o8d",
+                                        if self.name.trim().is_empty() { "mazo" } else { self.name.trim() }
+                                    ))
+                                    .save_file()
+                            {
+                                let (xml, missing) = rawdeal_cards::share::deck_to_o8d(&self.db, &self.deck);
+                                self.message = Some(match std::fs::write(&path, xml) {
+                                    Err(e) => (format!("No se pudo guardar {}: {e}", path.display()), true),
+                                    Ok(()) if missing.is_empty() => {
+                                        (format!("Mazo guardado en {}.", path.display()), false)
+                                    }
+                                    Ok(()) => (
+                                        format!(
+                                            "Guardado sin estas cartas, que no tienen id de OCTGN: {}.",
+                                            missing.join(", ")
+                                        ),
+                                        true,
+                                    ),
+                                });
+                                close = true;
+                            }
+                        });
+                    });
+            }
+            Share::Import(text) => {
+                egui::Window::new("Importar mazo")
+                    .open(&mut open)
+                    .collapsible(false)
+                    .anchor(egui::Align2::CENTER_TOP, [0.0, 90.0])
+                    .default_width(420.0)
+                    .show(ctx, |ui| {
+                        ui.add(
+                            egui::TextEdit::multiline(text)
+                                .hint_text("Pega aquí un código OWX1-…")
+                                .desired_rows(5)
+                                .desired_width(f32::INFINITY),
+                        );
+                        ui.horizontal(|ui| {
+                            if ui.add_enabled(!text.trim().is_empty(), egui::Button::new("Importar")).clicked() {
+                                imported = Some(rawdeal_cards::share::read_deck_code(text).map(|deck| (deck, vec![])));
+                            }
+                            if ui.button("Abrir mazo de OCTGN (.o8d)…").clicked()
+                                && let Some(path) =
+                                    rfd::FileDialog::new().add_filter("Mazo de OCTGN", &["o8d"]).pick_file()
+                            {
+                                imported = Some(match std::fs::read_to_string(&path) {
+                                    Ok(xml) => rawdeal_cards::share::deck_from_o8d(&self.db, &xml),
+                                    Err(e) => Err(rawdeal_cards::share::ShareError::BadO8d(e.to_string())),
+                                });
+                            }
+                        });
+                    });
+            }
+        }
+        match imported {
+            Some(Ok((deck, mut missing))) => {
+                let known = |id: &String| self.db.card_by_id(id).is_some();
+                for id in deck.arsenal.iter().chain(&deck.backlash).chain(&deck.backstage) {
+                    if !known(id) && !missing.contains(id) {
+                        missing.push(id.clone());
+                    }
+                }
+                if self.db.superstar_by_id(&deck.superstar).is_none() {
+                    missing.insert(0, deck.superstar.clone());
+                }
+                self.deck = deck;
+                self.deck.arsenal.retain(|id| self.db.card_by_id(id).is_some());
+                self.deck.backlash.retain(|id| self.db.card_by_id(id).is_some());
+                self.deck.backstage.retain(|id| self.db.card_by_id(id).is_some());
+                if self.db.superstar_by_id(&self.deck.superstar).is_none() {
+                    self.deck.superstar = self.db.superstars().first().map(|s| s.id.clone()).unwrap_or_default();
+                }
+                self.name.clear();
+                self.changed();
+                self.message = Some(if missing.is_empty() {
+                    ("Mazo importado. Ponle un nombre y guárdalo para jugar con él.".into(), false)
+                } else {
+                    (
+                        format!("Mazo importado sin estas cartas, que no están en tus sets: {}.", missing.join(", ")),
+                        true,
+                    )
+                });
+                close = true;
+            }
+            Some(Err(e)) => self.message = Some((e.to_string(), true)),
+            None => {}
+        }
+        if close || !open {
+            self.share = None;
+        }
+    }
+
     fn analysis_ui(&mut self, ui: &mut Ui) {
         if self.deck.arsenal.is_empty() {
             ui.label(RichText::new("Agrega cartas al Arsenal para ver su análisis.").weak());

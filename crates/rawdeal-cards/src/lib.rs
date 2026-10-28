@@ -4,6 +4,7 @@
 //! folder of their own with one RON file per set (see [`load_dir`]).
 
 pub mod octgn;
+pub mod share;
 
 use std::path::{Path, PathBuf};
 

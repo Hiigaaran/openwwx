@@ -86,6 +86,12 @@ saca la carta siguiente. Las cartas que se pueden jugar en el primer turno apare
 
 ![Una mano de prueba con el visor de la carta](docs/img/manos.png)
 
+"Exportar" copia al portapapeles un código de texto (`OWX1-…`, el mazo comprimido) para pegarlo en un mensaje, e
+"Importar…" lo lee de vuelta. El código lleva los ids de las cartas, así que sirve entre jugadores con los mismos sets,
+como el juego en línea; si falta alguna carta, el mazo se importa sin ella y se avisa cuál. Desde las mismas ventanas
+se guarda y se abre un mazo de OCTGN (`.o8d`): las cartas se reconocen por su id de OCTGN, el mismo que usan las
+imágenes.
+
 ### En línea
 
 En la sección "En línea" del menú se juega contra otra persona:
