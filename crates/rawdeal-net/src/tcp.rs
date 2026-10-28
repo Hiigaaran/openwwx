@@ -5,20 +5,47 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, BufReader};
 use std::net::{Shutdown, TcpListener, TcpStream, ToSocketAddrs};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use crate::host::{ConnId, HostCore};
-use crate::relay::{self, HostIn, HostOut, Hosted, MatchId, ToServer};
+use crate::pump::{Writer, parse, pump};
+use crate::relay::{self, HostIn, HostOut, Hosted, MatchId, Refusal, ToServer};
+use crate::secure::{self, Pin};
 use crate::wire::{read_msg, write_msg};
 use crate::{APP_VERSION, ClientMsg, ServerMsg};
 
 /// The host's link to the common server.
-type Link = Arc<Mutex<TcpStream>>;
+type Link = Writer;
 
 fn send_link(link: &Link, msg: &HostOut) -> bool {
-    link.lock().map(|mut s| write_msg(&mut *s, msg).is_ok()).unwrap_or(false)
+    link.send(msg)
+}
+
+/// The error for a [`Refusal`] from the server.
+pub fn refused(why: Refusal) -> io::Error {
+    io::Error::new(io::ErrorKind::PermissionDenied, RefusedBy(why))
+}
+
+/// The [`Refusal`] behind an error from [`refused`].
+pub fn refusal(e: &io::Error) -> Option<Refusal> {
+    e.get_ref().and_then(|e| e.downcast_ref::<RefusedBy>()).map(|r| r.0)
+}
+
+#[derive(Debug)]
+struct RefusedBy(Refusal);
+
+impl std::fmt::Display for RefusedBy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "the server said no: {:?}", self.0)
+    }
+}
+
+impl std::error::Error for RefusedBy {}
+
+/// An encrypted, pumped connection to the common server at `addr`.
+fn to_server(addr: impl ToSocketAddrs, pin: &Pin) -> io::Result<crate::pump::Pump> {
+    pump(secure::client(relay::connect(addr)?, pin)?)
 }
 
 enum Input {
@@ -81,23 +108,26 @@ impl HostHandle {
     }
 
     /// Lists `core` on the common server at `addr`; guests reach it through
-    /// the server. `host` is the hosting player's name, for the list.
-    pub fn start_on_server(core: HostCore, addr: impl ToSocketAddrs, host: &str) -> io::Result<HostHandle> {
-        let mut stream = relay::connect(addr)?;
-        let hello = ToServer::Host { app: APP_VERSION.into(), host: host.into(), info: core.info().clone() };
-        write_msg(&mut stream, &hello)?;
-        let mut reader = BufReader::new(stream.try_clone()?);
-        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-        let hosted: Hosted = read_msg(&mut reader)?
-            .ok_or_else(|| io::Error::other("the server did not take the match (it may be full)"))?;
-        stream.set_read_timeout(None)?;
-        let link: Link = Arc::new(Mutex::new(stream));
+    /// the server. `session` is the hosting player's, whose account name the
+    /// list shows.
+    pub fn start_on_server(
+        core: HostCore,
+        addr: impl ToSocketAddrs,
+        session: &str,
+        pin: &Pin,
+    ) -> io::Result<HostHandle> {
+        let server = to_server(addr, pin)?;
+        let hello = ToServer::Host { app: APP_VERSION.into(), session: session.into(), info: core.info().clone() };
+        server.writer.send(&hello);
+        let hosted = server.recv::<Result<Hosted, Refusal>>(Duration::from_secs(15))?.map_err(refused)?;
+        let link: Link = server.writer.clone();
+        let lines = server.lines;
         let (tx, rx) = mpsc::channel();
         let relay_tx = tx.clone();
         let relay_link = link.clone();
         thread::spawn(move || {
             let mut guests = HashSet::new();
-            while let Ok(Some(msg)) = read_msg::<HostIn>(&mut reader) {
+            while let Some(msg) = lines.recv().ok().and_then(|l| parse::<HostIn>(&l).ok()) {
                 let input = match msg {
                     HostIn::Joined { conn } => {
                         guests.insert(conn);
@@ -151,7 +181,7 @@ impl Drop for HostHandle {
             TcpStream::connect(("127.0.0.1", port)).ok();
         }
         if let Some((link, _)) = &self.server {
-            link.lock().map(|s| s.shutdown(Shutdown::Both)).ok();
+            link.close();
         }
     }
 }
@@ -224,23 +254,25 @@ fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
 
 enum Out {
     Tcp(TcpStream),
+    Pump(Writer),
     Local { id: ConnId, tx: Sender<Input> },
 }
 
 /// How to reach a match again after losing the connection.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Dial {
     /// A host's address, "192.168.0.10:7777".
     Direct(String),
-    /// A match on the common server at an address.
-    Server(String, MatchId),
+    /// A match on the common server at an address, with the player's
+    /// session there.
+    Server { addr: String, id: MatchId, session: String, pin: Pin },
 }
 
 impl Dial {
     pub fn connect(&self) -> io::Result<Connection> {
         match self {
             Dial::Direct(addr) => Connection::connect(addr.as_str()),
-            Dial::Server(addr, id) => Connection::join_on_server(addr.as_str(), *id),
+            Dial::Server { addr, id, session, pin } => Connection::join_on_server(addr.as_str(), *id, session, pin),
         }
     }
 }
@@ -257,11 +289,21 @@ impl Connection {
         Connection::over(relay::connect(addr)?)
     }
 
-    /// Connects to match `id` on the common server at `addr`.
-    pub fn join_on_server(addr: impl ToSocketAddrs, id: MatchId) -> io::Result<Connection> {
-        let mut stream = relay::connect(addr)?;
-        write_msg(&mut stream, &ToServer::Join { id })?;
-        Connection::over(stream)
+    /// Connects to match `id` on the common server at `addr`, as the
+    /// account `session` belongs to.
+    pub fn join_on_server(addr: impl ToSocketAddrs, id: MatchId, session: &str, pin: &Pin) -> io::Result<Connection> {
+        let server = to_server(addr, pin)?;
+        server.writer.send(&ToServer::Join { id, session: session.into() });
+        let (tx, rx) = mpsc::channel();
+        let lines = server.lines;
+        thread::spawn(move || {
+            while let Some(msg) = lines.recv().ok().and_then(|l| parse::<ServerMsg>(&l).ok()) {
+                if tx.send(msg).is_err() {
+                    return;
+                }
+            }
+        });
+        Ok(Connection { out: Out::Pump(server.writer), rx })
     }
 
     fn over(stream: TcpStream) -> io::Result<Connection> {
@@ -281,6 +323,13 @@ impl Connection {
     pub fn send(&mut self, msg: ClientMsg) -> io::Result<()> {
         match &mut self.out {
             Out::Tcp(stream) => write_msg(stream, &msg),
+            Out::Pump(w) => {
+                if w.send(&msg) {
+                    Ok(())
+                } else {
+                    Err(io::Error::from(io::ErrorKind::BrokenPipe))
+                }
+            }
             Out::Local { id, tx } => {
                 tx.send(Input::Msg(*id, msg)).map_err(|_| io::Error::from(io::ErrorKind::BrokenPipe))
             }
@@ -312,6 +361,7 @@ impl Drop for Connection {
             Out::Tcp(stream) => {
                 stream.shutdown(Shutdown::Both).ok();
             }
+            Out::Pump(w) => w.close(),
             Out::Local { id, tx } => {
                 tx.send(Input::Gone(*id)).ok();
             }

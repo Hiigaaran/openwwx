@@ -18,7 +18,9 @@
 //! - `--server ADDR`: go through the common server at ADDR (`openwwx-server`,
 //!   port 7778 by default) instead: `--host` lists your match there, and
 //!   `--join ID` / `--spectate ID` take the match number from `--list ADDR`,
-//!   which prints the open matches.
+//!   which prints the open matches. The server needs an account:
+//!   `--user NAME --password PASSWORD` logs in, and `--register` makes the
+//!   account first. Others see you by the account's name.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
 //!   `--superstar1`/`--superstar2` build a quick deck for that Superstar id.
@@ -35,7 +37,7 @@ use rawdeal_ai::{Difficulty, RandomBot};
 use rawdeal_core::*;
 use rawdeal_net::{
     APP_VERSION, ClientMsg, Connection, DEFAULT_PORT, DEFAULT_SERVER_PORT, HostCore, HostHandle, MatchInfo, Role,
-    ServerMsg, relay,
+    ServerMsg, relay, secure,
 };
 
 /// `addr`, with `port` when it names none.
@@ -56,7 +58,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
     if let Some(addr) = arg(&args, "--list") {
         let addr = with_port(addr, DEFAULT_SERVER_PORT);
-        return match relay::list(addr.as_str()) {
+        return match relay::list(addr.as_str(), &secure::pin(None)) {
             Ok(list) if list.is_empty() => {
                 println!("No open matches on {addr}.");
                 ExitCode::SUCCESS
@@ -166,14 +168,40 @@ fn main() -> ExitCode {
         return if ok { ExitCode::SUCCESS } else { ExitCode::FAILURE };
     }
 
-    let player = arg(&args, "--name").unwrap_or("Player").to_string();
+    let mut player = arg(&args, "--name").unwrap_or("Player").to_string();
+    let pin = secure::pin(None);
+    let session = match &server {
+        Some(addr) if online => {
+            let (Some(user), Some(password)) = (arg(&args, "--user"), arg(&args, "--password")) else {
+                return fail(
+                    "the server needs an account: --user NAME --password PASSWORD (and --register to make it)",
+                );
+            };
+            let answer = if flag("--register") {
+                relay::register(addr.as_str(), &pin, user, password)
+            } else {
+                relay::login(addr.as_str(), &pin, user, password)
+            };
+            match answer {
+                Ok(Ok(session)) => {
+                    let print = pin.lock().unwrap().clone().unwrap_or_default();
+                    println!("Logged in as {} (server certificate {print}).", session.name);
+                    player = session.name;
+                    session.token
+                }
+                Ok(Err(why)) => return fail(format!("the server said no: {why:?}")),
+                Err(e) => return fail(format!("cannot reach the server at {addr}: {e}")),
+            }
+        }
+        _ => String::new(),
+    };
     if flag("--host") {
         let port = arg(&args, "--host").and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
         let info = MatchInfo { name: format!("{player}'s match"), mode, revolution: rules };
         let db = Arc::new(db);
         let core = HostCore::new(db.clone(), info, seed);
         let mut host = match &server {
-            Some(server) => match HostHandle::start_on_server(core, server.as_str(), &player) {
+            Some(server) => match HostHandle::start_on_server(core, server.as_str(), &session, &pin) {
                 Ok(h) => h,
                 Err(e) => return fail(format!("cannot host on the server at {server}: {e}")),
             },
@@ -196,7 +224,7 @@ fn main() -> ExitCode {
             let conn = match &server {
                 Some(server) => {
                     let Ok(id) = addr.parse() else { return fail(format!("{addr} is not a match number")) };
-                    Connection::join_on_server(server.as_str(), id)
+                    Connection::join_on_server(server.as_str(), id, &session, &pin)
                         .map_err(|e| format!("cannot reach the server at {server}: {e}"))
                 }
                 None => {

@@ -368,6 +368,21 @@ pub fn mode(mode: Mode) -> &'static str {
     }
 }
 
+/// Why the common server said no.
+pub fn refusal(why: rawdeal_net::Refusal) -> String {
+    use rawdeal_net::Refusal::*;
+    match why {
+        NameTaken => "Ese nombre ya tiene cuenta en este servidor. Si es tuyo, entra con tu contraseña.",
+        BadName => "El nombre debe tener de 3 a 20 letras, números, espacios, _, - o .",
+        BadPassword => "La contraseña debe tener al menos 6 caracteres.",
+        WrongPassword => "Nombre o contraseña incorrectos.",
+        NotLoggedIn => "Tu sesión en el servidor terminó. Vuelve a entrar con tu cuenta.",
+        NoAccount => "No hay una cuenta con ese nombre.",
+        Full => "El servidor no tiene lugar para más partidas.",
+    }
+    .into()
+}
+
 pub fn player(p: PlayerId, me: PlayerId) -> &'static str {
     if p == me { "Tú" } else { "Rival" }
 }

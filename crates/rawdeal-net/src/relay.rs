@@ -1,25 +1,36 @@
-//! The common server: a list of open matches, and a relay between each
-//! match's host and its guests. It runs no match and needs no card data:
-//! hosts still run their matches ([`crate::HostCore`]), and the server only
-//! passes messages along, so nobody has to open a port on their router.
+//! The common server: player accounts, a list of open matches, and a relay
+//! between each match's host and its guests. It runs no match and needs no
+//! card data: hosts still run their matches ([`crate::HostCore`]), and the
+//! server only passes messages along, so nobody has to open a port on their
+//! router.
 //!
-//! A connection's first line says what it is for ([`ToServer`]):
-//! - `Host`: the server answers [`Hosted`], then sends [`HostIn`] lines and
-//!   takes [`HostOut`] lines.
+//! Connections are encrypted ([`crate::secure`]). A connection's first line
+//! says what it is for ([`ToServer`]):
+//! - `Register`, `Login`, `Logout`, `List`: the server answers once and
+//!   closes.
+//! - `Host`: the server answers `Result<Hosted, Refusal>`, then sends
+//!   [`HostIn`] lines and takes [`HostOut`] lines.
 //! - `Join`: from then on the connection is a guest's link to that match,
-//!   with the same messages as a direct connection to the host.
-//! - `List`: the server answers with the open matches and closes.
+//!   with the same messages as a direct connection to the host. The server
+//!   puts the account's name in the guest's `Hello`.
+//!
+//! Hosting and joining need a session from `Register` or `Login`.
 
 use std::collections::HashMap;
 use std::io::{self, BufReader};
-use std::net::{Shutdown, TcpListener, TcpStream, ToSocketAddrs};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use rustls::ServerConfig;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::accounts::{Accounts, Session};
 use crate::host::ConnId;
+use crate::pump::{Writer, parse, pump};
+use crate::secure::{self, Pin};
 use crate::wire::{read_msg, write_msg};
 use crate::{ClientMsg, Lobby, MatchInfo, Rejection, ServerMsg};
 
@@ -29,7 +40,7 @@ pub const DEFAULT_SERVER_PORT: u16 = 7778;
 /// Most matches listed at once, so a broken client cannot fill memory.
 const MAX_MATCHES: usize = 500;
 
-/// Longest name kept for a match or a host.
+/// Longest name kept for a match.
 const MAX_NAME: usize = 40;
 
 /// Identifies a match on the server.
@@ -38,13 +49,38 @@ pub type MatchId = u64;
 /// A connection's first line.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ToServer {
-    /// List this match. `host` is the hosting player's name, `app` their
-    /// OpenWWX version.
-    Host { app: String, host: String, info: MatchInfo },
+    /// Make an account; answered with `Result<Session, Refusal>`.
+    Register { name: String, password: String },
+    /// Answered with `Result<Session, Refusal>`.
+    Login { name: String, password: String },
+    /// End a session; answered with `()`.
+    Logout { session: String },
+    /// List this match. `app` is the host's OpenWWX version; the host's
+    /// name is the session's account.
+    Host { app: String, session: String, info: MatchInfo },
     /// Connect to match `id` as a guest.
-    Join { id: MatchId },
+    Join { id: MatchId, session: String },
     /// Ask for the open matches.
     List,
+}
+
+/// Why the server said no.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Refusal {
+    /// Someone has that name already.
+    NameTaken,
+    /// Names are 3 to 20 letters, digits, spaces, `_`, `-` or `.`.
+    BadName,
+    /// Passwords are at least [`crate::accounts::MIN_PASSWORD`] long.
+    BadPassword,
+    /// Wrong name or password.
+    WrongPassword,
+    /// The session ended, or never was: log in again.
+    NotLoggedIn,
+    /// No account by that name.
+    NoAccount,
+    /// The server lists as many matches as it can.
+    Full,
 }
 
 /// The server's answer to [`ToServer::Host`].
@@ -83,12 +119,35 @@ pub enum HostOut {
     Lobby(Lobby),
 }
 
+/// Sends `msg` to the server at `addr` and reads its one answer.
+fn ask<T: DeserializeOwned>(addr: impl ToSocketAddrs, pin: &Pin, msg: &ToServer) -> io::Result<T> {
+    let mut tls = secure::client(connect(addr)?, pin)?;
+    tls.sock.set_read_timeout(Some(Duration::from_secs(15)))?;
+    write_msg(&mut tls, msg)?;
+    read_msg(&mut BufReader::new(tls))?.ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))
+}
+
 /// The open matches on the server at `addr`.
-pub fn list(addr: impl ToSocketAddrs) -> io::Result<Vec<Listing>> {
-    let mut stream = connect(addr)?;
-    stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-    write_msg(&mut stream, &ToServer::List)?;
-    read_msg(&mut BufReader::new(stream))?.ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))
+pub fn list(addr: impl ToSocketAddrs, pin: &Pin) -> io::Result<Vec<Listing>> {
+    ask(addr, pin, &ToServer::List)
+}
+
+/// Makes an account on the server at `addr`, and logs in with it.
+pub fn register(
+    addr: impl ToSocketAddrs,
+    pin: &Pin,
+    name: &str,
+    password: &str,
+) -> io::Result<Result<Session, Refusal>> {
+    ask(addr, pin, &ToServer::Register { name: name.into(), password: password.into() })
+}
+
+pub fn login(addr: impl ToSocketAddrs, pin: &Pin, name: &str, password: &str) -> io::Result<Result<Session, Refusal>> {
+    ask(addr, pin, &ToServer::Login { name: name.into(), password: password.into() })
+}
+
+pub fn logout(addr: impl ToSocketAddrs, pin: &Pin, session: &str) -> io::Result<()> {
+    ask(addr, pin, &ToServer::Logout { session: session.into() })
 }
 
 pub(crate) fn connect(addr: impl ToSocketAddrs) -> io::Result<TcpStream> {
@@ -102,44 +161,83 @@ type Shared<T> = Arc<Mutex<T>>;
 
 struct Listed {
     listing: Listing,
-    host: Shared<TcpStream>,
-    guests: HashMap<ConnId, Shared<TcpStream>>,
+    host: Writer,
+    guests: HashMap<ConnId, Writer>,
 }
 
 #[derive(Default)]
-struct Server {
+struct Matches {
     matches: HashMap<MatchId, Listed>,
     next_id: MatchId,
     next_conn: ConnId,
 }
 
+struct Server {
+    matches: Shared<Matches>,
+    accounts: Arc<Accounts>,
+}
+
+impl Server {
+    fn matches(&self) -> std::sync::MutexGuard<'_, Matches> {
+        self.matches.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
 /// Runs the common server on `listener` until the process ends.
-pub fn serve(listener: TcpListener) {
-    let server: Shared<Server> = Arc::default();
+pub fn serve(listener: TcpListener, tls: Arc<ServerConfig>, accounts: Arc<Accounts>) {
+    let server = Arc::new(Server { matches: Arc::default(), accounts });
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         stream.set_nodelay(true).ok();
-        let server = server.clone();
+        let (server, tls) = (server.clone(), tls.clone());
         thread::spawn(move || {
-            let Ok(reader) = stream.try_clone() else { return };
-            let mut reader = BufReader::new(reader);
-            match read_msg::<ToServer>(&mut reader) {
-                Ok(Some(ToServer::Host { app, host, info })) => serve_host(&server, stream, reader, app, host, info),
-                Ok(Some(ToServer::Join { id })) => serve_guest(&server, stream, reader, id),
-                Ok(Some(ToServer::List)) => {
-                    let list: Vec<Listing> = {
-                        let s = server.lock().expect("server lock");
-                        let mut list: Vec<Listing> = s.matches.values().map(|m| m.listing.clone()).collect();
-                        list.sort_by_key(|l| l.id);
-                        list
-                    };
-                    let mut stream = stream;
-                    write_msg(&mut stream, &list).ok();
-                }
-                _ => {}
+            if let Ok(stream) = secure::server(stream, &tls) {
+                serve_one(&server, stream);
             }
         });
     }
+}
+
+fn serve_one(server: &Server, stream: secure::Tls<rustls::ServerConnection>) {
+    let Ok(pump) = pump(stream) else { return };
+    let Ok(first) = pump.recv::<ToServer>(Duration::from_secs(15)) else { return };
+    let w = &pump.writer;
+    let accounts = &server.accounts;
+    match first {
+        ToServer::Register { name, password } => {
+            w.send(&accounts.register(&name, &password));
+        }
+        ToServer::Login { name, password } => {
+            let answer = accounts.login(&name, &password);
+            if answer.is_err() {
+                // Slows down guessing.
+                thread::sleep(Duration::from_secs(1));
+            }
+            w.send(&answer);
+        }
+        ToServer::Logout { session } => {
+            accounts.logout(&session);
+            w.send(&());
+        }
+        ToServer::List => {
+            let mut list: Vec<Listing> = server.matches().matches.values().map(|m| m.listing.clone()).collect();
+            list.sort_by_key(|l| l.id);
+            w.send(&list);
+        }
+        ToServer::Host { app, session, info } => match accounts.session(&session) {
+            Some(name) => return serve_host(server, pump, app, name, info),
+            None => {
+                w.send(&Err::<Hosted, _>(Refusal::NotLoggedIn));
+            }
+        },
+        ToServer::Join { id, session } => match accounts.session(&session) {
+            Some(name) => return serve_guest(server, pump, id, name),
+            None => {
+                w.send(&ServerMsg::Rejected(Rejection::NotLoggedIn));
+            }
+        },
+    }
+    w.close();
 }
 
 fn short(name: String) -> String {
@@ -150,89 +248,78 @@ fn short(name: String) -> String {
     }
 }
 
-fn send(stream: &Shared<TcpStream>, msg: &impl Serialize) -> bool {
-    stream.lock().map(|mut s| write_msg(&mut *s, msg).is_ok()).unwrap_or(false)
-}
-
-fn serve_host(
-    server: &Shared<Server>,
-    stream: TcpStream,
-    mut reader: BufReader<TcpStream>,
-    app: String,
-    host: String,
-    mut info: MatchInfo,
-) {
-    let stream = Arc::new(Mutex::new(stream));
+fn serve_host(server: &Server, pump: crate::pump::Pump, app: String, host: String, mut info: MatchInfo) {
     let id = {
-        let mut s = server.lock().expect("server lock");
+        let mut s = server.matches();
         if s.matches.len() >= MAX_MATCHES {
+            pump.writer.send(&Err::<Hosted, _>(Refusal::Full));
+            pump.writer.close();
             return;
         }
         s.next_id += 1;
         let id = s.next_id;
         info.name = short(info.name);
-        let listing = Listing { id, app: short(app), host: short(host), info, lobby: None };
-        s.matches.insert(id, Listed { listing, host: stream.clone(), guests: HashMap::new() });
+        let listing = Listing { id, app: short(app), host, info, lobby: None };
+        s.matches.insert(id, Listed { listing, host: pump.writer.clone(), guests: HashMap::new() });
         id
     };
-    if send(&stream, &Hosted { id }) {
-        while let Ok(Some(out)) = read_msg::<HostOut>(&mut reader) {
-            // Writes to a guest happen outside the lock, so a slow guest
-            // holds up only its own match.
-            let (guest, msg) = {
-                let mut s = server.lock().expect("server lock");
-                let Some(m) = s.matches.get_mut(&id) else { break };
-                match out {
-                    HostOut::Send { conn, msg } => (m.guests.get(&conn).cloned(), Some(msg)),
-                    HostOut::Close { conn } => (m.guests.remove(&conn), None),
-                    HostOut::Lobby(lobby) => {
-                        m.listing.lobby = Some(lobby);
-                        (None, None)
+    if pump.writer.send(&Ok::<_, Refusal>(Hosted { id })) {
+        while let Ok(line) = pump.lines.recv() {
+            let Ok(out) = parse::<HostOut>(&line) else { break };
+            let mut s = server.matches();
+            let Some(m) = s.matches.get_mut(&id) else { break };
+            match out {
+                HostOut::Send { conn, msg } => {
+                    if let Some(guest) = m.guests.get(&conn) {
+                        guest.send(&msg);
                     }
                 }
-            };
-            match (guest, msg) {
-                (Some(guest), Some(msg)) => {
-                    send(&guest, &msg);
+                HostOut::Close { conn } => {
+                    if let Some(guest) = m.guests.remove(&conn) {
+                        guest.close();
+                    }
                 }
-                (Some(guest), None) => {
-                    guest.lock().map(|g| g.shutdown(Shutdown::Both)).ok();
-                }
-                _ => {}
+                HostOut::Lobby(lobby) => m.listing.lobby = Some(lobby),
             }
         }
     }
-    let gone = server.lock().expect("server lock").matches.remove(&id);
+    let gone = server.matches().matches.remove(&id);
     for guest in gone.iter().flat_map(|m| m.guests.values()) {
-        guest.lock().map(|g| g.shutdown(Shutdown::Both)).ok();
+        guest.close();
     }
-    stream.lock().map(|s| s.shutdown(Shutdown::Both)).ok();
+    pump.writer.close();
 }
 
-fn serve_guest(server: &Shared<Server>, stream: TcpStream, mut reader: BufReader<TcpStream>, id: MatchId) {
-    let stream = Arc::new(Mutex::new(stream));
+fn serve_guest(server: &Server, pump: crate::pump::Pump, id: MatchId, name: String) {
     let joined = {
-        let mut s = server.lock().expect("server lock");
+        let mut s = server.matches();
         s.next_conn += 1;
         let conn = s.next_conn;
         s.matches.get_mut(&id).map(|m| {
-            m.guests.insert(conn, stream.clone());
+            m.guests.insert(conn, pump.writer.clone());
             (conn, m.host.clone())
         })
     };
     let Some((conn, host)) = joined else {
-        send(&stream, &ServerMsg::Rejected(Rejection::NoMatch));
+        pump.writer.send(&ServerMsg::Rejected(Rejection::NoMatch));
+        pump.writer.close();
         return;
     };
-    if send(&host, &HostIn::Joined { conn }) {
-        while let Ok(Some(msg)) = read_msg::<ClientMsg>(&mut reader) {
-            if !send(&host, &HostIn::Msg { conn, msg }) {
+    if host.send(&HostIn::Joined { conn }) {
+        while let Ok(line) = pump.lines.recv() {
+            let Ok(mut msg) = parse::<ClientMsg>(&line) else { break };
+            if let ClientMsg::Hello { name: said, .. } = &mut msg {
+                // Guests are who their account says.
+                said.clone_from(&name);
+            }
+            if !host.send(&HostIn::Msg { conn, msg }) {
                 break;
             }
         }
     }
-    if let Some(m) = server.lock().expect("server lock").matches.get_mut(&id) {
+    if let Some(m) = server.matches().matches.get_mut(&id) {
         m.guests.remove(&conn);
     }
-    send(&host, &HostIn::Gone { conn });
+    host.send(&HostIn::Gone { conn });
+    pump.writer.close();
 }

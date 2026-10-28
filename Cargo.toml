@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.31.0"
+version = "0.32.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 
@@ -21,3 +21,10 @@ proptest = "1.12.0"
 
 [profile.release]
 strip = true
+
+# Password hashing is slow unoptimized; tests and debug builds hash too.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3

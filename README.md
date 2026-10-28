@@ -67,6 +67,16 @@ con las reglas elegidas y la pone en la lista, y "Ver partidas" muestra las part
 esperando rival o jugando, cuántos miran) con botones para jugar o mirar. La lista se actualiza sola. El servidor no
 corre las partidas ni necesita las cartas: solo reenvía los mensajes entre quien hospeda y quienes se unen.
 
+En el servidor común cada jugador tiene una **cuenta**: en "Tu cuenta" se escribe nombre y contraseña y se pulsa "Crear
+cuenta" la primera vez y "Entrar" después. El nombre queda reservado en ese servidor (sin distinguir mayúsculas) y es
+el que ven los demás; la app recuerda la sesión, así que la contraseña se escribe una vez. Publicar, jugar y mirar en
+el servidor piden haber entrado. La conexión con el servidor va cifrada (TLS): el servidor crea su propio certificado
+la primera vez, la app lo recuerda, y si después cambia avisa antes de conectarse ("Confiar en el certificado nuevo"
+solo si el administrador dijo que lo cambió). Las contraseñas se guardan como hash Argon2. No hay correo para
+recuperarlas: el administrador pone una nueva con `openwwx-server --reset-password NOMBRE CONTRASEÑA`. El servidor
+guarda cuentas y certificado en la carpeta `openwwx-server-data` (o la que se pase con `--data`), y al arrancar
+muestra la huella del certificado. Las partidas directas (Hospedar / Unirse directo) siguen sin cuentas ni cifrado.
+
 Durante la partida hay un chat arriba del relato. Si a un jugador se le corta la conexión, la app vuelve a conectarse
 sola y lo devuelve a su asiento; si no vuelve en 2 minutos, pierde por abandono, y "Salir" en medio de la partida
 también cuenta como abandono. Si sale quien hospeda, la partida se cierra para todos.

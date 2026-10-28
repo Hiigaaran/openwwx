@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 use rawdeal_ai::RandomBot;
 use rawdeal_core::{Mode, Outcome, PlayerId, RevolutionRules, WinMethod};
 use rawdeal_net::{
-    APP_VERSION, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Rejection, Role, ServerMsg, Update, relay,
+    APP_VERSION, Accounts, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Refusal, Rejection, Role, ServerMsg,
+    Update, relay, secure,
 };
 
 fn core() -> HostCore {
@@ -108,14 +109,70 @@ fn play(mut me: Connection, mut rival: Connection, watcher: Connection) {
     }
 }
 
+/// A common server on a free port, with its data in a new folder.
+fn server() -> (std::net::SocketAddr, std::path::PathBuf) {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = std::env::temp_dir().join(format!("openwwx-test-{}-{n}", std::process::id()));
+    std::fs::remove_dir_all(&dir).ok();
+    let (tls, _) = secure::server_config(&dir).unwrap();
+    let accounts = Arc::new(Accounts::open(dir.join("accounts.json")).unwrap());
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    std::thread::spawn(move || relay::serve(listener, tls, accounts));
+    (addr, dir)
+}
+
+#[test]
+fn accounts_reserve_names() {
+    let (server, dir) = server();
+    let pin = secure::pin(None);
+    let ana = relay::register(server, &pin, "Ana", "secreto1").unwrap().unwrap();
+    assert_eq!(ana.name, "Ana");
+    assert!(pin.lock().unwrap().is_some(), "the first connection trusts the certificate");
+    assert_eq!(relay::register(server, &pin, "ana", "otro1234").unwrap(), Err(Refusal::NameTaken));
+    assert_eq!(relay::register(server, &pin, "x", "secreto1").unwrap(), Err(Refusal::BadName));
+    assert_eq!(relay::register(server, &pin, "Beto", "123").unwrap(), Err(Refusal::BadPassword));
+    assert_eq!(relay::login(server, &pin, "Ana", "mal").unwrap(), Err(Refusal::WrongPassword));
+    let again = relay::login(server, &pin, "ANA", "secreto1").unwrap().unwrap();
+    assert_eq!(again.name, "Ana");
+    assert_ne!(again.token, ana.token);
+
+    // Accounts are kept on disk; a logged-out session no longer works.
+    relay::logout(server, &pin, &ana.token).unwrap();
+    let saved = Accounts::open(dir.join("accounts.json")).unwrap();
+    assert_eq!(saved.session(&again.token).as_deref(), Some("Ana"));
+    assert_eq!(saved.session(&ana.token), None);
+    saved.reset_password("ana", "nuevo123").unwrap();
+    assert_eq!(saved.session(&again.token), None);
+    assert!(saved.login("Ana", "nuevo123").is_ok());
+
+    // Without a session, there is no hosting or joining.
+    let refused = HostHandle::start_on_server(core(), server, "nope", &pin).err().unwrap();
+    assert_eq!(rawdeal_net::tcp::refusal(&refused), Some(Refusal::NotLoggedIn));
+    let c = Connection::join_on_server(server, 1, "nope", &pin).unwrap();
+    assert_eq!(next(&c), ServerMsg::Rejected(Rejection::NotLoggedIn));
+}
+
+#[test]
+fn a_server_with_another_certificate_is_refused() {
+    let (first, _) = server();
+    let pin = secure::pin(None);
+    relay::list(first, &pin).unwrap();
+    let (second, _) = server();
+    let e = relay::list(second, &pin).unwrap_err();
+    assert!(e.to_string().contains(secure::CHANGED), "{e}");
+}
+
 #[test]
 fn a_match_through_the_common_server() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let server = listener.local_addr().unwrap();
-    std::thread::spawn(move || relay::serve(listener));
-    assert!(relay::list(server).unwrap().is_empty());
+    let (server, _) = server();
+    let pin = secure::pin(None);
+    assert!(relay::list(server, &pin).unwrap().is_empty());
+    let account = |name: &str| relay::register(server, &pin, name, "secreto1").unwrap().unwrap().token;
+    let (ana, beto, fan) = (account("Ana"), account("Beto"), account("Fan"));
 
-    let mut h = HostHandle::start_on_server(core(), server, "Ana").unwrap();
+    let mut h = HostHandle::start_on_server(core(), server, &ana, &pin).unwrap();
     let id = h.match_id().unwrap();
     assert_eq!(h.port(), None);
     let mut me = h.connect_local();
@@ -126,7 +183,7 @@ fn a_match_through_the_common_server() {
     let listed = |pred: &dyn Fn(&[relay::Listing]) -> bool| {
         let start = Instant::now();
         while start.elapsed() < Duration::from_secs(10) {
-            if pred(&relay::list(server).unwrap()) {
+            if pred(&relay::list(server, &pin).unwrap()) {
                 return true;
             }
             std::thread::sleep(Duration::from_millis(20));
@@ -139,13 +196,16 @@ fn a_match_through_the_common_server() {
         && l[0].info.name == "Test"
         && l[0].lobby.as_ref().is_some_and(|lobby| lobby.players[0].is_some())));
 
-    let (rival, seat) = welcome(Connection::join_on_server(server, id).unwrap(), Role::Player, "Beto");
+    // Guests show up by their account's name, whatever they say.
+    let (rival, seat) = welcome(Connection::join_on_server(server, id, &beto, &pin).unwrap(), Role::Player, "Ana");
     assert_eq!(seat, Some(PlayerId::TWO));
-    let (watcher, seat) = welcome(Connection::join_on_server(server, id).unwrap(), Role::Spectator, "Fan");
+    let (watcher, seat) = welcome(Connection::join_on_server(server, id, &fan, &pin).unwrap(), Role::Spectator, "X");
     assert_eq!(seat, None);
-    let lost = Connection::join_on_server(server, id + 100).unwrap();
+    let lost = Connection::join_on_server(server, id + 100, &fan, &pin).unwrap();
     assert_eq!(next(&lost), ServerMsg::Rejected(Rejection::NoMatch));
-    assert!(listed(&|l| l[0].lobby.as_ref().is_some_and(|lobby| lobby.spectators == ["Fan"])));
+    assert!(listed(&|l| l[0].lobby.as_ref().is_some_and(
+        |lobby| lobby.spectators == ["Fan"] && lobby.players[1].as_ref().is_some_and(|p| p.name == "Beto")
+    )));
 
     play(me, rival, watcher);
 

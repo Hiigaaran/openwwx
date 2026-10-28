@@ -4,18 +4,24 @@
 //!
 //! Messages are JSON, one per line, over TCP ([`wire`]). [`tcp`] has the
 //! host and the client connection, direct or through the common server
-//! ([`relay`]), which lists open matches and passes messages along.
+//! ([`relay`]), which keeps player [`accounts`], lists open matches and
+//! passes messages along, encrypted ([`secure`]).
 
+pub mod accounts;
 pub mod host;
+pub mod pump;
 pub mod relay;
+pub mod secure;
 pub mod tcp;
 pub mod wire;
 
 use rawdeal_core::{Action, CardId, DeckList, DeckProblem, DefIdx, Event, Mode, PlayerId, PlayerView, RevolutionRules};
 use serde::{Deserialize, Serialize};
 
+pub use accounts::{Accounts, Session};
 pub use host::{ConnId, HostCore};
-pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId};
+pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId, Refusal};
+pub use secure::Pin;
 pub use tcp::{Connection, Dial, HostHandle};
 
 /// Port a host listens on unless told otherwise.
@@ -97,6 +103,8 @@ pub enum Rejection {
     NoHello,
     /// The common server has no such match (it ended).
     NoMatch,
+    /// The common server needs you logged in.
+    NotLoggedIn,
 }
 
 /// One step of the match as a seat sees it.

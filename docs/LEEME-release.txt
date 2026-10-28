@@ -17,6 +17,9 @@ En línea (sección "En línea" del menú):
   máquina accesible desde internet. Con su dirección, "Publicar partida" pone tu
   partida en la lista y "Ver partidas" muestra las abiertas para jugar o mirar.
   El servidor no necesita las cartas, y nadie tiene que abrir puertos salvo él.
+  En el servidor cada jugador entra con su cuenta ("Crear cuenta" la primera vez);
+  el nombre queda reservado y la conexión va cifrada. Si olvidas la contraseña,
+  el administrador pone una nueva: openwwx-server --reset-password NOMBRE CLAVE
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas.
 
 macOS: el programa no está firmado. La primera vez, haz clic derecho sobre openwwx y

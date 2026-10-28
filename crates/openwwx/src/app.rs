@@ -1,5 +1,6 @@
 //! Start screen and app state: choose the card folder, Superstars and decks.
 
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -9,7 +10,8 @@ use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
 use rawdeal_net::{
-    APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, HostCore, HostHandle, Listing, MatchId, MatchInfo, relay,
+    APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, HostCore, HostHandle, Listing, MatchId, MatchInfo, Pin,
+    Refusal, Session, relay, secure, tcp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +26,9 @@ type ImportResult = Arc<Mutex<Option<Result<usize, String>>>>;
 
 /// Where a background request for the common server's matches leaves them.
 type ListResult = Arc<Mutex<Option<Result<Vec<Listing>, String>>>>;
+
+/// Where a background login or registration leaves its answer.
+type AuthResult = Arc<Mutex<Option<Result<Result<Session, Refusal>, std::io::Error>>>>;
 
 /// How often an open match list asks the server again.
 const LIST_REFRESH: std::time::Duration = std::time::Duration::from_secs(5);
@@ -60,6 +65,20 @@ struct Settings {
     /// The common server, as `host:port`.
     #[serde(default)]
     server_addr: String,
+    /// Logged in on a common server.
+    #[serde(default)]
+    server_session: Option<SavedSession>,
+    /// The certificate fingerprint trusted for each common server.
+    #[serde(default)]
+    server_pins: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct SavedSession {
+    /// The server, as `host:port`.
+    addr: String,
+    name: String,
+    token: String,
 }
 
 pub struct App {
@@ -77,6 +96,15 @@ pub struct App {
     matches: Option<Result<Vec<Listing>, String>>,
     fetching: Option<ListResult>,
     fetched_at: Option<std::time::Instant>,
+    /// The certificate trusted for each common server, as connections
+    /// learn it.
+    pins: HashMap<String, Pin>,
+    /// Account form on the common server.
+    login_name: String,
+    login_password: String,
+    logging_in: Option<(String, AuthResult)>,
+    /// A server whose certificate is not the one trusted before.
+    pin_changed: Option<String>,
     /// The last import's result, for display.
     notice: Option<String>,
     ctx: egui::Context,
@@ -96,6 +124,11 @@ impl App {
             matches: None,
             fetching: None,
             fetched_at: None,
+            pins: HashMap::new(),
+            login_name: String::new(),
+            login_password: String::new(),
+            logging_in: None,
+            pin_changed: None,
             notice: None,
             ctx: cc.egui_ctx.clone(),
         };
@@ -269,12 +302,102 @@ impl App {
         if addr.contains(':') { addr.into() } else { format!("{addr}:{DEFAULT_SERVER_PORT}") }
     }
 
+    /// The certificate trusted for the server at `addr`.
+    fn pin(&mut self, addr: &str) -> Pin {
+        let known = self.settings.server_pins.get(addr).cloned();
+        self.pins.entry(addr.to_string()).or_insert_with(|| secure::pin(known)).clone()
+    }
+
+    /// Keeps the certificates connections learned.
+    fn remember_pins(&mut self) {
+        for (addr, pin) in &self.pins {
+            if let Some(print) = pin.lock().ok().and_then(|p| p.clone()) {
+                self.settings.server_pins.insert(addr.clone(), print);
+            }
+        }
+    }
+
+    /// Your session on the server in the form, if you logged in there.
+    fn session(&self) -> Option<&SavedSession> {
+        let addr = self.server_addr();
+        self.settings.server_session.as_ref().filter(|s| s.addr == addr)
+    }
+
+    /// Says why talking to the server at `addr` failed.
+    fn server_error(&mut self, addr: &str, e: &std::io::Error) -> String {
+        if e.to_string().contains(secure::CHANGED) {
+            self.pin_changed = Some(addr.to_string());
+            return format!(
+                "El certificado del servidor {addr} no es el de la última vez. Puede que alguien esté \
+                 interceptando la conexión. Si su administrador lo cambió, pulsa «Confiar en el certificado nuevo»."
+            );
+        }
+        match tcp::refusal(e) {
+            Some(Refusal::NotLoggedIn) => {
+                self.settings.server_session = None;
+                "Tu sesión en el servidor terminó. Vuelve a entrar con tu cuenta.".into()
+            }
+            Some(Refusal::Full) => format!("El servidor {addr} no tiene lugar para más partidas."),
+            Some(why) => text::refusal(why),
+            None => format!("No se pudo conectar al servidor {addr}: {e}"),
+        }
+    }
+
+    /// Logs in, or makes the account, in the background.
+    fn log_in(&mut self, register: bool) {
+        let addr = self.server_addr();
+        let pin = self.pin(&addr);
+        let (name, password) = (self.login_name.trim().to_string(), self.login_password.clone());
+        let slot: AuthResult = Arc::new(Mutex::new(None));
+        self.logging_in = Some((addr.clone(), slot.clone()));
+        self.error = None;
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let answer = if register {
+                relay::register(addr.as_str(), &pin, &name, &password)
+            } else {
+                relay::login(addr.as_str(), &pin, &name, &password)
+            };
+            if let Ok(mut s) = slot.lock() {
+                *s = Some(answer);
+            }
+            ctx.request_repaint();
+        });
+    }
+
+    fn poll_login(&mut self) {
+        let Some((addr, slot)) = &self.logging_in else { return };
+        let Some(answer) = slot.lock().ok().and_then(|mut s| s.take()) else { return };
+        let addr = addr.clone();
+        self.logging_in = None;
+        self.remember_pins();
+        match answer {
+            Ok(Ok(session)) => {
+                self.login_password.clear();
+                self.settings.server_session = Some(SavedSession { addr, name: session.name, token: session.token });
+            }
+            Ok(Err(why)) => self.error = Some(text::refusal(why)),
+            Err(e) => self.error = Some(self.server_error(&addr, &e)),
+        }
+    }
+
+    fn log_out(&mut self) {
+        let Some(session) = self.settings.server_session.take() else { return };
+        let pin = self.pin(&session.addr);
+        std::thread::spawn(move || relay::logout(session.addr.as_str(), &pin, &session.token).ok());
+    }
+
     /// Hosts a match with the chosen rules and sits you in it with your
     /// Superstar and deck: on this computer's port, or listed on the common
     /// server.
     fn host(&mut self, on_server: bool) {
         let Some(deck) = self.online_deck() else { return };
-        let name = self.online_name();
+        let session = if on_server { self.session().cloned() } else { None };
+        if on_server && session.is_none() {
+            self.error = Some("Entra con tu cuenta del servidor para publicar una partida.".into());
+            return;
+        }
+        let name = session.as_ref().map_or_else(|| self.online_name(), |s| s.name.clone());
         let info =
             MatchInfo { name: format!("Partida de {name}"), mode: self.mode(), revolution: self.revolution_rules() };
         let seed = std::time::SystemTime::now()
@@ -283,10 +406,12 @@ impl App {
             .unwrap_or(1);
         let core = HostCore::new(self.db.clone(), info, seed);
         let port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
-        let started = if on_server {
+        let started = if let Some(session) = session {
             let addr = self.server_addr();
-            HostHandle::start_on_server(core, addr.as_str(), &name)
-                .map_err(|e| format!("No se pudo publicar la partida en el servidor {addr}: {e}"))
+            let pin = self.pin(&addr);
+            let started = HostHandle::start_on_server(core, addr.as_str(), &session.token, &pin);
+            self.remember_pins();
+            started.map_err(|e| self.server_error(&addr, &e))
         } else {
             HostHandle::start(core, port).map_err(|e| format!("No se pudo hospedar en el puerto {port}: {e}"))
         };
@@ -310,20 +435,32 @@ impl App {
             let Some(deck) = self.online_deck() else { return };
             Some(deck)
         };
-        let dial = match on_server {
-            Some(id) => Dial::Server(self.server_addr(), id),
+        let (dial, name) = match on_server {
+            Some(id) => {
+                let Some(session) = self.session().cloned() else {
+                    self.error = Some("Entra con tu cuenta del servidor para jugar o mirar.".into());
+                    return;
+                };
+                let pin = self.pin(&session.addr);
+                (Dial::Server { addr: session.addr, id, session: session.token, pin }, session.name)
+            }
             None => {
                 let addr = self.settings.online_addr.trim().to_string();
-                Dial::Direct(if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") })
+                (
+                    Dial::Direct(if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") }),
+                    self.online_name(),
+                )
             }
         };
-        let conn = dial.connect().map_err(|e| match &dial {
-            Dial::Server(addr, _) => format!("No se pudo conectar al servidor {addr}: {e}"),
+        let conn = dial.connect();
+        self.remember_pins();
+        let conn = conn.map_err(|e| match &dial {
+            Dial::Server { addr, .. } => self.server_error(addr, &e),
             Dial::Direct(addr) => format!("No se pudo conectar a {addr}: {e}"),
         });
         match conn {
             Ok(conn) => {
-                let table = Table::online(self.db.clone(), conn, &self.online_name(), deck, None, Some(dial));
+                let table = Table::online(self.db.clone(), conn, &name, deck, None, Some(dial));
                 self.game = Some(Match::new(table, vec![], self.settings.speed));
             }
             Err(e) => self.error = Some(e),
@@ -336,9 +473,16 @@ impl App {
         self.fetching = Some(slot.clone());
         self.fetched_at = Some(std::time::Instant::now());
         let addr = self.server_addr();
+        let pin = self.pin(&addr);
         let ctx = self.ctx.clone();
         std::thread::spawn(move || {
-            let result = relay::list(addr.as_str()).map_err(|e| format!("No se pudo conectar al servidor {addr}: {e}"));
+            let result = relay::list(addr.as_str(), &pin).map_err(|e| {
+                if e.to_string().contains(secure::CHANGED) {
+                    format!("El certificado del servidor {addr} no es el de la última vez; no se pidió la lista.")
+                } else {
+                    format!("No se pudo conectar al servidor {addr}: {e}")
+                }
+            });
             if let Ok(mut s) = slot.lock() {
                 *s = Some(result);
             }
@@ -351,6 +495,10 @@ impl App {
     fn poll_matches(&mut self) {
         if let Some(result) = self.fetching.as_ref().and_then(|s| s.lock().ok().and_then(|mut s| s.take())) {
             self.fetching = None;
+            self.remember_pins();
+            if result.as_ref().is_err_and(|e| e.contains("certificado")) {
+                self.pin_changed = Some(self.server_addr());
+            }
             self.matches = Some(result);
         }
         if self.matches.is_some() && self.fetching.is_none() {
@@ -371,11 +519,13 @@ impl App {
         );
         ui.add_space(8.0);
         self.poll_matches();
+        self.poll_login();
         egui::Grid::new("online").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
             ui.label("Tu nombre:");
             ui.add(
                 egui::TextEdit::singleline(&mut self.settings.online_name).hint_text("Jugador").desired_width(240.0),
-            );
+            )
+            .on_hover_text("Para partidas directas. En el servidor común te ven con el nombre de tu cuenta.");
             ui.end_row();
 
             ui.label("Servidor común:");
@@ -391,15 +541,32 @@ impl App {
                     self.fetch_matches();
                 }
                 if ui
-                    .add_enabled(typed, egui::Button::new("Publicar partida"))
+                    .add_enabled(typed && self.session().is_some(), egui::Button::new("Publicar partida"))
                     .on_hover_text(
                         "Crea una partida con las reglas elegidas arriba y la pone en la lista del servidor.",
                     )
+                    .on_disabled_hover_text("Entra con tu cuenta del servidor para publicar una partida.")
                     .clicked()
                 {
                     self.host(true);
                 }
+                let addr = self.server_addr();
+                if self.pin_changed.as_ref() == Some(&addr)
+                    && ui
+                        .button("Confiar en el certificado nuevo")
+                        .on_hover_text("Hazlo solo si el administrador del servidor te dijo que lo cambió.")
+                        .clicked()
+                {
+                    self.settings.server_pins.remove(&addr);
+                    self.pins.remove(&addr);
+                    self.pin_changed = None;
+                    self.error = None;
+                }
             });
+            ui.end_row();
+
+            ui.label("Tu cuenta:");
+            self.account_row(ui);
             ui.end_row();
 
             ui.label("Hospedar aquí:");
@@ -439,8 +606,52 @@ impl App {
         self.match_list(ui);
     }
 
+    /// Who you are on the common server, or the form to log in.
+    fn account_row(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if let Some(session) = self.session() {
+                ui.label(format!("Conectado como {}", session.name));
+                if ui.button("Cerrar sesión").clicked() {
+                    self.log_out();
+                }
+                return;
+            }
+            let typed = !self.settings.server_addr.trim().is_empty();
+            if self.login_name.is_empty() {
+                self.login_name = self.settings.online_name.trim().to_string();
+            }
+            ui.add(egui::TextEdit::singleline(&mut self.login_name).hint_text("nombre").desired_width(140.0));
+            let password = ui.add(
+                egui::TextEdit::singleline(&mut self.login_password)
+                    .password(true)
+                    .hint_text("contraseña")
+                    .desired_width(140.0),
+            );
+            let busy = self.logging_in.is_some();
+            let ready = typed && !busy && !self.login_name.trim().is_empty() && !self.login_password.is_empty();
+            let enter = password.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if ui.add_enabled(ready, egui::Button::new("Entrar")).clicked() || (enter && ready) {
+                self.log_in(false);
+            }
+            if ui
+                .add_enabled(ready, egui::Button::new("Crear cuenta"))
+                .on_hover_text(
+                    "Reserva tu nombre en este servidor. Nombre de 3 a 20 letras o números; contraseña de 6 o más \
+                     caracteres. No hay correo para recuperarla: si la olvidas, pídele al administrador que la cambie.",
+                )
+                .clicked()
+            {
+                self.log_in(true);
+            }
+            if busy {
+                ui.spinner();
+            }
+        });
+    }
+
     /// The common server's matches, with buttons to play or watch.
     fn match_list(&mut self, ui: &mut Ui) {
+        let logged_in = self.session().is_some();
         let Some(result) = &self.matches else { return };
         ui.add_space(12.0);
         let mut chosen = None;
@@ -481,6 +692,8 @@ impl App {
                         });
                         if m.app != APP_VERSION {
                             ui.colored_label(egui::Color32::from_rgb(240, 110, 110), format!("usa OpenWWX {}", m.app));
+                        } else if !logged_in {
+                            ui.label("entra con tu cuenta para jugar o mirar");
                         } else {
                             ui.horizontal(|ui| {
                                 if ui.add_enabled(!started && players.len() < 2, egui::Button::new("Jugar")).clicked() {

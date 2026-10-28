@@ -335,5 +335,8 @@ fn rejection(r: &Rejection) -> String {
         Rejection::Full => "Los dos lugares de jugador ya están ocupados. Puedes entrar a mirar.".into(),
         Rejection::NoHello => "La partida no entendió la conexión.".into(),
         Rejection::NoMatch => "Esa partida ya no está en el servidor.".into(),
+        Rejection::NotLoggedIn => {
+            "Tu sesión en el servidor terminó. Cierra sesión y vuelve a entrar con tu cuenta.".into()
+        }
     }
 }

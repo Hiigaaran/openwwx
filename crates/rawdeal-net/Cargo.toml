@@ -6,9 +6,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+argon2 = { version = "0.6.0", features = ["getrandom"] }
+getrandom = "0.4.3"
 rawdeal-core.workspace = true
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.11.1"
 
 [dev-dependencies]
 rawdeal-ai.workspace = true
