@@ -57,6 +57,21 @@ const SET: &str = r#"(
             script: (after_success: Some(()))),
         (id: "m/cancel", title: "Cancel", kinds: [Reversal], fortitude: 0, damage: 0,
             script: (after_success: Some((at: BeforeEffects, cancel: true)))),
+        (id: "m/trap", title: "Trap", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (opponent_ability: Some((effects: [Draw(who: You, n: 2)])))),
+        (id: "m/lockbox", title: "Lockbox", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (ring_ability: Some((effects: [Draw(who: You, n: 2)], unreversible: true)))),
+        (id: "m/focus", title: "Focus", kinds: [Action], fortitude: 0, damage: 0,
+            script: (on_play: [Boost((applies_to: Maneuver, duration: NextCard,
+                only_reversed_by: Some(Title("Double"))))])),
+        (id: "m/watcher", title: "Watcher", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (in_ring_on_play: [(whose: Some(Opponent), filter: Maneuver, effects: [Draw(who: You, n: 1)],
+                owner_controls: true, once_per_turn: true)])),
+        (id: "m/alarm", title: "Alarm", kinds: [Maneuver(Strike)], fortitude: 0, damage: 0,
+            script: (in_ring_on_play: [(whose: Some(Opponent), filter: Maneuver, effects: [Draw(who: You, n: 1)],
+                owner_controls: true, on_attempt: true)])),
+        (id: "m/heavy", title: "Heavy", kinds: [Reversal], fortitude: 0, damage: 0,
+            script: (reverses: Some((targets: Maneuver, counts_as_overturned: 2)))),
     ],
 )"#;
 
@@ -322,4 +337,77 @@ fn an_activated_card_effect_happens_when_not_reversed() {
     apply(&e, &mut s, P2, Action::ChooseCards(vec![]));
     assert_eq!(s.player(P1).hand.len(), hand + 2);
     assert_eq!(s.active, P1);
+}
+
+#[test]
+fn the_opponent_can_use_an_ability_of_a_card_in_your_ring() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["trap"], &[]), deck("second", &[], &[]));
+    play(&e, &mut s, P1, "trap");
+    let trap = s.player(P1).ring[0];
+    assert!(!e.legal_actions(&s, P1).contains(&Action::UseRingCard { card: trap }), "not its owner");
+    apply(&e, &mut s, P1, Action::EndTurn);
+    let hand = s.player(P2).hand.len();
+    apply(&e, &mut s, P2, Action::UseRingCard { card: trap });
+    assert_eq!(s.player(P2).hand.len(), hand + 2);
+}
+
+#[test]
+fn an_unreversible_activated_card_effect_skips_the_reversal_window() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["lockbox"], &[]), deck("second", &["nullify"], &[]));
+    play(&e, &mut s, P1, "lockbox");
+    let lockbox = s.player(P1).ring[0];
+    let hand = s.player(P1).hand.len();
+    apply(&e, &mut s, P1, Action::UseRingCard { card: lockbox });
+    assert_eq!(s.player(P1).hand.len(), hand + 2);
+    assert_eq!(s.active, P1);
+}
+
+#[test]
+fn a_boost_can_limit_which_reversals_stop_the_next_maneuver() {
+    let e = engine();
+    let mut s =
+        start(&e, Mode::QuickStart, deck("first", &["focus", "hit"], &[]), deck("second", &["block", "double"], &[]));
+    play(&e, &mut s, P1, "focus");
+    play(&e, &mut s, P1, "hit");
+    assert_eq!(reversal_options(&s), 1, "only Double can reverse it");
+}
+
+#[test]
+fn a_ring_trigger_can_be_controlled_by_its_owner_once_per_turn() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["hit", "hit"], &[]), deck("second", &["watcher"], &[]));
+    apply(&e, &mut s, P1, Action::EndTurn);
+    play(&e, &mut s, P2, "watcher");
+    apply(&e, &mut s, P2, Action::EndTurn);
+    let hand = s.player(P2).hand.len();
+    play(&e, &mut s, P1, "hit");
+    play(&e, &mut s, P1, "hit");
+    assert_eq!(s.player(P2).hand.len(), hand + 1, "Watcher's owner draws once");
+}
+
+#[test]
+fn a_ring_trigger_can_fire_when_a_card_is_played_even_if_reversed() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["hit"], &[]), deck("second", &["alarm", "block"], &[]));
+    apply(&e, &mut s, P1, Action::EndTurn);
+    play(&e, &mut s, P2, "alarm");
+    apply(&e, &mut s, P2, Action::EndTurn);
+    let hand = s.player(P2).hand.len();
+    play(&e, &mut s, P1, "hit");
+    reverse(&e, &mut s);
+    assert_eq!(s.active, P2);
+    assert_eq!(s.player(P2).hand.len(), hand + 1, "Block left; Alarm and the new turn drew one each");
+}
+
+#[test]
+fn a_reversal_can_count_double_only_when_overturned() {
+    let e = engine();
+    let mut s = start(&e, Mode::QuickStart, deck("first", &["big"], &[]), deck("second", &["heavy", "block"], &[]));
+    play(&e, &mut s, P1, "big");
+    let heavy = in_hand(&e, &s, P2, "heavy");
+    apply(&e, &mut s, P2, Action::Reverse { card: heavy });
+    reverse(&e, &mut s);
+    assert_eq!(s.active, P1, "from hand Heavy counts as one");
 }

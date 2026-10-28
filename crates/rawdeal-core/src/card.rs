@@ -590,6 +590,11 @@ pub struct CardScript {
     /// The same from your Ring: this card goes to your Ringside pile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ring_reverses_ace: Option<AceReversal>,
+    /// An ability of this card in your Ring that your opponent may use in his
+    /// Main Segment, paying the cost ("during his turn when this card is in
+    /// your Ring, he may discard 4 cards and then remove this card from the game").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opponent_ability: Option<RingAbility>,
     /// When this card is flipped face-up in a Ring (its owner controls them).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_flip_up: Vec<Effect>,
@@ -678,6 +683,17 @@ pub struct RingTrigger {
     pub whose: Option<Who>,
     pub filter: CardFilter,
     pub effects: Vec<Effect>,
+    /// The Ring card's owner controls the effects ("during his turn, when he
+    /// plays a card, you may ...").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub owner_controls: bool,
+    /// When the card is played, before any reversal, instead of when it is
+    /// successfully played.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub on_attempt: bool,
+    /// At most once per turn.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub once_per_turn: bool,
 }
 
 fn is_zero(n: &u8) -> bool {
@@ -699,6 +715,9 @@ pub struct RingAbility {
     /// Not on the turn the card was played.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub not_turn_played: bool,
+    /// The opponent cannot reverse this Activated Card Effect.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unreversible: bool,
 }
 
 /// See [`CardScript::fortitude_discount`].
@@ -949,6 +968,10 @@ pub struct Boost {
     /// Reversals needed to reverse the card, at least.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub reversals_needed: u8,
+    /// Only Reversals matching this can reverse the card ("your next maneuver
+    /// can only be reversed by Unique cards").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub only_reversed_by: Option<CardFilter>,
     /// Places the card cannot be reversed from (see [`CardScript::reversal_limits`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub no_reversal_from: Vec<crate::state::Zone>,
@@ -1031,6 +1054,9 @@ pub struct ReverseSpec {
     /// more than one ("counts as 2 reversals"); 0 is 1.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub counts_as: u8,
+    /// Counts as this many only when overturned while taking damage.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub counts_as_overturned: u8,
     /// Ignores the played card's limits on where it can be reversed from
     /// ("ignore reversal restrictions").
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -1059,6 +1085,7 @@ impl ReverseSpec {
             fortitude_when: None,
             reverses_reversals: false,
             counts_as: 0,
+            counts_as_overturned: 0,
             ignores_limits: false,
         }
     }
@@ -1083,6 +1110,11 @@ pub enum CardFilter {
     Any,
     /// A face-down card.
     FaceDown,
+    /// A card with an Activated Card Effect (a Ring or Ringside ability).
+    HasAce,
+    /// A card with a printed reversal restriction ("cannot be reversed",
+    /// "can only be reversed by ...", limits on where it is reversed from).
+    HasReversalLimit,
     Maneuver,
     ManeuverType(ManeuverType),
     Action,

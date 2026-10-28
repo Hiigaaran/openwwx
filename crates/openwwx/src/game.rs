@@ -677,7 +677,8 @@ impl Match {
                     }
                     if let Action::UseRingCard { card } = a {
                         let def = self.def_of(*card);
-                        if ui.button(format!("Usar {}", def.title)).on_hover_text(&def.text).clicked() {
+                        let whose = if self.state.card(*card).owner == self.me { "" } else { " (del rival)" };
+                        if ui.button(format!("Usar {}{whose}", def.title)).on_hover_text(&def.text).clicked() {
                             chosen = Some(a.clone());
                         }
                     }

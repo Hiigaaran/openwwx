@@ -311,6 +311,9 @@ pub struct GameState {
     /// Ring cards whose ability was used this turn.
     #[serde(default)]
     pub ring_used: Vec<CardId>,
+    /// Ring cards whose once-per-turn trigger fired this turn.
+    #[serde(default)]
+    pub ring_triggered: Vec<CardId>,
     /// Ring cards whose effects have stopped.
     #[serde(default)]
     pub lapsed: Vec<CardId>,

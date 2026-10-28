@@ -67,6 +67,8 @@ pub fn filter(f: &CardFilter) -> String {
     match f {
         CardFilter::Any => "cualquier carta".into(),
         CardFilter::FaceDown => "carta boca abajo".into(),
+        CardFilter::HasAce => "carta con efecto activado (ACE)".into(),
+        CardFilter::HasReversalLimit => "carta con restricción de reversión".into(),
         CardFilter::Maneuver => "maniobra".into(),
         CardFilter::ManeuverType(t) => maneuver(*t).into(),
         CardFilter::Action => "Acción".into(),

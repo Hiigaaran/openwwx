@@ -179,6 +179,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Ring (el costo se paga igual y el efecto no ocurre); cartas del Ring que paran una maniobra exitosa; cartas que solo
   ciertos Reversals pueden revertir ("no por cartas non-Unique"); Reversals que cuentan como 2 y Reversals que
   ignoran las restricciones de reversión.
+- ACEs de cartas de tu Ring que el rival puede usar en su turno pagando el costo, ACEs que no se pueden revertir,
+  bonos que dejan la próxima maniobra revertible solo por ciertas cartas ("solo por cartas Unique"), cartas del Ring
+  que reaccionan cuando el rival juega una carta (al jugarla, antes de cualquier Reversal, o una vez por turno, con
+  su dueño eligiendo) y Reversals que cuentan como 2 solo al voltearse recibiendo daño.
 - Validación de mazos: 60 cartas, máx. 3 copias (las reimpresiones con el mismo título cuentan juntas), Unique, Set-Up, conflictos Face/Heel, Raw/SmackDown,
   Fan Favorite/Cheater, cartas específicas de Superstar.
 

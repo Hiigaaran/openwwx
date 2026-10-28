@@ -179,7 +179,7 @@ fn describe(engine: &Engine, state: &GameState, action: &Action) -> String {
             let superstar = engine.db().superstar(state.player(state.active).superstar);
             format!("Use {}'s ability: {}", superstar.name, superstar.text)
         }
-        Action::UseRingCard { card } => format!("Use {} in your Ring", name(engine, state, *card)),
+        Action::UseRingCard { card } => format!("Use {} in play", name(engine, state, *card)),
         Action::UseBackstageCard { card } => format!("Use {} in your Backstage Area", engine.db().card(*card).title),
         Action::Reverse { card } => format!("Reverse with {}", name(engine, state, *card)),
         Action::DeclineReversal => "Don't reverse".into(),

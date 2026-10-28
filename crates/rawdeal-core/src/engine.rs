@@ -330,6 +330,7 @@ impl Engine {
             effect_ctx: None,
             restrictions: vec![],
             ring_used: vec![],
+            ring_triggered: vec![],
             lapsed: vec![],
             last_chosen: vec![],
             last_discarded: vec![],
@@ -430,6 +431,7 @@ impl Engine {
                     me.ring
                         .iter()
                         .chain(&me.ringside)
+                        .chain(&state.player(player.opponent()).ring)
                         .filter(|&&card| self.can_use_ring_card(state, player, card))
                         .map(|&card| Action::UseRingCard { card }),
                 );
@@ -554,19 +556,18 @@ impl Engine {
                 schedule_effects(state, &all, p, Source::Superstar(p));
             }
             (DecisionKind::Main, Action::UseRingCard { card }) => {
-                let script = &self.def(state, card).script;
-                let ability = match state.card(card).zone {
-                    Zone::Ringside => script.ringside_ability.clone(),
-                    _ => script.ring_ability.clone(),
-                }
-                .expect("validated");
+                let ability = self.ring_card_ability(state, p, card).cloned().expect("validated");
                 state.ring_used.push(card);
                 if ability.sacrifice {
                     self.move_card(state, card, Zone::Ringside, events);
                 }
                 state.pending.push(Step::Main);
                 let source = Source::Card(card);
-                state.pending.push(Step::AceWindow { player: p, card: Some(card), effects: ability.effects, source });
+                state.pending.push(if ability.unreversible {
+                    Step::AceResolve { player: p, effects: ability.effects, source }
+                } else {
+                    Step::AceWindow { player: p, card: Some(card), effects: ability.effects, source }
+                });
                 schedule_effects(state, &ability.cost, p, source);
             }
             (DecisionKind::Main, Action::UseBackstageCard { card }) => {
@@ -583,7 +584,7 @@ impl Engine {
             }
             (DecisionKind::Main, Action::PlayCard { card, kind }) => {
                 let pay_k = self.fortitude_payment(state, p, card, kind).unwrap_or(0);
-                let (bonus, used, end_turn) = self.play_bonus(state, p, card, kind);
+                let (bonus, used, end_turn, only_by) = self.play_bonus(state, p, card, kind);
                 for i in used.into_iter().rev() {
                     match &mut state.boosts[i].1.duration {
                         Duration::NextCards(n) if *n > 1 => *n -= 1,
@@ -610,6 +611,7 @@ impl Engine {
                     .iter()
                     .filter(|l| self.holds(state, &l.when, p))
                     .filter_map(|l| Some((l.from.iter().map(|&z| zone_bit(z)).fold(0, |a, b| a | b), l.by.clone()?)))
+                    .chain(only_by.into_iter().map(|f| (0, CardFilter::Not(Box::new(f)))))
                     .collect();
                 state.played_this_turn.push(played);
                 state.in_play_to = None;
@@ -639,6 +641,7 @@ impl Engine {
                         Step::Main,
                     ],
                 );
+                self.fire_ring_triggers(state, played, true);
                 let before = self.def(state, card).script.before_reversal.clone();
                 schedule_effects(state, &before, p, Source::Card(card));
                 if let Some(d) = self.def(state, card).script.fortitude_discount {
@@ -1015,6 +1018,7 @@ impl Engine {
                 state.refused_count_out = [false; 2];
                 state.backstage_used.clear();
                 state.ring_used.clear();
+                state.ring_triggered.clear();
                 state.heat_used = [false; 2];
                 state.volley_turn = state.volley_lock.take().filter(|&q| q == p);
                 state.last_played = state.start_after[p.index()].take().map(|c| Played::new(c, p, CardKind::Action));
@@ -1181,7 +1185,6 @@ impl Engine {
                         _ => {}
                     }
                 }
-                let mut triggers = Vec::new();
                 let opponent = played.player.opponent();
                 let mut theirs = Vec::new();
                 for ability in self.abilities(state, opponent) {
@@ -1192,23 +1195,7 @@ impl Engine {
                     }
                 }
                 schedule_effects(state, &theirs, opponent, Source::Superstar(opponent));
-                for owner in [played.player, played.player.opponent()] {
-                    for c in self.ring_cards(state, owner) {
-                        for t in &self.def(state, c).script.in_ring_on_play {
-                            let whose_ok = match t.whose {
-                                None => true,
-                                Some(Who::You) => owner == played.player,
-                                Some(Who::Opponent) => owner != played.player,
-                            };
-                            if whose_ok && self.matches(state, &t.filter, played) {
-                                triggers.push((c, t.effects.clone()));
-                            }
-                        }
-                    }
-                }
-                for (c, extra) in triggers.into_iter().rev() {
-                    schedule_effects(state, &extra, played.player, Source::Card(c));
-                }
+                self.fire_ring_triggers(state, played, false);
                 schedule_effects(state, &effects, played.player, Source::Card(played.card));
             }
             Step::DealCardDamage => {
@@ -1609,7 +1596,7 @@ impl Engine {
             .and_then(|src| state.in_play.filter(|p| p.card == src))
             .filter(|played| !played.bonus.no_arsenal_reversal)
             .filter(|&played| self.can_reverse(state, player, card, played, false));
-        let weight = self.reversal_weight(state, card);
+        let weight = self.reversal_weight(state, card, false);
         if let Some(played) = stopping.filter(|&p| self.needs_more_reversals(state, p, weight)) {
             events.push(Event::PartialReversal { player, reversal: card, card: played.card });
             state.in_play = Some(Played { reversals: played.reversals + weight, ..played });
@@ -1651,8 +1638,12 @@ impl Engine {
     }
 
     /// How many reversals `reversal` counts as ([`ReverseSpec::counts_as`]).
-    fn reversal_weight(&self, state: &GameState, reversal: CardId) -> u8 {
-        self.def(state, reversal).script.reverses.as_ref().map_or(1, |s| s.counts_as.max(1))
+    /// How many reversals `reversal` counts as, from hand or overturned.
+    fn reversal_weight(&self, state: &GameState, reversal: CardId, from_hand: bool) -> u8 {
+        self.def(state, reversal).script.reverses.as_ref().map_or(1, |s| match s.counts_as_overturned {
+            n if n > 0 && !from_hand => n,
+            _ => s.counts_as.max(1),
+        })
     }
 
     fn reversals_needed(&self, state: &GameState, played: Played) -> u8 {
@@ -1670,7 +1661,7 @@ impl Engine {
 
     fn reverse_from_hand(&self, state: &mut GameState, defender: PlayerId, reversal: CardId, events: &mut Vec<Event>) {
         let played = state.in_play.expect("card in play");
-        let weight = self.reversal_weight(state, reversal);
+        let weight = self.reversal_weight(state, reversal, true);
         if self.needs_more_reversals(state, played, weight) {
             // The first Reversal lands in the Ring without effect or damage;
             // the defender gets another chance to reverse.
@@ -2647,7 +2638,7 @@ impl Engine {
                 _ => false,
             };
         let as_action = def.script.as_action.as_ref().filter(|_| matches!(kind, CardKind::Action | CardKind::Antic));
-        let (bonus, _, _) = self.play_bonus(state, player, card, kind);
+        let (bonus, ..) = self.play_bonus(state, player, card, kind);
         let follows_up = match (&def.script.play_after, as_action) {
             (Some(filter), None) => {
                 bonus.ignore_play_after
@@ -2702,7 +2693,7 @@ impl Engine {
     fn fortitude_payment(&self, state: &GameState, player: PlayerId, card: CardId, kind: CardKind) -> Option<u8> {
         let def = self.def(state, card);
         let as_action = def.script.as_action.as_ref().filter(|_| matches!(kind, CardKind::Action | CardKind::Antic));
-        let (bonus, _, _) = self.play_bonus(state, player, card, kind);
+        let (bonus, ..) = self.play_bonus(state, player, card, kind);
         let mut printed = as_action.and_then(|a| a.fortitude).unwrap_or(def.fortitude) as i32;
         if bonus.double_fortitude {
             printed *= 2;
@@ -2810,27 +2801,71 @@ impl Engine {
         schedule_effects(state, &own, defender, Source::Superstar(defender));
     }
 
+    /// Schedules the Ring triggers (`in_ring_on_play`) that `played` sets off,
+    /// those on its attempt or those on its success.
+    fn fire_ring_triggers(&self, state: &mut GameState, played: Played, on_attempt: bool) {
+        let mut triggers = Vec::new();
+        for owner in [played.player, played.player.opponent()] {
+            for c in self.ring_cards(state, owner) {
+                if state.ring_triggered.contains(&c) {
+                    continue;
+                }
+                for t in &self.def(state, c).script.in_ring_on_play {
+                    let whose_ok = match t.whose {
+                        None => true,
+                        Some(Who::You) => owner == played.player,
+                        Some(Who::Opponent) => owner != played.player,
+                    };
+                    if t.on_attempt == on_attempt && whose_ok && self.matches(state, &t.filter, played) {
+                        let controller = if t.owner_controls { owner } else { played.player };
+                        triggers.push((c, controller, t.effects.clone(), t.once_per_turn));
+                        if t.once_per_turn {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        // Scheduled last runs first: the first trigger resolves first.
+        for (c, controller, extra, once) in triggers.into_iter().rev() {
+            if once {
+                state.ring_triggered.push(c);
+            }
+            schedule_effects(state, &extra, controller, Source::Card(c));
+        }
+    }
+
     fn ring_cards(&self, state: &GameState, p: PlayerId) -> Vec<CardId> {
         state.player(p).ring.iter().copied().filter(|c| !state.lapsed.contains(c)).collect()
     }
 
     /// Can `player` use the ability of `card` in their Ring now?
     pub fn can_use_ring_card(&self, state: &GameState, player: PlayerId, card: CardId) -> bool {
-        let inst = state.card(card);
-        let script = &self.def(state, card).script;
-        let ability = match inst.zone {
-            Zone::Ring => script.ring_ability.as_ref(),
-            Zone::Ringside => script.ringside_ability.as_ref(),
-            _ => None,
-        };
-        let Some(ability) = ability else { return false };
+        let Some(ability) = self.ring_card_ability(state, player, card) else { return false };
         state.active == player
-            && inst.owner == player
             && !state.ring_used.contains(&card)
             && !state.lapsed.contains(&card)
             && !(ability.not_turn_played && state.played_this_turn.iter().any(|p| p.card == card))
             && ability.requires.as_ref().is_none_or(|c| self.holds(state, c, player))
             && self.payable(state, player, &ability.cost)
+    }
+
+    /// The ability `player` may use on `card`: their own Ring or Ringside card's,
+    /// or the opponent ability of a card in the opponent's Ring.
+    fn ring_card_ability(
+        &self,
+        state: &GameState,
+        player: PlayerId,
+        card: CardId,
+    ) -> Option<&crate::card::RingAbility> {
+        let inst = state.card(card);
+        let script = &self.def(state, card).script;
+        match (inst.zone, inst.owner == player) {
+            (Zone::Ring, true) => script.ring_ability.as_ref(),
+            (Zone::Ringside, true) => script.ringside_ability.as_ref(),
+            (Zone::Ring, false) => script.opponent_ability.as_ref(),
+            _ => None,
+        }
     }
 
     /// Can `player` use the ability of the revealed Backstage card `card` now?
@@ -2881,7 +2916,7 @@ impl Engine {
         player: PlayerId,
         card: CardId,
         kind: CardKind,
-    ) -> (PlayBonus, Vec<usize>, bool) {
+    ) -> (PlayBonus, Vec<usize>, bool, Vec<CardFilter>) {
         let def = self.def(state, card);
         let after = state.last_played.map(|l| l.card);
         let mut played = Played { after, ..Played::new(card, player, kind) };
@@ -2968,9 +3003,11 @@ impl Engine {
         b.chain |= extra.chain;
         b.reversals_needed = b.reversals_needed.max(extra.reversals_needed);
         b.blocked_from |= extra.blocked_from;
+        let mut only_by = Vec::new();
         for (owner, boost) in auras {
             if self.matches(state, &boost.applies_to, played) {
                 add_boost(&mut played.bonus, boost, times(owner, boost));
+                only_by.extend(boost.only_reversed_by.clone());
             }
         }
         let mut used = Vec::new();
@@ -2989,9 +3026,10 @@ impl Engine {
             if applies {
                 add_boost(&mut played.bonus, boost, times(*owner, boost));
                 end_turn |= boost.end_turn;
+                only_by.extend(boost.only_reversed_by.clone());
             }
         }
-        (played.bonus, used, end_turn)
+        (played.bonus, used, end_turn, only_by)
     }
 
     /// Is `cond` true for `player`?
@@ -3598,6 +3636,7 @@ impl Engine {
             CardFilter::Holds(c) => self.holds(state, c, played.player),
             CardFilter::Any => true,
             CardFilter::FaceDown => state.card(played.card).face_down.is_some(),
+            CardFilter::HasAce | CardFilter::HasReversalLimit => self.matches_printed(def, filter, || 0),
             CardFilter::Maneuver => matches!(played.kind, CardKind::Maneuver(_)),
             CardFilter::ManeuverType(t) => played.kind == CardKind::Maneuver(*t),
             CardFilter::Action => played.kind == CardKind::Action,
@@ -3659,6 +3698,7 @@ impl Engine {
         match filter {
             CardFilter::Any => true,
             CardFilter::FaceDown => state.card(card).face_down.is_some(),
+            CardFilter::HasAce | CardFilter::HasReversalLimit => self.matches_printed(def, filter, || 0),
             CardFilter::Maneuver => def.kinds.iter().any(is_maneuver),
             CardFilter::ManeuverType(t) => def.kinds.contains(&CardKind::Maneuver(*t)),
             CardFilter::Action => def.kinds.contains(&CardKind::Action),
@@ -3707,6 +3747,17 @@ impl Engine {
             CardFilter::Target(t) => def.targets.iter().any(|x| x.eq_ignore_ascii_case(t)),
             CardFilter::HasTarget => !def.targets.is_empty(),
             CardFilter::Hybrid => def.kinds.len() > 1,
+            CardFilter::HasAce => def.script.ring_ability.is_some() || def.script.ringside_ability.is_some(),
+            CardFilter::HasReversalLimit => {
+                let s = &def.script;
+                s.irreversible
+                    || s.no_hand_reversal
+                    || s.only_reversed_by_title
+                    || !s.reversal_limits.is_empty()
+                    || s.not_reversed_by.is_some()
+                    || s.no_arsenal_reversal
+                    || s.no_backlash_reversal
+            }
             _ => unreachable!("only printed filters"),
         }
     }
