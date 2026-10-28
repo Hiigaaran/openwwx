@@ -9,6 +9,7 @@ mod art;
 mod cards;
 mod game;
 mod o8c;
+mod social;
 mod table;
 mod text;
 

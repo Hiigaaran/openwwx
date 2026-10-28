@@ -237,6 +237,16 @@ impl Table {
         self.online_state().and_then(|o| o.host.as_ref()).and_then(HostHandle::port)
     }
 
+    /// The number of the match this app hosts on the common server, while
+    /// it waits for players.
+    pub fn open_on_server(&self) -> Option<rawdeal_net::MatchId> {
+        let online = self.online_state()?;
+        if online.lobby.as_ref().is_some_and(|l| l.started) {
+            return None;
+        }
+        online.host.as_ref().and_then(HostHandle::match_id)
+    }
+
     /// Does this app host the match?
     pub fn hosting(&self) -> bool {
         self.online_state().is_some_and(|o| o.host.is_some())

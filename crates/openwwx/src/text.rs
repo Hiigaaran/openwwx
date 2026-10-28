@@ -379,6 +379,8 @@ pub fn refusal(why: rawdeal_net::Refusal) -> String {
         NotLoggedIn => "Tu sesión en el servidor terminó. Vuelve a entrar con tu cuenta.",
         NoAccount => "No hay una cuenta con ese nombre.",
         Full => "El servidor no tiene lugar para más partidas.",
+        NotFriends => "Solo puedes invitar a tus amigos.",
+        NoMatch => "Esa partida ya no está en el servidor.",
     }
     .into()
 }

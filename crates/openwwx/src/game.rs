@@ -214,6 +214,10 @@ impl Match {
         self.step.is_none() && self.queue.is_empty()
     }
 
+    pub fn table(&self) -> &Table {
+        &self.table
+    }
+
     pub fn ui(&mut self, ui: &mut Ui) -> Leave {
         let now = ui.input(|i| i.time);
         let events = self.table.poll();

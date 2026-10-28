@@ -35,6 +35,12 @@ struct User {
     sessions: Vec<String>,
     /// Seconds since 1970.
     created: u64,
+    /// Friends, by lowercase name.
+    #[serde(default)]
+    friends: Vec<String>,
+    /// Who asked to be friends, by lowercase name.
+    #[serde(default)]
+    requests: Vec<String>,
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -154,7 +160,14 @@ impl Accounts {
             return Err(Refusal::NameTaken);
         }
         let token = new_token();
-        let user = User { name: name.into(), hash, sessions: vec![token.clone()], created: now() };
+        let user = User {
+            name: name.into(),
+            hash,
+            sessions: vec![token.clone()],
+            created: now(),
+            friends: vec![],
+            requests: vec![],
+        };
         inner.store.users.insert(key(name), user);
         inner.sessions.insert(token.clone(), key(name));
         self.save(&inner.store);
@@ -194,6 +207,74 @@ impl Accounts {
         let Some(k) = inner.sessions.remove(token) else { return };
         if let Some(user) = inner.store.users.get_mut(&k) {
             user.sessions.retain(|t| t != token);
+        }
+        self.save(&inner.store);
+    }
+
+    /// `name` as registered.
+    pub fn name(&self, name: &str) -> Option<String> {
+        self.lock().store.users.get(&key(name)).map(|u| u.name.clone())
+    }
+
+    /// `me`'s friends and who asked to be, by name as registered.
+    pub fn friends(&self, me: &str) -> (Vec<String>, Vec<String>) {
+        let inner = self.lock();
+        let users = &inner.store.users;
+        let names = |keys: &[String]| -> Vec<String> {
+            let mut names: Vec<String> = keys.iter().filter_map(|k| users.get(k)).map(|u| u.name.clone()).collect();
+            names.sort_by_key(|n| n.to_lowercase());
+            names
+        };
+        match users.get(&key(me)) {
+            Some(u) => (names(&u.friends), names(&u.requests)),
+            None => (vec![], vec![]),
+        }
+    }
+
+    /// Whether `a` and `b` are friends.
+    pub fn are_friends(&self, a: &str, b: &str) -> bool {
+        self.lock().store.users.get(&key(a)).is_some_and(|u| u.friends.contains(&key(b)))
+    }
+
+    /// `me` asks `other` to be friends, or accepts their request. Returns
+    /// `other`'s name as registered.
+    pub fn befriend(&self, me: &str, other: &str) -> Result<String, Refusal> {
+        let (me, other) = (key(me), key(other));
+        let mut inner = self.lock();
+        let users = &mut inner.store.users;
+        let Some(name) = users.get(&other).map(|u| u.name.clone()) else { return Err(Refusal::NoAccount) };
+        if me == other || !users.contains_key(&me) {
+            return Err(Refusal::NoAccount);
+        }
+        let asked = users[&me].requests.contains(&other);
+        if asked {
+            for (a, b) in [(&me, &other), (&other, &me)] {
+                let u = users.get_mut(a).expect("checked");
+                u.requests.retain(|k| k != b);
+                if !u.friends.contains(b) {
+                    u.friends.push(b.clone());
+                }
+            }
+        } else if !users[&me].friends.contains(&other) {
+            let u = users.get_mut(&other).expect("checked");
+            if !u.requests.contains(&me) {
+                u.requests.push(me.clone());
+            }
+        }
+        self.save(&inner.store);
+        Ok(name)
+    }
+
+    /// Ends the friendship between `me` and `other`, or turns down their
+    /// request, or takes back `me`'s own.
+    pub fn unfriend(&self, me: &str, other: &str) {
+        let (me, other) = (key(me), key(other));
+        let mut inner = self.lock();
+        for (a, b) in [(&me, &other), (&other, &me)] {
+            if let Some(u) = inner.store.users.get_mut(a) {
+                u.friends.retain(|k| k != b);
+                u.requests.retain(|k| k != b);
+            }
         }
         self.save(&inner.store);
     }

@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 use rawdeal_ai::RandomBot;
 use rawdeal_core::{Mode, Outcome, PlayerId, RevolutionRules, WinMethod};
 use rawdeal_net::{
-    APP_VERSION, Accounts, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Refusal, Rejection, Role, ServerMsg,
-    Stats, Update, relay, secure,
+    APP_VERSION, Accounts, ClientMsg, Connection, Friend, FromPlayer, HostCore, HostHandle, MatchInfo, Notice,
+    Presence, Refusal, Rejection, Role, ServerMsg, Stats, Update, relay, secure,
 };
 
 fn core() -> HostCore {
@@ -411,4 +411,64 @@ fn chat_and_conceding() {
     );
     rival.send(ClientMsg::Concede).unwrap();
     wait_for(&me, forfeit_win);
+}
+
+#[test]
+fn friends_see_each_other_and_invite() {
+    let (server, _) = server();
+    let pin = secure::pin(None);
+    let account = |name: &str| relay::register(server, &pin, name, "secreto1").unwrap().unwrap().token;
+    let (ana, beto, carla) = (account("Ana"), account("Beto"), account("Carla"));
+    let notice = |p: &(Presence, std::sync::mpsc::Receiver<Notice>)| {
+        p.1.recv_timeout(Duration::from_secs(10)).expect("a notice in time")
+    };
+    let friends = |p: &(Presence, std::sync::mpsc::Receiver<Notice>)| loop {
+        if let Notice::Friends { friends, requests } = notice(p) {
+            break (friends, requests);
+        }
+    };
+    let no_one = (vec![], vec![]);
+
+    let a = Presence::connect(server, &pin, &ana).unwrap();
+    assert_eq!(friends(&a), no_one);
+    let b = Presence::connect(server, &pin, &beto).unwrap();
+    assert_eq!(friends(&b), no_one);
+
+    // Ana asks; Beto sees the request and accepts; both see the other online.
+    a.0.send(&FromPlayer::Befriend { name: "beto".into() });
+    assert_eq!(friends(&a), no_one);
+    assert_eq!(friends(&b), (vec![], vec!["Ana".to_string()]));
+    b.0.send(&FromPlayer::Befriend { name: "Ana".into() });
+    let online = |name: &str, online| Friend { name: name.into(), online };
+    assert_eq!(friends(&b), (vec![online("Ana", true)], vec![]));
+    assert_eq!(friends(&a), (vec![online("Beto", true)], vec![]));
+
+    a.0.send(&FromPlayer::Befriend { name: "Nadie".into() });
+    assert_eq!(notice(&a), Notice::Refused(Refusal::NoAccount));
+
+    // Ana invites Beto to her match; she cannot invite Carla, who is no friend.
+    let h = HostHandle::start_on_server(core(), server, &ana, &pin).unwrap();
+    let id = h.match_id().unwrap();
+    a.0.send(&FromPlayer::Invite { name: "Beto".into(), id });
+    match notice(&b) {
+        Notice::Invited { from, id: invited, info } => {
+            assert_eq!((from.as_str(), invited, info.name.as_str()), ("Ana", id, "Test"));
+        }
+        other => panic!("not invited: {other:?}"),
+    }
+    let c = Presence::connect(server, &pin, &carla).unwrap();
+    assert_eq!(friends(&c), no_one);
+    a.0.send(&FromPlayer::Invite { name: "Carla".into(), id });
+    assert_eq!(notice(&a), Notice::Refused(Refusal::NotFriends));
+    b.0.send(&FromPlayer::Invite { name: "Ana".into(), id });
+    assert_eq!(notice(&b), Notice::Refused(Refusal::NoMatch));
+
+    // When Beto leaves, Ana sees him offline; then she ends the friendship.
+    drop(b);
+    assert_eq!(friends(&a), (vec![online("Beto", false)], vec![]));
+    a.0.send(&FromPlayer::Unfriend { name: "Beto".into() });
+    assert_eq!(friends(&a), no_one);
+
+    let bad = Presence::connect(server, &pin, "nope").unwrap();
+    assert_eq!(notice(&bad), Notice::Refused(Refusal::NotLoggedIn));
 }

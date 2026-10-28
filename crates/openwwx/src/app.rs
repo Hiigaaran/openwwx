@@ -10,12 +10,13 @@ use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
 use rawdeal_net::{
-    APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, HostCore, HostHandle, Listing, MatchId, MatchInfo, Pin,
-    PlayerHistory, Refusal, Session, Standing, relay, secure, tcp,
+    APP_VERSION, DEFAULT_PORT, DEFAULT_SERVER_PORT, Dial, FromPlayer, HostCore, HostHandle, Listing, MatchId,
+    MatchInfo, Pin, PlayerHistory, Refusal, Session, Standing, relay, secure, tcp,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Leave, Match, Speed};
+use crate::social::Social;
 use crate::table::Table;
 use crate::text;
 
@@ -117,6 +118,12 @@ pub struct App {
     board_fetch: Option<BoardResult>,
     /// A server whose certificate is not the one trusted before.
     pin_changed: Option<String>,
+    /// Friends and invitations, while logged in.
+    social: Option<Social>,
+    /// A name typed to add as a friend.
+    friend_name: String,
+    /// Friends invited to the match you host.
+    invited: Vec<String>,
     /// The last import's result, for display.
     notice: Option<String>,
     ctx: egui::Context,
@@ -143,6 +150,9 @@ impl App {
             board: None,
             board_fetch: None,
             pin_changed: None,
+            social: None,
+            friend_name: String::new(),
+            invited: Vec::new(),
             notice: None,
             ctx: cc.egui_ctx.clone(),
         };
@@ -355,6 +365,145 @@ impl App {
             Some(why) => text::refusal(why),
             None => format!("No se pudo conectar al servidor {addr}: {e}"),
         }
+    }
+
+    /// Keeps the link for friends and invitations up while you are logged in.
+    fn poll_social(&mut self) {
+        let wanted = self.session().map(|s| (s.addr.clone(), s.token.clone()));
+        if self.social.as_ref().map(|s| (&s.addr, &s.token)) != wanted.as_ref().map(|(a, t)| (a, t)) {
+            self.social = None;
+            if let Some((addr, token)) = wanted {
+                let pin = self.pin(&addr);
+                self.social = Some(Social::new(addr, token, pin, self.ctx.clone()));
+            }
+        }
+        if self.social.as_mut().is_some_and(|s| !s.poll()) {
+            self.social = None;
+            self.settings.server_session = None;
+            self.error = Some(text::refusal(Refusal::NotLoggedIn));
+        }
+    }
+
+    /// Your friends, their requests and invitations, and adding a friend.
+    fn friends_ui(&mut self, ui: &mut Ui) {
+        let Some(social) = &self.social else { return };
+        ui.add_space(12.0);
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Amigos").strong());
+            if !social.connected() {
+                ui.spinner();
+                ui.label(RichText::new("conectando…").weak());
+            }
+        });
+        if let Some(problem) = social.problem() {
+            ui.colored_label(egui::Color32::from_rgb(240, 110, 110), problem);
+        }
+        let mut join = None;
+        for invite in social.invites() {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(format!(
+                        "{} te invita a «{}» ({}).",
+                        invite.from,
+                        invite.info.name,
+                        text::mode(invite.info.mode)
+                    ))
+                    .color(egui::Color32::from_rgb(120, 200, 120)),
+                );
+                if ui.button("Jugar").clicked() {
+                    join = Some((invite.clone(), false));
+                }
+                if ui.button("Mirar").clicked() {
+                    join = Some((invite.clone(), true));
+                }
+                if ui.button("Descartar").clicked() {
+                    social.dismiss(&invite.from);
+                }
+            });
+        }
+        for name in social.requests() {
+            ui.horizontal(|ui| {
+                ui.label(format!("{name} quiere ser tu amigo."));
+                if ui.button("Aceptar").clicked() {
+                    social.send(FromPlayer::Befriend { name: name.clone() });
+                }
+                if ui.button("Rechazar").clicked() {
+                    social.send(FromPlayer::Unfriend { name: name.clone() });
+                }
+            });
+        }
+        let friends = social.friends();
+        if friends.is_empty() {
+            ui.label(RichText::new("Todavía no tienes amigos en este servidor.").weak());
+        }
+        egui::Grid::new("friends").spacing([16.0, 4.0]).show(ui, |ui| {
+            for f in &friends {
+                let (dot, state) = if f.online {
+                    (egui::Color32::from_rgb(120, 200, 120), "en línea")
+                } else {
+                    (egui::Color32::GRAY, "desconectado")
+                };
+                ui.horizontal(|ui| {
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+                    ui.painter().circle_filled(rect.center(), 4.0, dot);
+                    ui.label(&f.name);
+                });
+                ui.label(RichText::new(state).weak());
+                if ui.small_button("Quitar").on_hover_text("Deja de ser su amigo").clicked() {
+                    social.send(FromPlayer::Unfriend { name: f.name.clone() });
+                }
+                ui.end_row();
+            }
+        });
+        ui.horizontal(|ui| {
+            let field =
+                ui.add(egui::TextEdit::singleline(&mut self.friend_name).hint_text("nombre").desired_width(140.0));
+            let typed = !self.friend_name.trim().is_empty();
+            let enter = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            if ui
+                .add_enabled(typed, egui::Button::new("Agregar amigo"))
+                .on_hover_text("Le llega tu solicitud; son amigos cuando la acepte.")
+                .clicked()
+                || (enter && typed)
+            {
+                social.send(FromPlayer::Befriend { name: self.friend_name.trim().to_string() });
+                self.friend_name.clear();
+            }
+        });
+        if let Some((invite, watch)) = join {
+            social.dismiss(&invite.from);
+            self.join(Some(invite.id), watch);
+        }
+    }
+
+    /// While you host a match on the server: invite friends who are online.
+    fn invite_window(&mut self, ctx: &egui::Context) {
+        let Some(id) = self.game.as_ref().and_then(|g| g.table().open_on_server()) else {
+            self.invited.clear();
+            return;
+        };
+        let Some(social) = &self.social else { return };
+        let online: Vec<String> = social.friends().into_iter().filter(|f| f.online).map(|f| f.name).collect();
+        if online.is_empty() {
+            return;
+        }
+        egui::Window::new("Invitar amigos")
+            .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -16.0])
+            .resizable(false)
+            .collapsible(true)
+            .show(ctx, |ui| {
+                for name in online {
+                    ui.horizontal(|ui| {
+                        ui.label(&name);
+                        if self.invited.contains(&name) {
+                            ui.label(RichText::new("invitado").weak());
+                        } else if ui.button("Invitar").clicked() {
+                            social.send(FromPlayer::Invite { name: name.clone(), id });
+                            self.invited.push(name);
+                        }
+                    });
+                }
+            });
     }
 
     /// Logs in, or makes the account, in the background.
@@ -747,6 +896,7 @@ impl App {
             });
             ui.end_row();
         });
+        self.friends_ui(ui);
         self.match_list(ui);
         self.board_ui(ui);
     }
@@ -1060,6 +1210,11 @@ impl App {
 
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        self.poll_social();
+        if self.game.is_some() {
+            let ctx = ui.ctx().clone();
+            self.invite_window(&ctx);
+        }
         if let Some(game) = &mut self.game {
             let leave = game.ui(ui);
             self.settings.speed = game.speed;

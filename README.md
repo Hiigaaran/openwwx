@@ -83,6 +83,11 @@ partidas (rival, resultado, reglas y puntos ganados o perdidos); un clic en un n
 hospeda se va con la partida empezada, pierde por abandono. El resultado lo informa la app de quien hospeda, así que
 una app modificada podría mentir; el servidor no corre las partidas.
 
+Con la sesión abierta aparece la sección **Amigos**: "Agregar amigo" le manda una solicitud a ese nombre, y son amigos
+cuando la acepta. La lista muestra quién está en línea. Mientras esperas rival en una partida publicada en el servidor,
+la ventana "Invitar amigos" invita a los que están en línea, y a ellos les aparece la invitación con botones para
+jugar o mirar.
+
 Durante la partida hay un chat arriba del relato. Si a un jugador se le corta la conexión, la app vuelve a conectarse
 sola y lo devuelve a su asiento; si no vuelve en 2 minutos, pierde por abandono, y "Salir" en medio de la partida
 también cuenta como abandono. Si sale quien hospeda, la partida se cierra para todos.

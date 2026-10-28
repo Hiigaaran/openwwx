@@ -14,6 +14,10 @@
 //!   with the same messages as a direct connection to the host. The server
 //!   puts the account's name in the guest's `Hello`.
 //!
+//! - `Presence`: a logged-in app stays connected to hear about its friends
+//!   and invitations ([`Notice`]), and to make friends and invite them
+//!   ([`FromPlayer`]).
+//!
 //! Hosting and joining need a session from `Register` or `Login`. The
 //! server keeps each finished match between two accounts ([`crate::stats`]).
 
@@ -70,6 +74,37 @@ pub enum ToServer {
     Ranking,
     /// Ask for a player's matches; answered with [`PlayerHistory`].
     History { name: String },
+    /// Stay connected as the session's player; see [`Notice`].
+    Presence { session: String },
+}
+
+/// What a logged-in app asks on its presence connection.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum FromPlayer {
+    /// Ask to be friends, or accept their request.
+    Befriend { name: String },
+    /// Stop being friends, or turn down their request.
+    Unfriend { name: String },
+    /// Invite a friend to match `id`, which you host.
+    Invite { name: String, id: MatchId },
+}
+
+/// What the server tells a logged-in app.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Notice {
+    /// Your friends, and who asked to be; again whenever it changes.
+    Friends { friends: Vec<Friend>, requests: Vec<String> },
+    /// A friend invites you to their match.
+    Invited { from: String, id: MatchId, info: MatchInfo },
+    /// The server could not do what you asked.
+    Refused(Refusal),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Friend {
+    pub name: String,
+    /// Has the app open and logged in.
+    pub online: bool,
 }
 
 /// A player's rating and latest matches, newest first.
@@ -97,6 +132,10 @@ pub enum Refusal {
     NoAccount,
     /// The server lists as many matches as it can.
     Full,
+    /// You can only invite friends.
+    NotFriends,
+    /// No such match, or not one you host.
+    NoMatch,
 }
 
 /// The server's answer to [`ToServer::Host`].
@@ -174,6 +213,46 @@ pub fn history(addr: impl ToSocketAddrs, pin: &Pin, name: &str) -> io::Result<Pl
     ask(addr, pin, &ToServer::History { name: name.into() })
 }
 
+/// A logged-in app's live link to the server: friends and invitations.
+/// Dropping it disconnects.
+pub struct Presence {
+    writer: Writer,
+}
+
+impl Presence {
+    /// Connects to the server at `addr` as the account `session` belongs to.
+    /// The receiver gets the server's notices, and disconnects once the
+    /// server is gone.
+    pub fn connect(
+        addr: impl ToSocketAddrs,
+        pin: &Pin,
+        session: &str,
+    ) -> io::Result<(Presence, std::sync::mpsc::Receiver<Notice>)> {
+        let link = pump(secure::client(connect(addr)?, pin)?)?;
+        link.writer.send(&ToServer::Presence { session: session.into() });
+        let (tx, notices) = std::sync::mpsc::channel();
+        let lines = link.lines;
+        thread::spawn(move || {
+            while let Some(notice) = lines.recv().ok().and_then(|l| parse::<Notice>(&l).ok()) {
+                if tx.send(notice).is_err() {
+                    return;
+                }
+            }
+        });
+        Ok((Presence { writer: link.writer }, notices))
+    }
+
+    pub fn send(&self, msg: &FromPlayer) -> bool {
+        self.writer.send(msg)
+    }
+}
+
+impl Drop for Presence {
+    fn drop(&mut self) {
+        self.writer.close();
+    }
+}
+
 pub fn logout(addr: impl ToSocketAddrs, pin: &Pin, session: &str) -> io::Result<()> {
     ask(addr, pin, &ToServer::Logout { session: session.into() })
 }
@@ -238,21 +317,60 @@ struct Matches {
     next_conn: ConnId,
 }
 
+/// The apps logged in, by lowercase account name: one link per app.
+#[derive(Default)]
+struct Online {
+    links: HashMap<String, Vec<(u64, Writer)>>,
+    next: u64,
+}
+
 struct Server {
     matches: Shared<Matches>,
     accounts: Arc<Accounts>,
     stats: Arc<Stats>,
+    online: Mutex<Online>,
 }
 
 impl Server {
     fn matches(&self) -> std::sync::MutexGuard<'_, Matches> {
         self.matches.lock().unwrap_or_else(|e| e.into_inner())
     }
+
+    fn online(&self) -> std::sync::MutexGuard<'_, Online> {
+        self.online.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Sends `notice` to every app `name` has open.
+    fn tell(&self, name: &str, notice: &Notice) {
+        for (_, w) in self.online().links.get(&name.to_lowercase()).into_iter().flatten() {
+            w.send(notice);
+        }
+    }
+
+    /// Sends `name` their friends as they are now.
+    fn refresh(&self, name: &str) {
+        let (friends, requests) = self.accounts.friends(name);
+        let friends = {
+            let online = self.online();
+            friends
+                .into_iter()
+                .map(|f| Friend { online: online.links.contains_key(&f.to_lowercase()), name: f })
+                .collect()
+        };
+        self.tell(name, &Notice::Friends { friends, requests });
+    }
+
+    /// `name` came online or left: tells their friends.
+    fn refresh_friends_of(&self, name: &str) {
+        for f in self.accounts.friends(name).0 {
+            self.refresh(&f);
+        }
+    }
 }
 
 /// Runs the common server on `listener` until the process ends.
 pub fn serve(listener: TcpListener, tls: Arc<ServerConfig>, accounts: Arc<Accounts>, stats: Arc<Stats>) {
-    let server = Arc::new(Server { matches: Arc::default(), accounts, stats });
+    let server = Arc::new(Server { matches: Arc::default(), accounts, stats, online: Mutex::default() });
     for stream in listener.incoming() {
         let Ok(stream) = stream else { continue };
         stream.set_nodelay(true).ok();
@@ -304,6 +422,12 @@ fn serve_one(server: &Server, stream: secure::Tls<rustls::ServerConnection>) {
                 w.send(&Err::<Hosted, _>(Refusal::NotLoggedIn));
             }
         },
+        ToServer::Presence { session } => match accounts.session(&session) {
+            Some(name) => return serve_presence(server, pump, name),
+            None => {
+                w.send(&Notice::Refused(Refusal::NotLoggedIn));
+            }
+        },
         ToServer::Join { id, session } => match accounts.session(&session) {
             Some(name) => return serve_guest(server, pump, id, name),
             None => {
@@ -312,6 +436,68 @@ fn serve_one(server: &Server, stream: secure::Tls<rustls::ServerConnection>) {
         },
     }
     w.close();
+}
+
+fn serve_presence(server: &Server, pump: crate::pump::Pump, name: String) {
+    let me = name.to_lowercase();
+    let link = {
+        let mut online = server.online();
+        online.next += 1;
+        let link = online.next;
+        online.links.entry(me.clone()).or_default().push((link, pump.writer.clone()));
+        link
+    };
+    server.refresh(&name);
+    server.refresh_friends_of(&name);
+    while let Ok(line) = pump.lines.recv() {
+        let Ok(msg) = parse::<FromPlayer>(&line) else { break };
+        match msg {
+            FromPlayer::Befriend { name: other } => match server.accounts.befriend(&name, &other) {
+                Ok(other) => {
+                    server.refresh(&name);
+                    server.refresh(&other);
+                }
+                Err(why) => {
+                    pump.writer.send(&Notice::Refused(why));
+                }
+            },
+            FromPlayer::Unfriend { name: other } => {
+                server.accounts.unfriend(&name, &other);
+                server.refresh(&name);
+                server.refresh(&other);
+            }
+            FromPlayer::Invite { name: other, id } => {
+                let info = server
+                    .matches()
+                    .matches
+                    .get(&id)
+                    .filter(|m| m.listing.host.to_lowercase() == me)
+                    .map(|m| m.listing.info.clone());
+                match info {
+                    Some(info) if server.accounts.are_friends(&name, &other) => {
+                        server.tell(&other, &Notice::Invited { from: name.clone(), id, info });
+                    }
+                    Some(_) => {
+                        pump.writer.send(&Notice::Refused(Refusal::NotFriends));
+                    }
+                    None => {
+                        pump.writer.send(&Notice::Refused(Refusal::NoMatch));
+                    }
+                }
+            }
+        }
+    }
+    {
+        let mut online = server.online();
+        if let Some(links) = online.links.get_mut(&me) {
+            links.retain(|(l, _)| *l != link);
+            if links.is_empty() {
+                online.links.remove(&me);
+            }
+        }
+    }
+    server.refresh_friends_of(&name);
+    pump.writer.close();
 }
 
 fn short(name: String) -> String {

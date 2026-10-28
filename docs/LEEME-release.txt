@@ -21,6 +21,8 @@ En línea (sección "En línea" del menú):
   el nombre queda reservado y la conexión va cifrada. Si olvidas la contraseña,
   el administrador pone una nueva: openwwx-server --reset-password NOMBRE CLAVE
   "Ranking" y "Mi historial" muestran el puntaje (Elo) y las partidas jugadas ahí.
+  En "Amigos" agregas amigos por nombre, ves quién está en línea y, mientras
+  esperas rival, los invitas a tu partida.
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas.
 
 macOS: el programa no está firmado. La primera vez, haz clic derecho sobre openwwx y
