@@ -24,11 +24,12 @@ pub use db::{CardDb, DefIdx, SuperstarIdx};
 pub use decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpose};
 pub use deck::{
     DeckList, DeckProblem, is_revolution, may_pack_backstage, may_pack_logo, printed_match, same_superstar,
-    validate_deck, validate_deck_in,
+    validate_deck, validate_deck_in, validate_deck_with,
 };
 pub use engine::{Engine, GameSetup, RuleError, SetupError};
 pub use event::Event;
 pub use state::{
-    CardId, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, Source, Watch, WinMethod, Zone,
+    CardId, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, RevolutionRules, Source, Watch, WinMethod,
+    Zone,
 };
 pub use view::PlayerView;

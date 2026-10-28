@@ -250,6 +250,51 @@ impl Mode {
     pub fn is_advanced(self) -> bool {
         matches!(self, Mode::Advanced | Mode::Revolution | Mode::Virtual)
     }
+
+    /// The Revolution rules this mode uses unless the match says otherwise:
+    /// all of them in the Revolution format, none elsewhere.
+    pub fn revolution_rules(self) -> RevolutionRules {
+        if self == Mode::Revolution { RevolutionRules::ALL } else { RevolutionRules::NONE }
+    }
+}
+
+/// The Revolution format rules, each turned on or off for a match. The
+/// Pre-match and Backlash ones only matter with the Advanced rules.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RevolutionRules {
+    /// Only cards and Superstars with the Revolution logo.
+    #[serde(default)]
+    pub revolution_cards_only: bool,
+    /// Backlash of up to 6 Pre-match and 6 Mid-match cards.
+    #[serde(default)]
+    pub small_backlash: bool,
+    /// At most 3 Pre-match and 3 Mid-match cards in the Ring.
+    #[serde(default)]
+    pub ring_limit: bool,
+    /// Starting hands are drawn before the Pre-match phase.
+    #[serde(default)]
+    pub hands_before_pre_match: bool,
+    /// Aggression: a player who ends their turn without having tried a
+    /// maneuver overturns 6 cards.
+    #[serde(default)]
+    pub aggression: bool,
+}
+
+impl RevolutionRules {
+    pub const ALL: RevolutionRules = RevolutionRules {
+        revolution_cards_only: true,
+        small_backlash: true,
+        ring_limit: true,
+        hands_before_pre_match: true,
+        aggression: true,
+    };
+    pub const NONE: RevolutionRules = RevolutionRules {
+        revolution_cards_only: false,
+        small_backlash: false,
+        ring_limit: false,
+        hands_before_pre_match: false,
+        aggression: false,
+    };
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -296,6 +341,9 @@ pub struct GameState {
     /// Backstage cards whose ability was used this turn.
     #[serde(default)]
     pub backstage_used: Vec<(PlayerId, crate::db::DefIdx)>,
+    /// The Revolution rules in use.
+    #[serde(default)]
+    pub revolution: RevolutionRules,
     /// Revolution: the Aggression rule was already checked this turn.
     #[serde(default)]
     pub aggression_checked: bool,

@@ -94,6 +94,16 @@ pub fn is_revolution(title: &str) -> bool {
 /// allows Revolution cards and Superstars, and Backlash decks of up to 6
 /// Pre-match and 6 Mid-match cards.
 pub fn validate_deck_in(db: &CardDb, deck: &DeckList, mode: crate::state::Mode) -> Vec<DeckProblem> {
+    validate_deck_with(db, deck, mode, mode.revolution_rules())
+}
+
+/// [`validate_deck_in`] with the Revolution deck rules turned on or off.
+pub fn validate_deck_with(
+    db: &CardDb,
+    deck: &DeckList,
+    mode: crate::state::Mode,
+    rules: crate::state::RevolutionRules,
+) -> Vec<DeckProblem> {
     let mut problems = validate_deck(db, deck);
     if mode == crate::state::Mode::Virtual {
         // Virtual Backlash decks hold up to 12 Pre-match and 12 Mid-match cards.
@@ -103,32 +113,34 @@ pub fn validate_deck_in(db: &CardDb, deck: &DeckList, mode: crate::state::Mode) 
             _ => true,
         });
     }
-    if mode != crate::state::Mode::Revolution {
-        return problems;
-    }
-    let star = db.superstar_by_id(&deck.superstar).map(|i| db.superstar(i));
-    if star.is_some_and(|s| !is_revolution(&s.name)) {
-        problems.push(DeckProblem::NotRevolution { card: deck.superstar.clone() });
-    }
-    let (mut pre, mut mid) = (0, 0);
-    for id in deck.arsenal.iter().chain(&deck.backlash).chain(&deck.backstage) {
-        let Some(def) = db.card_by_id(id).map(|i| db.card(i)) else { continue };
-        if !is_revolution(&def.title) {
-            problems.push(DeckProblem::NotRevolution { card: id.clone() });
+    if rules.revolution_cards_only {
+        let star = db.superstar_by_id(&deck.superstar).map(|i| db.superstar(i));
+        if star.is_some_and(|s| !is_revolution(&s.name)) {
+            problems.push(DeckProblem::NotRevolution { card: deck.superstar.clone() });
         }
-        if deck.backlash.contains(id) {
+        for id in deck.arsenal.iter().chain(&deck.backlash).chain(&deck.backstage) {
+            if db.card_by_id(id).is_some_and(|i| !is_revolution(&db.card(i).title)) {
+                problems.push(DeckProblem::NotRevolution { card: id.clone() });
+            }
+        }
+    }
+    if rules.small_backlash && mode.is_advanced() {
+        let (mut pre, mut mid) = (0, 0);
+        for def in deck.backlash.iter().filter_map(|id| db.card_by_id(id).map(|i| db.card(i))) {
             if def.is_pre_match() {
                 pre += 1;
             } else {
                 mid += 1;
             }
         }
-    }
-    if pre > REVOLUTION_BACKLASH_MAX_PER_KIND && pre <= BACKLASH_MAX_PER_KIND {
-        problems.push(DeckProblem::TooManyPreMatch(pre));
-    }
-    if mid > REVOLUTION_BACKLASH_MAX_PER_KIND && mid <= BACKLASH_MAX_PER_KIND {
-        problems.push(DeckProblem::TooManyMidMatch(mid));
+        // Larger counts are already reported by the normal limits.
+        let already = |n: usize| mode != crate::state::Mode::Virtual && n > BACKLASH_MAX_PER_KIND;
+        if pre > REVOLUTION_BACKLASH_MAX_PER_KIND && !already(pre) {
+            problems.push(DeckProblem::TooManyPreMatch(pre));
+        }
+        if mid > REVOLUTION_BACKLASH_MAX_PER_KIND && !already(mid) {
+            problems.push(DeckProblem::TooManyMidMatch(mid));
+        }
     }
     problems
 }

@@ -27,6 +27,7 @@ fn start(e: &Engine, p1: &[&str], p2: &[&str]) -> GameState {
         enforce_deck_rules: false,
         shuffle_arsenals: false,
         mode: Mode::QuickStart,
+        revolution: None,
     };
     e.new_game(&setup, 1).expect("valid setup").0
 }

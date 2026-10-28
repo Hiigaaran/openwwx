@@ -21,8 +21,13 @@ fn stack(superstar: &str, cards: &[&str], len: usize) -> DeckList {
 }
 
 fn start(e: &Engine, p1: DeckList, p2: DeckList) -> GameState {
-    let setup =
-        GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode: Mode::QuickStart };
+    let setup = GameSetup {
+        decks: [p1, p2],
+        enforce_deck_rules: false,
+        shuffle_arsenals: false,
+        mode: Mode::QuickStart,
+        revolution: None,
+    };
     e.new_game(&setup, 1).expect("valid setup").0
 }
 
@@ -471,7 +476,13 @@ fn successful_chain_searches_for_another() {
 // --- Advanced matches ---
 
 fn advanced(e: &Engine, p1: DeckList, p2: DeckList) -> (GameState, Vec<Event>) {
-    let setup = GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode: Mode::Advanced };
+    let setup = GameSetup {
+        decks: [p1, p2],
+        enforce_deck_rules: false,
+        shuffle_arsenals: false,
+        mode: Mode::Advanced,
+        revolution: None,
+    };
     e.new_game(&setup, 1).expect("valid setup")
 }
 

@@ -151,6 +151,7 @@ fn user_sets_every_card_in_random_piles() {
             enforce_deck_rules: false,
             shuffle_arsenals: true,
             mode,
+            revolution: None,
         };
         let (mut state, _) = engine.new_game(&setup, seed).unwrap();
         let mut bots = [RandomBot::new(seed), RandomBot::new(seed + 1)];

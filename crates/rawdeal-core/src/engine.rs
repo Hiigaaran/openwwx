@@ -17,8 +17,8 @@ use crate::decision::{Action, ChoicePurpose, Decision, DecisionKind, YesNoPurpos
 use crate::deck::{DeckList, DeckProblem};
 use crate::event::Event;
 use crate::state::{
-    CardId, CardInstance, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, PlayerState, Source, Watch,
-    WinMethod, Zone, zone_bit,
+    CardId, CardInstance, GameState, Mode, NextMust, Outcome, PlayBonus, Played, PlayerId, PlayerState,
+    RevolutionRules, Source, Watch, WinMethod, Zone, zone_bit,
 };
 use crate::view::PlayerView;
 
@@ -35,17 +35,26 @@ pub struct GameSetup {
     pub shuffle_arsenals: bool,
     #[serde(default)]
     pub mode: Mode,
+    /// The Revolution rules to use; `None` is the mode's own
+    /// ([`Mode::revolution_rules`]).
+    #[serde(default)]
+    pub revolution: Option<RevolutionRules>,
 }
 
 impl GameSetup {
     /// A normal Quick Start match: legal decks, shuffled.
     pub fn standard(decks: [DeckList; 2]) -> Self {
-        GameSetup { decks, enforce_deck_rules: true, shuffle_arsenals: true, mode: Mode::QuickStart }
+        GameSetup { decks, enforce_deck_rules: true, shuffle_arsenals: true, mode: Mode::QuickStart, revolution: None }
     }
 
     /// A normal Advanced match, with Pre-match phase and Backlash decks.
     pub fn advanced(decks: [DeckList; 2]) -> Self {
         GameSetup { mode: Mode::Advanced, ..GameSetup::standard(decks) }
+    }
+
+    /// The Revolution rules this match uses.
+    pub fn revolution_rules(&self) -> RevolutionRules {
+        self.revolution.unwrap_or(self.mode.revolution_rules())
     }
 }
 
@@ -251,7 +260,7 @@ impl Engine {
                 .superstar_by_id(&deck.superstar)
                 .ok_or_else(|| SetupError::UnknownSuperstar(deck.superstar.clone()))?;
             if setup.enforce_deck_rules {
-                let problems = crate::deck::validate_deck_in(&self.db, deck, setup.mode);
+                let problems = crate::deck::validate_deck_with(&self.db, deck, setup.mode, setup.revolution_rules());
                 if !problems.is_empty() {
                     return Err(SetupError::InvalidDeck { player, problems });
                 }
@@ -305,6 +314,7 @@ impl Engine {
             active: first,
             turn: 0,
             mode: setup.mode,
+            revolution: setup.revolution_rules(),
             outcome: None,
             in_play: None,
             last_played: None,
@@ -988,7 +998,7 @@ impl Engine {
                         state.pending.push(Step::StartTurn);
                     }
                     Mode::Advanced | Mode::Revolution | Mode::Virtual => {
-                        if state.mode == Mode::Revolution {
+                        if state.revolution.hands_before_pre_match {
                             for p in [first, first.opponent()] {
                                 let n = self.hand_size(state, p);
                                 self.draw(state, p, n, events);
@@ -1288,7 +1298,7 @@ impl Engine {
                     }
                     return;
                 }
-                if state.mode == Mode::Revolution && !std::mem::replace(&mut state.aggression_checked, true) {
+                if state.revolution.aggression && !std::mem::replace(&mut state.aggression_checked, true) {
                     let tried = state
                         .played_this_turn
                         .iter()
@@ -1535,7 +1545,7 @@ impl Engine {
             }
             Step::EndPreMatch { starter } => {
                 events.push(Event::PreMatchEnded);
-                if state.mode != Mode::Revolution {
+                if !state.revolution.hands_before_pre_match {
                     for p in [starter, starter.opponent()] {
                         let n = self.hand_size(state, p);
                         self.draw(state, p, n, events);
@@ -3165,7 +3175,7 @@ impl Engine {
         let mine: i16 = self.ring_cards(state, p).iter().map(|&c| pick(self.def(state, c), true)).sum();
         let theirs: i16 = self.ring_cards(state, p.opponent()).iter().map(|&c| pick(self.def(state, c), false)).sum();
         let base = match state.mode {
-            Mode::Revolution => REVOLUTION_RING_LIMIT,
+            _ if state.revolution.ring_limit => REVOLUTION_RING_LIMIT,
             Mode::Virtual => VIRTUAL_RING_LIMIT,
             _ => RING_LIMIT,
         };

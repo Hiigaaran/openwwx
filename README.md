@@ -159,7 +159,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
   Targets, Storylines (reemplazan la Superstar Ability mientras están en el Ring) y Pre-match Corner y Faction. El
   formato Revolution se elige en el menú (o `--revolution` en el CLI): solo cartas Revolution, Backlash de 6 Pre-match y
   6 Mid-match, máximo 3 de cada en el Ring, manos antes del Pre-match y regla de agresión (si terminas el turno sin
-  intentar una maniobra, volteas 6 cartas).
+  intentar una maniobra, volteas 6 cartas). Cada una de esas cinco reglas se puede activar o desactivar antes de
+  empezar la partida (casillas bajo "Formato Revolution", o en el CLI `--no-revolution-only`, `--no-small-backlash`,
+  `--no-ring-limit`, `--no-early-hands` y `--no-aggression`). Las mecánicas de las cartas (Antic, Momentum, Targets,
+  etc.) siempre se aplican, porque están en el texto de las cartas.
 - Sets Virtual (27-51, hechos por fans en teamcanadaonline.net), Promos y Prize Cards: cartas Backstage (van en el
   Backstage Area, se revelan al empezar y dan habilidades; algunas se esconden para usar su efecto una vez), Pre-match
   Allegiance (su propio paso antes del Venue), TMF, tipos con rasgos ("Strike: Heel", "Action: Movie") y el formato

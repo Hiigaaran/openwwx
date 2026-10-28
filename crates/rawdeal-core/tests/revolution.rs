@@ -60,7 +60,8 @@ fn stack(superstar: &str, cards: &[&str], backlash: &[&str]) -> DeckList {
 }
 
 fn start_in(e: &Engine, mode: Mode, p1: DeckList, p2: DeckList) -> GameState {
-    let setup = GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode };
+    let setup =
+        GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode, revolution: None };
     e.new_game(&setup, 1).expect("valid setup").0
 }
 
@@ -233,4 +234,43 @@ fn a_maneuver_antic_hybrid_played_as_antic_uses_its_antic_text() {
     no_reversal(&e, &mut s);
     assert_eq!(s.player(P1).hand.len(), hand, "played 1, drew 1");
     assert_eq!(s.player(P2).ringside.len(), 0, "no damage and no Assault text");
+}
+
+fn start_with(e: &Engine, mode: Mode, rules: RevolutionRules, p1: DeckList, p2: DeckList) -> GameState {
+    let setup = GameSetup {
+        decks: [p1, p2],
+        enforce_deck_rules: false,
+        shuffle_arsenals: false,
+        mode,
+        revolution: Some(rules),
+    };
+    e.new_game(&setup, 1).expect("valid setup").0
+}
+
+#[test]
+fn revolution_rules_can_each_be_turned_off() {
+    let e = engine();
+    let many = ["tough-story"; 5];
+    let none = RevolutionRules::NONE;
+    let mut s = start_with(&e, Mode::Revolution, none, stack("first", &[], &many), stack("second", &[], &[]));
+    assert!(s.player(P2).hand.is_empty(), "hands are drawn after the Pre-match phase");
+    assert!(play_pre_match(&e, &mut s) > 3, "the normal Ring limit");
+    let p = s.active;
+    let events = e.apply(&mut s, p, Action::EndTurn).unwrap();
+    assert!(!events.iter().any(|ev| matches!(ev, Event::Aggression { .. })));
+
+    let mut deck = stack("old", &[], &[]);
+    deck.arsenal.resize(60, "r/old-card".into());
+    let problems = validate_deck_with(e.db(), &deck, Mode::Revolution, none);
+    assert!(!problems.iter().any(|p| matches!(p, DeckProblem::NotRevolution { .. })));
+}
+
+#[test]
+fn a_revolution_rule_can_be_used_alone() {
+    let e = engine();
+    let rules = RevolutionRules { aggression: true, ..RevolutionRules::NONE };
+    let mut s = start_with(&e, Mode::QuickStart, rules, stack("first", &[], &[]), stack("second", &[], &[]));
+    let events = e.apply(&mut s, P1, Action::EndTurn).unwrap();
+    assert!(events.contains(&Event::Aggression { player: P1 }));
+    assert_eq!(s.player(P1).ringside.len(), 6);
 }

@@ -93,9 +93,19 @@ pub fn auto_deck(db: &CardDb, superstar: &str) -> Option<DeckList> {
 
 /// [`auto_deck`] legal in `mode` (the Revolution format only uses Revolution cards).
 pub fn auto_deck_in(db: &CardDb, superstar: &str, mode: rawdeal_core::Mode) -> Option<DeckList> {
+    auto_deck_with(db, superstar, mode, mode.revolution_rules())
+}
+
+/// [`auto_deck_in`] with the Revolution deck rules turned on or off.
+pub fn auto_deck_with(
+    db: &CardDb,
+    superstar: &str,
+    mode: rawdeal_core::Mode,
+    rules: rawdeal_core::RevolutionRules,
+) -> Option<DeckList> {
     use rawdeal_core::Trait;
     let star = db.superstar(db.superstar_by_id(superstar)?);
-    let revolution = mode == rawdeal_core::Mode::Revolution;
+    let revolution = rules.revolution_cards_only;
     let named = |names: &[String]| names.iter().any(|n| star.is(n));
     let packable = |c: &CardDef| {
         (c.script.only_packed_by.is_empty() || named(&c.script.only_packed_by))
@@ -148,7 +158,7 @@ pub fn auto_deck_in(db: &CardDb, superstar: &str, mode: rawdeal_core::Mode) -> O
         }
         let deck =
             DeckList { superstar: superstar.to_string(), arsenal, backlash: vec![], backstage: backstage(db, star) };
-        if rawdeal_core::validate_deck_in(db, &deck, mode).is_empty() {
+        if rawdeal_core::validate_deck_with(db, &deck, mode, rules).is_empty() {
             return Some(deck);
         }
     }

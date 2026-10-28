@@ -172,6 +172,7 @@ fn start(e: &Engine, first: &str, p1: &[&str], second: &str, p2: &[&str]) -> Gam
         enforce_deck_rules: false,
         shuffle_arsenals: false,
         mode: Mode::QuickStart,
+        revolution: None,
     };
     let s = e.new_game(&setup, 1).expect("valid setup").0;
     assert_eq!(s.active, P1);
@@ -1016,6 +1017,7 @@ fn enforcers_add_to_the_superstar_and_can_be_switched() {
         enforce_deck_rules: false,
         shuffle_arsenals: false,
         mode: Mode::QuickStart,
+        revolution: None,
     };
     let mut s = e.new_game(&setup, 1).expect("valid setup").0;
     match &s.decision {

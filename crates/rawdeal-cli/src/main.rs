@@ -4,6 +4,9 @@
 //!
 //! - `--advanced`: Pre-match phase and Backlash decks.
 //! - `--revolution`: Revolution format (Revolution cards only, Advanced rules).
+//!   Its rules can be turned off one by one with `--no-revolution-only`,
+//!   `--no-small-backlash`, `--no-ring-limit`, `--no-early-hands` and
+//!   `--no-aggression`.
 //! - `--virtual`: Advanced rules with the Virtual Backlash and Ring limits.
 //! - `--watch`: two bots play each other and the match log is printed.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
@@ -47,6 +50,14 @@ fn main() -> ExitCode {
         Mode::QuickStart
     };
 
+    let flag = |name: &str| args.iter().any(|a| a == name);
+    let mut rules = mode.revolution_rules();
+    rules.revolution_cards_only &= !flag("--no-revolution-only");
+    rules.small_backlash &= !flag("--no-small-backlash");
+    rules.ring_limit &= !flag("--no-ring-limit");
+    rules.hands_before_pre_match &= !flag("--no-early-hands");
+    rules.aggression &= !flag("--no-aggression");
+
     let (db, decks) = match arg(&args, "--cards") {
         None => (
             rawdeal_cards::test_db(),
@@ -66,13 +77,13 @@ fn main() -> ExitCode {
                         Err(e) => return fail(e),
                     }
                 } else if let Some(id) = arg(&args, star) {
-                    match rawdeal_cards::auto_deck_in(&db, id, mode) {
+                    match rawdeal_cards::auto_deck_with(&db, id, mode, rules) {
                         Some(d) => decks.push(d),
                         None => return fail(format!("cannot build a deck for {id}")),
                     }
                 } else if args.iter().any(|a| a == "--check") {
                     for s in db.superstars() {
-                        let ok = rawdeal_cards::auto_deck_in(&db, &s.id, mode).is_some();
+                        let ok = rawdeal_cards::auto_deck_with(&db, &s.id, mode, rules).is_some();
                         println!("  {} ({}): {}", s.name, s.id, if ok { "auto deck OK" } else { "no legal auto deck" });
                     }
                     return ExitCode::SUCCESS;
@@ -86,7 +97,7 @@ fn main() -> ExitCode {
     if args.iter().any(|a| a == "--check") {
         let mut ok = true;
         for (i, deck) in decks.iter().enumerate() {
-            let mut problems = validate_deck_in(&db, deck, mode);
+            let mut problems = validate_deck_with(&db, deck, mode, rules);
             if !mode.is_advanced() {
                 problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
             }
@@ -101,7 +112,7 @@ fn main() -> ExitCode {
     }
 
     let engine = Engine::new(Arc::new(db));
-    let setup = GameSetup { mode, ..GameSetup::standard(decks) };
+    let setup = GameSetup { mode, revolution: Some(rules), ..GameSetup::standard(decks) };
     let (mut state, events) = match engine.new_game(&setup, seed) {
         Ok(started) => started,
         Err(e) => return fail(e),

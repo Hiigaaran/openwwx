@@ -89,7 +89,8 @@ fn deck(superstar: &str, cards: &[&str], backlash: &[&str]) -> DeckList {
 }
 
 fn start(e: &Engine, mode: Mode, p1: DeckList, p2: DeckList) -> GameState {
-    let setup = GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode };
+    let setup =
+        GameSetup { decks: [p1, p2], enforce_deck_rules: false, shuffle_arsenals: false, mode, revolution: None };
     e.new_game(&setup, 1).expect("valid setup").0
 }
 

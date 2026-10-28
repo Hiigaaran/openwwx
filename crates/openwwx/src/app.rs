@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, RichText, Ui};
-use rawdeal_core::{CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, is_revolution, validate_deck_in};
+use rawdeal_core::{
+    CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Leave, Match, Speed};
@@ -24,6 +26,9 @@ struct Settings {
     /// Revolution format: only Revolution cards (Advanced rules).
     #[serde(default)]
     revolution: bool,
+    /// Which Revolution rules the Revolution format uses; `None` is all of them.
+    #[serde(default)]
+    revolution_rules: Option<RevolutionRules>,
     /// Virtual limits (Advanced rules).
     #[serde(default)]
     virtual_rules: bool,
@@ -161,12 +166,20 @@ impl App {
         }
     }
 
+    /// The Revolution rules in use: the chosen ones in the Revolution format.
+    fn revolution_rules(&self) -> RevolutionRules {
+        match self.mode() {
+            Mode::Revolution => self.settings.revolution_rules.unwrap_or(RevolutionRules::ALL),
+            mode => mode.revolution_rules(),
+        }
+    }
+
     fn deck(&self, i: usize) -> Result<DeckList, String> {
         let star = self.settings.superstars[i].clone().ok_or("Elige una Superstar.")?;
         match &self.settings.decks[i] {
             Some(path) => {
                 let deck = rawdeal_cards::load_deck(path).map_err(|e| e.to_string())?;
-                let mut problems = validate_deck_in(&self.db, &deck, self.mode());
+                let mut problems = validate_deck_with(&self.db, &deck, self.mode(), self.revolution_rules());
                 if !self.mode().is_advanced() {
                     problems.retain(|p| !matches!(p, DeckProblem::NotABacklashCard { .. }));
                 }
@@ -176,7 +189,7 @@ impl App {
                     Err(format!("El mazo {} no es legal: {problems:?}", path.display()))
                 }
             }
-            None => rawdeal_cards::auto_deck_in(&self.db, &star, self.mode())
+            None => rawdeal_cards::auto_deck_with(&self.db, &star, self.mode(), self.revolution_rules())
                 .ok_or(format!("No se pudo armar un mazo para {star}.")),
         }
     }
@@ -190,7 +203,8 @@ impl App {
                 return;
             }
         };
-        let setup = GameSetup { mode: self.mode(), ..GameSetup::standard(decks) };
+        let setup =
+            GameSetup { mode: self.mode(), revolution: Some(self.revolution_rules()), ..GameSetup::standard(decks) };
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
@@ -285,7 +299,7 @@ impl App {
                         .unwrap_or_default();
                     egui::ComboBox::from_id_salt(("star", i)).width(240.0).selected_text(current).show_ui(ui, |ui| {
                         for s in self.db.superstars() {
-                            if self.settings.revolution && !is_revolution(&s.name) {
+                            if self.revolution_rules().revolution_cards_only && !is_revolution(&s.name) {
                                 continue;
                             }
                             let picked = self.settings.superstars[i].as_deref() == Some(s.id.as_str());
@@ -336,16 +350,21 @@ impl App {
                 }
                 ui.add_enabled(
                     !self.settings.virtual_rules,
-                    egui::Checkbox::new(
-                        &mut self.settings.revolution,
-                        "Formato Revolution (solo cartas Revolution, reglas avanzadas)",
-                    ),
+                    egui::Checkbox::new(&mut self.settings.revolution, "Formato Revolution (reglas avanzadas)"),
                 )
-                .on_hover_text(
-                    "Backlash de hasta 6 Pre-match y 6 Mid-match, máximo 3 de cada en el Ring, \
-                         manos antes del Pre-match y regla de agresión: si terminas el turno sin intentar \
-                         una maniobra, volteas 6 cartas.",
-                );
+                .on_hover_text("Elige abajo qué reglas del formato Revolution se usan.");
+                if self.settings.revolution {
+                    let mut rules = self.settings.revolution_rules.unwrap_or(RevolutionRules::ALL);
+                    ui.indent("revolution_rules", |ui| {
+                        ui.checkbox(&mut rules.revolution_cards_only, "Solo cartas y Superstars Revolution");
+                        ui.checkbox(&mut rules.small_backlash, "Backlash de hasta 6 Pre-match y 6 Mid-match");
+                        ui.checkbox(&mut rules.ring_limit, "Máximo 3 Pre-match y 3 Mid-match en el Ring");
+                        ui.checkbox(&mut rules.hands_before_pre_match, "Robar la mano antes del Pre-match");
+                        ui.checkbox(&mut rules.aggression, "Regla de agresión")
+                            .on_hover_text("Si terminas el turno sin intentar una maniobra, volteas 6 cartas.");
+                    });
+                    self.settings.revolution_rules = Some(rules);
+                }
             });
             ui.end_row();
         });
