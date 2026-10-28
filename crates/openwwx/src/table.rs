@@ -195,7 +195,12 @@ impl Table {
 
     /// Port of the match this app hosts.
     pub fn hosting_port(&self) -> Option<u16> {
-        self.online_state().and_then(|o| o.host.as_ref()).map(HostHandle::port)
+        self.online_state().and_then(|o| o.host.as_ref()).and_then(HostHandle::port)
+    }
+
+    /// Does this app host the match?
+    pub fn hosting(&self) -> bool {
+        self.online_state().is_some_and(|o| o.host.is_some())
     }
 }
 
@@ -222,5 +227,6 @@ fn rejection(r: &Rejection) -> String {
         }
         Rejection::Full => "Los dos lugares de jugador ya están ocupados. Puedes entrar a mirar.".into(),
         Rejection::NoHello => "La partida no entendió la conexión.".into(),
+        Rejection::NoMatch => "Esa partida ya no está en el servidor.".into(),
     }
 }

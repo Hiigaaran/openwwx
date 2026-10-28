@@ -15,6 +15,10 @@
 //!   else's match and `--spectate ADDR` watches one. `--name NAME` is how the
 //!   others see you; with `--watch` a random bot plays your seat. Everyone
 //!   needs the same card sets.
+//! - `--server ADDR`: go through the common server at ADDR (`openwwx-server`,
+//!   port 7778 by default) instead: `--host` lists your match there, and
+//!   `--join ID` / `--spectate ID` take the match number from `--list ADDR`,
+//!   which prints the open matches.
 //! - `--cards DIR`: load card sets from your own folder of `.ron` files instead
 //!   of the bundled test set; `--deck1`/`--deck2` are deck list files, or
 //!   `--superstar1`/`--superstar2` build a quick deck for that Superstar id.
@@ -29,7 +33,15 @@ use std::time::Duration;
 
 use rawdeal_ai::{Difficulty, RandomBot};
 use rawdeal_core::*;
-use rawdeal_net::{APP_VERSION, ClientMsg, Connection, DEFAULT_PORT, HostCore, HostHandle, MatchInfo, Role, ServerMsg};
+use rawdeal_net::{
+    APP_VERSION, ClientMsg, Connection, DEFAULT_PORT, DEFAULT_SERVER_PORT, HostCore, HostHandle, MatchInfo, Role,
+    ServerMsg, relay,
+};
+
+/// `addr`, with `port` when it names none.
+fn with_port(addr: &str, port: u16) -> String {
+    if addr.contains(':') { addr.to_string() } else { format!("{addr}:{port}") }
+}
 
 fn arg<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
     args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).map(String::as_str)
@@ -42,6 +54,36 @@ fn fail(msg: impl std::fmt::Display) -> ExitCode {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
+    if let Some(addr) = arg(&args, "--list") {
+        let addr = with_port(addr, DEFAULT_SERVER_PORT);
+        return match relay::list(addr.as_str()) {
+            Ok(list) if list.is_empty() => {
+                println!("No open matches on {addr}.");
+                ExitCode::SUCCESS
+            }
+            Ok(list) => {
+                for m in list {
+                    let lobby = m.lobby.as_ref();
+                    let players: Vec<&str> = lobby
+                        .map(|l| l.players.iter().flatten().map(|p| p.name.as_str()).collect())
+                        .unwrap_or_default();
+                    let state = if lobby.is_some_and(|l| l.started) { "playing" } else { "waiting" };
+                    println!(
+                        "{:>4}  {} ({:?}, OpenWWX {}) {state}; players: {}; spectators: {}",
+                        m.id,
+                        m.info.name,
+                        m.info.mode,
+                        m.app,
+                        players.join(", "),
+                        lobby.map_or(0, |l| l.spectators.len())
+                    );
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => fail(format!("cannot reach the server at {addr}: {e}")),
+        };
+    }
+    let server = arg(&args, "--server").map(|a| with_port(a, DEFAULT_SERVER_PORT));
     let seed = args
         .iter()
         .position(|a| a == "--seed")
@@ -129,21 +171,42 @@ fn main() -> ExitCode {
         let port = arg(&args, "--host").and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
         let info = MatchInfo { name: format!("{player}'s match"), mode, revolution: rules };
         let db = Arc::new(db);
-        let mut host = match HostHandle::start(HostCore::new(db.clone(), info, seed), port) {
-            Ok(h) => h,
-            Err(e) => return fail(format!("cannot host on port {port}: {e}")),
+        let core = HostCore::new(db.clone(), info, seed);
+        let mut host = match &server {
+            Some(server) => match HostHandle::start_on_server(core, server.as_str(), &player) {
+                Ok(h) => h,
+                Err(e) => return fail(format!("cannot host on the server at {server}: {e}")),
+            },
+            None => match HostHandle::start(core, port) {
+                Ok(h) => h,
+                Err(e) => return fail(format!("cannot host on port {port}: {e}")),
+            },
         };
-        println!("Hosting on port {}. Waiting for a rival...", host.port());
+        match (host.port(), host.match_id()) {
+            (Some(port), _) => println!("Hosting on port {port}. Waiting for a rival..."),
+            (_, Some(id)) => println!("Listed as match {id} on the server. Waiting for a rival..."),
+            _ => {}
+        }
         let conn = host.connect_local();
         let [deck, _] = decks;
         return play_online(conn, &db, &player, Some(deck), watch, seed);
     }
     for (option, role) in [("--join", Role::Player), ("--spectate", Role::Spectator)] {
         if let Some(addr) = arg(&args, option) {
-            let addr = if addr.contains(':') { addr.to_string() } else { format!("{addr}:{DEFAULT_PORT}") };
-            let conn = match Connection::connect(addr.as_str()) {
+            let conn = match &server {
+                Some(server) => {
+                    let Ok(id) = addr.parse() else { return fail(format!("{addr} is not a match number")) };
+                    Connection::join_on_server(server.as_str(), id)
+                        .map_err(|e| format!("cannot reach the server at {server}: {e}"))
+                }
+                None => {
+                    let addr = with_port(addr, DEFAULT_PORT);
+                    Connection::connect(addr.as_str()).map_err(|e| format!("cannot connect to {addr}: {e}"))
+                }
+            };
+            let conn = match conn {
                 Ok(c) => c,
-                Err(e) => return fail(format!("cannot connect to {addr}: {e}")),
+                Err(e) => return fail(e),
             };
             let [deck, _] = decks;
             let deck = (role == Role::Player).then_some(deck);

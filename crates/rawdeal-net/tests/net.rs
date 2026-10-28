@@ -1,18 +1,24 @@
-//! A hosted match over real TCP connections: two bot players and a spectator.
+//! A hosted match over real TCP connections, direct or through the common
+//! server: two bot players and a spectator.
 
+use std::net::TcpListener;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rawdeal_ai::RandomBot;
 use rawdeal_core::{Mode, PlayerId, RevolutionRules};
 use rawdeal_net::{
-    APP_VERSION, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Rejection, Role, ServerMsg, Update,
+    APP_VERSION, ClientMsg, Connection, HostCore, HostHandle, MatchInfo, Rejection, Role, ServerMsg, Update, relay,
 };
 
-fn host() -> HostHandle {
+fn core() -> HostCore {
     let db = Arc::new(rawdeal_cards::test_db());
     let info = MatchInfo { name: "Test".into(), mode: Mode::QuickStart, revolution: RevolutionRules::NONE };
-    HostHandle::start(HostCore::new(db, info, 5), 0).expect("host starts")
+    HostCore::new(db, info, 5)
+}
+
+fn host() -> HostHandle {
+    HostHandle::start(core(), 0).expect("host starts")
 }
 
 fn hello(role: Role, name: &str) -> ClientMsg {
@@ -25,7 +31,10 @@ fn next(c: &Connection) -> ServerMsg {
 }
 
 fn join(port: u16, role: Role, name: &str) -> (Connection, Option<PlayerId>) {
-    let mut c = Connection::connect(("127.0.0.1", port)).unwrap();
+    welcome(Connection::connect(("127.0.0.1", port)).unwrap(), role, name)
+}
+
+fn welcome(mut c: Connection, role: Role, name: &str) -> (Connection, Option<PlayerId>) {
     c.send(hello(role, name)).unwrap();
     match next(&c) {
         ServerMsg::Welcome { seat, .. } => (c, seat),
@@ -36,12 +45,12 @@ fn join(port: u16, role: Role, name: &str) -> (Connection, Option<PlayerId>) {
 #[test]
 fn two_players_and_a_spectator_play_a_match() {
     let mut h = host();
-    let port = h.port();
+    let port = h.port().unwrap();
     // The host plays from its own app; the rival and a spectator connect.
     let mut me = h.connect_local();
     me.send(hello(Role::Player, "Host")).unwrap();
     assert!(matches!(next(&me), ServerMsg::Welcome { seat: Some(PlayerId::ONE), .. }));
-    let (mut rival, seat) = join(port, Role::Player, "Rival");
+    let (rival, seat) = join(port, Role::Player, "Rival");
     assert_eq!(seat, Some(PlayerId::TWO));
     let (watcher, seat) = join(port, Role::Spectator, "Fan");
     assert_eq!(seat, None);
@@ -52,6 +61,11 @@ fn two_players_and_a_spectator_play_a_match() {
     };
     assert_eq!(next(&third), ServerMsg::Rejected(Rejection::Full));
 
+    play(me, rival, watcher);
+}
+
+/// Sends both decks and lets random bots play the match out.
+fn play(mut me: Connection, mut rival: Connection, watcher: Connection) {
     me.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/technician"))).unwrap();
     rival.send(ClientMsg::Deck(rawdeal_cards::test_deck("test/brawler"))).unwrap();
 
@@ -95,13 +109,60 @@ fn two_players_and_a_spectator_play_a_match() {
 }
 
 #[test]
+fn a_match_through_the_common_server() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let server = listener.local_addr().unwrap();
+    std::thread::spawn(move || relay::serve(listener));
+    assert!(relay::list(server).unwrap().is_empty());
+
+    let mut h = HostHandle::start_on_server(core(), server, "Ana").unwrap();
+    let id = h.match_id().unwrap();
+    assert_eq!(h.port(), None);
+    let mut me = h.connect_local();
+    me.send(hello(Role::Player, "Ana")).unwrap();
+    assert!(matches!(next(&me), ServerMsg::Welcome { seat: Some(PlayerId::ONE), .. }));
+
+    // The list shows the match and who is in it.
+    let listed = |pred: &dyn Fn(&[relay::Listing]) -> bool| {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_secs(10) {
+            if pred(&relay::list(server).unwrap()) {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        false
+    };
+    assert!(listed(&|l| l.len() == 1
+        && l[0].id == id
+        && l[0].host == "Ana"
+        && l[0].info.name == "Test"
+        && l[0].lobby.as_ref().is_some_and(|lobby| lobby.players[0].is_some())));
+
+    let (rival, seat) = welcome(Connection::join_on_server(server, id).unwrap(), Role::Player, "Beto");
+    assert_eq!(seat, Some(PlayerId::TWO));
+    let (watcher, seat) = welcome(Connection::join_on_server(server, id).unwrap(), Role::Spectator, "Fan");
+    assert_eq!(seat, None);
+    let lost = Connection::join_on_server(server, id + 100).unwrap();
+    assert_eq!(next(&lost), ServerMsg::Rejected(Rejection::NoMatch));
+    assert!(listed(&|l| l[0].lobby.as_ref().is_some_and(|lobby| lobby.spectators == ["Fan"])));
+
+    play(me, rival, watcher);
+
+    // When the host leaves, the match leaves the list.
+    drop(h);
+    assert!(listed(&|l| l.is_empty()));
+}
+
+#[test]
 fn guests_with_other_versions_or_sets_are_turned_away() {
     let h = host();
-    let mut c = Connection::connect(("127.0.0.1", h.port())).unwrap();
+    let port = h.port().unwrap();
+    let mut c = Connection::connect(("127.0.0.1", port)).unwrap();
     c.send(ClientMsg::Hello { app: "0.0.1".into(), name: "Old".into(), role: Role::Player, sets: vec![] }).unwrap();
     assert!(matches!(next(&c), ServerMsg::Rejected(Rejection::WrongVersion { .. })));
 
-    let mut c = Connection::connect(("127.0.0.1", h.port())).unwrap();
+    let mut c = Connection::connect(("127.0.0.1", port)).unwrap();
     let mut sets = rawdeal_cards::test_db().fingerprints();
     sets[0].1 ^= 1;
     sets.push(("homebrew".into(), 1));
@@ -119,7 +180,7 @@ fn guests_with_other_versions_or_sets_are_turned_away() {
 #[test]
 fn an_illegal_deck_is_rejected() {
     let h = host();
-    let (mut c, _) = join(h.port(), Role::Player, "P");
+    let (mut c, _) = join(h.port().unwrap(), Role::Player, "P");
     let mut deck = rawdeal_cards::test_deck("test/technician");
     deck.arsenal.truncate(10);
     c.send(ClientMsg::Deck(deck)).unwrap();

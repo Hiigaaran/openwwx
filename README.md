@@ -16,7 +16,7 @@ efectos programados. El diseño completo está en
 | `rawdeal-core` | Motor de reglas puro y determinista: estado, turnos, daño, reversals, victoria. |
 | `rawdeal-cards` | Carga de cartas desde archivos RON. Incluye un set de prueba con cartas y Superstars inventados. |
 | `rawdeal-ai` | Oponentes por computadora en tres niveles: Fácil, Normal y Difícil. |
-| `rawdeal-net` | Juego en línea: protocolo, partida hospedada (quien hospeda corre el motor) y conexión de jugadores y espectadores. |
+| `rawdeal-net` | Juego en línea: protocolo, partida hospedada (quien hospeda corre el motor), conexión de jugadores y espectadores, y el servidor común `openwwx-server` (lista de partidas y reenvío de mensajes). |
 | `rawdeal-cli` | Cliente de texto para jugar contra el bot y depurar el motor. |
 | `openwwx` | App de escritorio (egui): menú, tablero, mano, decisiones y relato de la lucha. |
 
@@ -60,6 +60,13 @@ En la sección "En línea" del menú se juega contra otra persona:
 - **Mirar**: entras como espectador. Ves lo mismo que vería alguien sentado junto al ring: el Ring, el Ringside, cuántas
   cartas tiene cada uno en la mano y lo que se juega, pero no las manos.
 
+Con un **servidor común** nadie tiene que abrir puertos (solo la máquina del servidor). Alguien corre
+`openwwx-server` (viene en cada release; escucha en el puerto 7778, o el que se le pase como argumento) en una máquina
+accesible desde internet. En la app se escribe su dirección en "Servidor común": "Publicar partida" crea una partida
+con las reglas elegidas y la pone en la lista, y "Ver partidas" muestra las partidas abiertas (quién juega, si están
+esperando rival o jugando, cuántos miran) con botones para jugar o mirar. La lista se actualiza sola. El servidor no
+corre las partidas ni necesita las cartas: solo reenvía los mensajes entre quien hospeda y quienes se unen.
+
 Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas; si no coinciden, la sala de espera dice qué
 sets faltan o son distintos. Quien hospeda valida los mazos con las reglas de la partida. Nadie recibe las cartas
 ocultas de los demás.
@@ -85,6 +92,10 @@ cargo run -p rawdeal-cli -- --watch --seed 3  # ver una partida bot contra bot
 cargo run -p rawdeal-cli -- --host --name Ana          # hospedar una partida en línea (puerto 7777)
 cargo run -p rawdeal-cli -- --join 192.168.0.10 --name Beto  # unirse como jugador
 cargo run -p rawdeal-cli -- --spectate 192.168.0.10    # mirar
+cargo run -p rawdeal-net --bin openwwx-server           # servidor común (puerto 7778)
+cargo run -p rawdeal-cli -- --list mi-servidor.com      # partidas abiertas en el servidor
+cargo run -p rawdeal-cli -- --server mi-servidor.com --host --name Ana    # publicar una partida
+cargo run -p rawdeal-cli -- --server mi-servidor.com --join 3 --name Beto # unirse a la partida 3
 ```
 
 ## Qué funciona
@@ -244,8 +255,7 @@ cargo run -p rawdeal-cli -- --spectate 192.168.0.10    # mirar
 
 ## Pendiente
 
-En línea: un servidor común donde se listen las partidas abiertas (para no tener que abrir puertos), reconexión si se
-corta la conexión, derrota por abandono y chat en la mesa.
+En línea: reconexión si se corta la conexión, derrota por abandono y chat en la mesa.
 
 Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team, Trip, Partner
 Interference y la parte de compañero de Combination Attack). Todos los sets de OCTGN (01-51, Promos y Prize Cards)

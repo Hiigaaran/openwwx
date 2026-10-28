@@ -8,16 +8,26 @@ use rawdeal_ai::Difficulty;
 use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
-use rawdeal_net::{Connection, DEFAULT_PORT, HostCore, HostHandle, MatchInfo};
+use rawdeal_net::{
+    APP_VERSION, Connection, DEFAULT_PORT, DEFAULT_SERVER_PORT, HostCore, HostHandle, Listing, MatchId, MatchInfo,
+    relay,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Leave, Match, Speed};
 use crate::table::Table;
+use crate::text;
 
 const SETTINGS_KEY: &str = "openwwx-settings";
 
 /// Where a background image import leaves its result: images copied, or an error.
 type ImportResult = Arc<Mutex<Option<Result<usize, String>>>>;
+
+/// Where a background request for the common server's matches leaves them.
+type ListResult = Arc<Mutex<Option<Result<Vec<Listing>, String>>>>;
+
+/// How often an open match list asks the server again.
+const LIST_REFRESH: std::time::Duration = std::time::Duration::from_secs(5);
 
 /// Remembered between runs.
 #[derive(Default, Serialize, Deserialize)]
@@ -48,6 +58,9 @@ struct Settings {
     /// Last address joined, as `host:port`.
     #[serde(default)]
     online_addr: String,
+    /// The common server, as `host:port`.
+    #[serde(default)]
+    server_addr: String,
 }
 
 pub struct App {
@@ -61,6 +74,10 @@ pub struct App {
     typed_dir: String,
     /// An image pack import running in the background, and its result.
     importing: Option<ImportResult>,
+    /// The common server's matches while the list is open.
+    matches: Option<Result<Vec<Listing>, String>>,
+    fetching: Option<ListResult>,
+    fetched_at: Option<std::time::Instant>,
     /// The last import's result, for display.
     notice: Option<String>,
     ctx: egui::Context,
@@ -77,6 +94,9 @@ impl App {
             game: None,
             typed_dir: String::new(),
             importing: None,
+            matches: None,
+            fetching: None,
+            fetched_at: None,
             notice: None,
             ctx: cc.egui_ctx.clone(),
         };
@@ -239,17 +259,22 @@ impl App {
         }
     }
 
-    /// Hosts a match on this computer with the chosen rules, and sits you in
-    /// it with your Superstar and deck.
-    fn host(&mut self) {
+    /// The deck you play online: your Superstar and deck from the form.
+    fn online_deck(&mut self) -> Option<DeckList> {
         self.error = None;
-        let deck = match self.deck(0) {
-            Ok(deck) => deck,
-            Err(e) => {
-                self.error = Some(e);
-                return;
-            }
-        };
+        self.deck(0).map_err(|e| self.error = Some(e)).ok()
+    }
+
+    fn server_addr(&self) -> String {
+        let addr = self.settings.server_addr.trim();
+        if addr.contains(':') { addr.into() } else { format!("{addr}:{DEFAULT_SERVER_PORT}") }
+    }
+
+    /// Hosts a match with the chosen rules and sits you in it with your
+    /// Superstar and deck: on this computer's port, or listed on the common
+    /// server.
+    fn host(&mut self, on_server: bool) {
+        let Some(deck) = self.online_deck() else { return };
         let name = self.online_name();
         let info =
             MatchInfo { name: format!("Partida de {name}"), mode: self.mode(), revolution: self.revolution_rules() };
@@ -257,40 +282,86 @@ impl App {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(1);
+        let core = HostCore::new(self.db.clone(), info, seed);
         let port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
-        match HostHandle::start(HostCore::new(self.db.clone(), info, seed), port) {
+        let started = if on_server {
+            let addr = self.server_addr();
+            HostHandle::start_on_server(core, addr.as_str(), &name)
+                .map_err(|e| format!("No se pudo publicar la partida en el servidor {addr}: {e}"))
+        } else {
+            HostHandle::start(core, port).map_err(|e| format!("No se pudo hospedar en el puerto {port}: {e}"))
+        };
+        match started {
             Ok(mut host) => {
                 let conn = host.connect_local();
                 let table = Table::online(self.db.clone(), conn, &name, Some(deck), Some(host));
                 self.game = Some(Match::new(table, vec![], self.settings.speed));
             }
-            Err(e) => self.error = Some(format!("No se pudo hospedar en el puerto {port}: {e}")),
+            Err(e) => self.error = Some(e),
         }
     }
 
-    /// Joins the match at the typed address: as a player with your Superstar
-    /// and deck, or to watch.
-    fn join(&mut self, watch: bool) {
-        self.error = None;
+    /// Joins a match, at the typed address or on the common server: as a
+    /// player with your Superstar and deck, or to watch.
+    fn join(&mut self, on_server: Option<MatchId>, watch: bool) {
         let deck = if watch {
+            self.error = None;
             None
         } else {
-            match self.deck(0) {
-                Ok(deck) => Some(deck),
-                Err(e) => {
-                    self.error = Some(e);
-                    return;
-                }
+            let Some(deck) = self.online_deck() else { return };
+            Some(deck)
+        };
+        let conn = match on_server {
+            Some(id) => {
+                let addr = self.server_addr();
+                Connection::join_on_server(addr.as_str(), id)
+                    .map_err(|e| format!("No se pudo conectar al servidor {addr}: {e}"))
+            }
+            None => {
+                let addr = self.settings.online_addr.trim().to_string();
+                let addr = if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") };
+                Connection::connect(addr.as_str()).map_err(|e| format!("No se pudo conectar a {addr}: {e}"))
             }
         };
-        let addr = self.settings.online_addr.trim().to_string();
-        let addr = if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") };
-        match Connection::connect(addr.as_str()) {
+        match conn {
             Ok(conn) => {
                 let table = Table::online(self.db.clone(), conn, &self.online_name(), deck, None);
                 self.game = Some(Match::new(table, vec![], self.settings.speed));
             }
-            Err(e) => self.error = Some(format!("No se pudo conectar a {addr}: {e}")),
+            Err(e) => self.error = Some(e),
+        }
+    }
+
+    /// Asks the common server for its matches, in the background.
+    fn fetch_matches(&mut self) {
+        let slot: ListResult = Arc::new(Mutex::new(None));
+        self.fetching = Some(slot.clone());
+        self.fetched_at = Some(std::time::Instant::now());
+        let addr = self.server_addr();
+        let ctx = self.ctx.clone();
+        std::thread::spawn(move || {
+            let result = relay::list(addr.as_str()).map_err(|e| format!("No se pudo conectar al servidor {addr}: {e}"));
+            if let Ok(mut s) = slot.lock() {
+                *s = Some(result);
+            }
+            ctx.request_repaint();
+        });
+    }
+
+    /// Picks up the server's answer, and asks again every few seconds while
+    /// the list is open.
+    fn poll_matches(&mut self) {
+        if let Some(result) = self.fetching.as_ref().and_then(|s| s.lock().ok().and_then(|mut s| s.take())) {
+            self.fetching = None;
+            self.matches = Some(result);
+        }
+        if self.matches.is_some() && self.fetching.is_none() {
+            let due = self.fetched_at.is_none_or(|t| t.elapsed() >= LIST_REFRESH);
+            if due {
+                self.fetch_matches();
+            } else {
+                self.ctx.request_repaint_after(LIST_REFRESH);
+            }
         }
     }
 
@@ -301,6 +372,7 @@ impl App {
              sets de cartas y la misma versión de OpenWWX.",
         );
         ui.add_space(8.0);
+        self.poll_matches();
         egui::Grid::new("online").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
             ui.label("Tu nombre:");
             ui.add(
@@ -308,7 +380,31 @@ impl App {
             );
             ui.end_row();
 
-            ui.label("Hospedar:");
+            ui.label("Servidor común:");
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.settings.server_addr)
+                        .hint_text(format!("dirección:puerto (por defecto {DEFAULT_SERVER_PORT})"))
+                        .desired_width(240.0),
+                );
+                let typed = !self.settings.server_addr.trim().is_empty();
+                if ui.add_enabled(typed, egui::Button::new("Ver partidas")).clicked() {
+                    self.matches = Some(Ok(vec![]));
+                    self.fetch_matches();
+                }
+                if ui
+                    .add_enabled(typed, egui::Button::new("Publicar partida"))
+                    .on_hover_text(
+                        "Crea una partida con las reglas elegidas arriba y la pone en la lista del servidor.",
+                    )
+                    .clicked()
+                {
+                    self.host(true);
+                }
+            });
+            ui.end_row();
+
+            ui.label("Hospedar aquí:");
             ui.horizontal(|ui| {
                 let mut port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
                 ui.label("puerto");
@@ -320,12 +416,12 @@ impl App {
                     .on_hover_text("Con las reglas elegidas arriba. Los demás se conectan a tu IP y este puerto.")
                     .clicked()
                 {
-                    self.host();
+                    self.host(false);
                 }
             });
             ui.end_row();
 
-            ui.label("Unirse:");
+            ui.label("Unirse directo:");
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.settings.online_addr)
@@ -334,14 +430,81 @@ impl App {
                 );
                 let typed = !self.settings.online_addr.trim().is_empty();
                 if ui.add_enabled(typed, egui::Button::new("Jugar")).clicked() {
-                    self.join(false);
+                    self.join(None, false);
                 }
                 if ui.add_enabled(typed, egui::Button::new("Mirar")).clicked() {
-                    self.join(true);
+                    self.join(None, true);
                 }
             });
             ui.end_row();
         });
+        self.match_list(ui);
+    }
+
+    /// The common server's matches, with buttons to play or watch.
+    fn match_list(&mut self, ui: &mut Ui) {
+        let Some(result) = &self.matches else { return };
+        ui.add_space(12.0);
+        let mut chosen = None;
+        let mut close = false;
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(format!("Partidas en {}", self.server_addr())).strong());
+            if self.fetching.is_some() {
+                ui.spinner();
+            }
+            if ui.button("Cerrar lista").clicked() {
+                close = true;
+            }
+        });
+        match result {
+            Err(e) => {
+                ui.colored_label(egui::Color32::from_rgb(240, 110, 110), e);
+            }
+            Ok(list) if list.is_empty() => {
+                ui.label(if self.fetching.is_some() { "Buscando…" } else { "No hay partidas abiertas." });
+            }
+            Ok(list) => {
+                egui::Grid::new("matches").striped(true).spacing([16.0, 6.0]).show(ui, |ui| {
+                    for m in list {
+                        let lobby = m.lobby.as_ref();
+                        let players: Vec<&str> = lobby
+                            .map(|l| l.players.iter().flatten().map(|p| p.name.as_str()).collect())
+                            .unwrap_or_default();
+                        let started = lobby.is_some_and(|l| l.started);
+                        let watchers = lobby.map_or(0, |l| l.spectators.len());
+                        ui.label(RichText::new(&m.info.name).strong());
+                        ui.label(text::mode(m.info.mode));
+                        ui.label(if players.is_empty() { "sin jugadores".into() } else { players.join(" contra ") });
+                        ui.label(match (started, watchers) {
+                            (true, 0) => "jugando".to_string(),
+                            (true, n) => format!("jugando, {n} mirando"),
+                            (false, 0) => "esperando rival".to_string(),
+                            (false, n) => format!("esperando rival, {n} mirando"),
+                        });
+                        if m.app != APP_VERSION {
+                            ui.colored_label(egui::Color32::from_rgb(240, 110, 110), format!("usa OpenWWX {}", m.app));
+                        } else {
+                            ui.horizontal(|ui| {
+                                if ui.add_enabled(!started && players.len() < 2, egui::Button::new("Jugar")).clicked() {
+                                    chosen = Some((m.id, false));
+                                }
+                                if ui.button("Mirar").clicked() {
+                                    chosen = Some((m.id, true));
+                                }
+                            });
+                        }
+                        ui.end_row();
+                    }
+                });
+            }
+        }
+        if close {
+            self.matches = None;
+            self.fetching = None;
+        }
+        if let Some((id, watch)) = chosen {
+            self.join(Some(id), watch);
+        }
     }
 
     fn setup_screen(&mut self, ui: &mut Ui) {

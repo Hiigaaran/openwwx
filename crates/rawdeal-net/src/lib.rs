@@ -3,9 +3,11 @@
 //! and gets back only what their seat may see. Spectators see public cards.
 //!
 //! Messages are JSON, one per line, over TCP ([`wire`]). [`tcp`] has the
-//! direct host and the client connection.
+//! host and the client connection, direct or through the common server
+//! ([`relay`]), which lists open matches and passes messages along.
 
 pub mod host;
+pub mod relay;
 pub mod tcp;
 pub mod wire;
 
@@ -13,6 +15,7 @@ use rawdeal_core::{Action, CardId, DeckList, DeckProblem, DefIdx, Event, Mode, P
 use serde::{Deserialize, Serialize};
 
 pub use host::{ConnId, HostCore};
+pub use relay::{DEFAULT_SERVER_PORT, Listing, MatchId};
 pub use tcp::{Connection, HostHandle};
 
 /// Port a host listens on unless told otherwise.
@@ -75,6 +78,8 @@ pub enum Rejection {
     Full,
     /// The first message must be a Hello.
     NoHello,
+    /// The common server has no such match (it ended).
+    NoMatch,
 }
 
 /// One step of the match as a seat sees it.

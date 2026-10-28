@@ -1,16 +1,25 @@
-//! The direct host (a TCP listener in front of a [`HostCore`]) and the
-//! connection a guest, or the hosting player's own app, uses.
+//! The host (a [`HostCore`] behind a TCP listener, or listed on the common
+//! server) and the connection a guest, or the hosting player's own app, uses.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufReader};
 use std::net::{Shutdown, TcpListener, TcpStream, ToSocketAddrs};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use crate::host::{ConnId, HostCore};
+use crate::relay::{self, HostIn, HostOut, Hosted, MatchId, ToServer};
 use crate::wire::{read_msg, write_msg};
-use crate::{ClientMsg, ServerMsg};
+use crate::{APP_VERSION, ClientMsg, ServerMsg};
+
+/// The host's link to the common server.
+type Link = Arc<Mutex<TcpStream>>;
+
+fn send_link(link: &Link, msg: &HostOut) -> bool {
+    link.lock().map(|mut s| write_msg(&mut *s, msg).is_ok()).unwrap_or(false)
+}
 
 enum Input {
     Joined(ConnId, Peer),
@@ -23,6 +32,8 @@ enum Input {
 enum Peer {
     Tcp(TcpStream),
     Local(Sender<ServerMsg>),
+    /// A guest on the common server.
+    Relay(ConnId, Link),
 }
 
 impl Peer {
@@ -30,12 +41,19 @@ impl Peer {
         match self {
             Peer::Tcp(stream) => write_msg(stream, msg).is_ok(),
             Peer::Local(tx) => tx.send(msg.clone()).is_ok(),
+            Peer::Relay(conn, link) => send_link(link, &HostOut::Send { conn: *conn, msg: msg.clone() }),
         }
     }
 
     fn close(&self) {
-        if let Peer::Tcp(stream) = self {
-            stream.shutdown(Shutdown::Both).ok();
+        match self {
+            Peer::Tcp(stream) => {
+                stream.shutdown(Shutdown::Both).ok();
+            }
+            Peer::Local(_) => {}
+            Peer::Relay(conn, link) => {
+                send_link(link, &HostOut::Close { conn: *conn });
+            }
         }
     }
 }
@@ -43,7 +61,10 @@ impl Peer {
 /// A match being hosted. Dropping it stops the match.
 pub struct HostHandle {
     tx: Sender<Input>,
-    port: u16,
+    /// Where it listens, hosted directly.
+    port: Option<u16>,
+    /// Its link and number on the common server.
+    server: Option<(Link, MatchId)>,
     next_local: ConnId,
 }
 
@@ -55,12 +76,61 @@ impl HostHandle {
         let (tx, rx) = mpsc::channel();
         let accept_tx = tx.clone();
         thread::spawn(move || accept(listener, accept_tx));
-        thread::spawn(move || run(core, rx));
-        Ok(HostHandle { tx, port, next_local: 1 << 62 })
+        thread::spawn(move || run(core, rx, None));
+        Ok(HostHandle { tx, port: Some(port), server: None, next_local: 1 << 62 })
     }
 
-    pub fn port(&self) -> u16 {
+    /// Lists `core` on the common server at `addr`; guests reach it through
+    /// the server. `host` is the hosting player's name, for the list.
+    pub fn start_on_server(core: HostCore, addr: impl ToSocketAddrs, host: &str) -> io::Result<HostHandle> {
+        let mut stream = relay::connect(addr)?;
+        let hello = ToServer::Host { app: APP_VERSION.into(), host: host.into(), info: core.info().clone() };
+        write_msg(&mut stream, &hello)?;
+        let mut reader = BufReader::new(stream.try_clone()?);
+        stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+        let hosted: Hosted = read_msg(&mut reader)?
+            .ok_or_else(|| io::Error::other("the server did not take the match (it may be full)"))?;
+        stream.set_read_timeout(None)?;
+        let link: Link = Arc::new(Mutex::new(stream));
+        let (tx, rx) = mpsc::channel();
+        let relay_tx = tx.clone();
+        let relay_link = link.clone();
+        thread::spawn(move || {
+            let mut guests = HashSet::new();
+            while let Ok(Some(msg)) = read_msg::<HostIn>(&mut reader) {
+                let input = match msg {
+                    HostIn::Joined { conn } => {
+                        guests.insert(conn);
+                        Input::Joined(conn, Peer::Relay(conn, relay_link.clone()))
+                    }
+                    HostIn::Msg { conn, msg } => Input::Msg(conn, msg),
+                    HostIn::Gone { conn } => {
+                        guests.remove(&conn);
+                        Input::Gone(conn)
+                    }
+                };
+                if relay_tx.send(input).is_err() {
+                    return;
+                }
+            }
+            // The server is gone, and with it every guest.
+            for conn in guests {
+                relay_tx.send(Input::Gone(conn)).ok();
+            }
+        });
+        let run_link = link.clone();
+        thread::spawn(move || run(core, rx, Some(run_link)));
+        Ok(HostHandle { tx, port: None, server: Some((link, hosted.id)), next_local: 1 << 62 })
+    }
+
+    /// The port it listens on, hosted directly.
+    pub fn port(&self) -> Option<u16> {
         self.port
+    }
+
+    /// Its number on the common server, listed there.
+    pub fn match_id(&self) -> Option<MatchId> {
+        self.server.as_ref().map(|(_, id)| *id)
     }
 
     /// A connection from this app to its own match, for the hosting player.
@@ -76,8 +146,13 @@ impl HostHandle {
 impl Drop for HostHandle {
     fn drop(&mut self) {
         self.tx.send(Input::Stop).ok();
-        // Wake the accept loop so it notices.
-        TcpStream::connect(("127.0.0.1", self.port)).ok();
+        if let Some(port) = self.port {
+            // Wake the accept loop so it notices.
+            TcpStream::connect(("127.0.0.1", port)).ok();
+        }
+        if let Some((link, _)) = &self.server {
+            link.lock().map(|s| s.shutdown(Shutdown::Both)).ok();
+        }
     }
 }
 
@@ -102,8 +177,9 @@ fn accept(listener: TcpListener, tx: Sender<Input>) {
     }
 }
 
-fn run(mut core: HostCore, rx: Receiver<Input>) {
+fn run(mut core: HostCore, rx: Receiver<Input>, link: Option<Link>) {
     let mut peers: HashMap<ConnId, Peer> = HashMap::new();
+    let mut listed = None;
     while let Ok(input) = rx.recv() {
         let out = match input {
             Input::Stop => break,
@@ -129,6 +205,13 @@ fn run(mut core: HostCore, rx: Receiver<Input>) {
             peers.remove(&id);
             core.disconnected(id);
         }
+        if let Some(link) = &link {
+            let lobby = core.lobby();
+            if listed.as_ref() != Some(&lobby) {
+                send_link(link, &HostOut::Lobby(lobby.clone()));
+                listed = Some(lobby);
+            }
+        }
     }
     for peer in peers.values() {
         peer.close();
@@ -149,9 +232,17 @@ pub struct Connection {
 impl Connection {
     /// Connects to a host at `addr` ("192.168.0.10:7777").
     pub fn connect(addr: impl ToSocketAddrs) -> io::Result<Connection> {
-        let addr = addr.to_socket_addrs()?.next().ok_or_else(|| io::Error::other("no address"))?;
-        let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(10))?;
-        stream.set_nodelay(true).ok();
+        Connection::over(relay::connect(addr)?)
+    }
+
+    /// Connects to match `id` on the common server at `addr`.
+    pub fn join_on_server(addr: impl ToSocketAddrs, id: MatchId) -> io::Result<Connection> {
+        let mut stream = relay::connect(addr)?;
+        write_msg(&mut stream, &ToServer::Join { id })?;
+        Connection::over(stream)
+    }
+
+    fn over(stream: TcpStream) -> io::Result<Connection> {
         let reader = stream.try_clone()?;
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || {

@@ -2,8 +2,8 @@
 //! match log.
 
 use rawdeal_core::{
-    Boost, CardFilter, CardId, CardKind, ChoicePurpose, Duration, Effect, Event, ManeuverType, Outcome, Pick, PlayerId,
-    PreMatchType, Who, WinMethod, YesNoPurpose, Zone,
+    Boost, CardFilter, CardId, CardKind, ChoicePurpose, Duration, Effect, Event, ManeuverType, Mode, Outcome, Pick,
+    PlayerId, PreMatchType, Who, WinMethod, YesNoPurpose, Zone,
 };
 
 pub fn kind(k: CardKind) -> String {
@@ -355,6 +355,16 @@ pub fn yes_no(p: &YesNoPurpose) -> String {
         YesNoPurpose::OptionalEffect { effects: es, .. } => format!("¿Quieres aplicar: {}?", effects(es)),
         YesNoPurpose::ClaimCountOut => "Tu rival terminó su turno sin Arsenal. ¿Ganar por Count Out?".into(),
         YesNoPurpose::ChainSearch => "Tu Chain tuvo éxito. ¿Descartar 2 cartas para buscar otra Chain?".into(),
+    }
+}
+
+/// The rules a match uses, for a list or a lobby.
+pub fn mode(mode: Mode) -> &'static str {
+    match mode {
+        Mode::QuickStart => "inicio rápido",
+        Mode::Advanced => "avanzadas",
+        Mode::Virtual => "formato Virtual",
+        Mode::Revolution => "formato Revolution",
     }
 }
 

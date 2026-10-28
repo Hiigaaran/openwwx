@@ -8,7 +8,7 @@ use eframe::egui::{
     StrokeKind, Ui, vec2,
 };
 use rawdeal_core::{
-    Action, CardDb, CardDef, CardId, CardKind, Decision, DecisionKind, Event, Mode, PlayerId, PlayerView, Zone,
+    Action, CardDb, CardDef, CardId, CardKind, Decision, DecisionKind, Event, PlayerId, PlayerView, Zone,
 };
 
 use crate::anim::{Banner, Display, Float, Fly, Layout, Step, ease};
@@ -130,6 +130,9 @@ impl Match {
         self.see(&view);
         self.display = Display::from_view(&view);
         self.started = true;
+        if events.is_empty() && self.table.online_state().is_some() {
+            self.log.push("Entraste a la partida en curso.".into());
+        }
         for ev in &events {
             self.log_event(ev);
         }
@@ -247,11 +250,7 @@ impl Match {
                     self.skip = true;
                 }
                 if self.table.online_state().is_some() && view.outcome.is_none() {
-                    let hint = if self.table.hosting_port().is_some() {
-                        "Cierra la partida para todos."
-                    } else {
-                        "Deja la partida."
-                    };
+                    let hint = if self.table.hosting() { "Cierra la partida para todos." } else { "Deja la partida." };
                     if ui.button("Salir").on_hover_text(hint).clicked() {
                         leave = Leave::Menu;
                     }
@@ -357,6 +356,7 @@ impl Match {
     fn lobby(&mut self, ui: &mut Ui) -> Leave {
         let mut leave = Leave::Stay;
         let port = self.table.hosting_port();
+        let hosting = self.table.hosting();
         let Some(online) = self.table.online_state() else { return leave };
         egui::CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered(|ui| {
@@ -364,7 +364,7 @@ impl Match {
                 match &online.info {
                     Some(info) => {
                         ui.heading(RichText::new(&info.name).size(28.0).strong());
-                        ui.label(format!("Reglas: {}", mode_name(info.mode)));
+                        ui.label(format!("Reglas: {}", text::mode(info.mode)));
                     }
                     None => {
                         ui.heading("Conectando…");
@@ -377,6 +377,9 @@ impl Match {
                         "Estás hospedando la partida. Tu rival y los espectadores se conectan a {ip}:{port}."
                     ));
                     ui.small("Fuera de tu red local, tienes que abrir ese puerto en tu router.");
+                    ui.add_space(12.0);
+                } else if hosting {
+                    ui.label("Tu partida está en la lista del servidor común. Los demás entran desde ahí.");
                     ui.add_space(12.0);
                 }
                 if let Some(lobby) = &online.lobby {
@@ -1118,15 +1121,6 @@ impl Match {
             ui.ctx().request_repaint();
         }
         self.layout.cards.clear();
-    }
-}
-
-fn mode_name(mode: Mode) -> &'static str {
-    match mode {
-        Mode::QuickStart => "inicio rápido",
-        Mode::Advanced => "avanzadas",
-        Mode::Virtual => "formato Virtual",
-        Mode::Revolution => "formato Revolution",
     }
 }
 

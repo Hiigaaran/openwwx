@@ -1,5 +1,5 @@
-OpenWWX: Raw Deal contra la computadora
-=======================================
+OpenWWX: Raw Deal contra la computadora o en línea
+===================================================
 
 1. Pon tus sets de cartas (.ron) en la carpeta "cards", junto al programa.
    Por ejemplo: cards/01-premiere.ron. También puedes elegir otra carpeta desde el menú.
@@ -9,6 +9,15 @@ OpenWWX: Raw Deal contra la computadora
 
 En la partida, las cartas marcadas en verde son las que puedes jugar. Pasa el mouse
 sobre una carta para leer su texto completo.
+
+En línea (sección "En línea" del menú):
+- Hospedar partida: los demás se conectan a tu IP y puerto (7777). Fuera de tu red
+  local hay que abrir ese puerto en el router.
+- Servidor común: alguien corre openwwx-server (incluido aquí; puerto 7778) en una
+  máquina accesible desde internet. Con su dirección, "Publicar partida" pone tu
+  partida en la lista y "Ver partidas" muestra las abiertas para jugar o mirar.
+  El servidor no necesita las cartas, y nadie tiene que abrir puertos salvo él.
+Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas.
 
 macOS: el programa no está firmado. La primera vez, haz clic derecho sobre openwwx y
 elige "Abrir", o ejecuta en la Terminal: xattr -d com.apple.quarantine openwwx
