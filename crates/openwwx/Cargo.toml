@@ -1,6 +1,6 @@
 [package]
 name = "openwwx"
-description = "OpenWWX desktop app: play Raw Deal against the computer"
+description = "OpenWWX desktop app: play Raw Deal against the computer or online"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,6 +9,7 @@ license.workspace = true
 rawdeal-core.workspace = true
 rawdeal-cards.workspace = true
 rawdeal-ai.workspace = true
+rawdeal-net.workspace = true
 eframe = { version = "0.36.2", default-features = false, features = ["default_fonts", "glow", "links", "persistence", "wayland", "x11"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 rfd = "0.17.2"

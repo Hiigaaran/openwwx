@@ -8,9 +8,11 @@ use rawdeal_ai::Difficulty;
 use rawdeal_core::{
     CardDb, DeckList, DeckProblem, Engine, GameSetup, Mode, RevolutionRules, is_revolution, validate_deck_with,
 };
+use rawdeal_net::{Connection, DEFAULT_PORT, HostCore, HostHandle, MatchInfo};
 use serde::{Deserialize, Serialize};
 
 use crate::game::{Leave, Match, Speed};
+use crate::table::Table;
 
 const SETTINGS_KEY: &str = "openwwx-settings";
 
@@ -37,6 +39,15 @@ struct Settings {
     speed: Speed,
     #[serde(default)]
     difficulty: Difficulty,
+    /// Your name in online matches.
+    #[serde(default)]
+    online_name: String,
+    /// Port to host on; `None` is the default port.
+    #[serde(default)]
+    online_port: Option<u16>,
+    /// Last address joined, as `host:port`.
+    #[serde(default)]
+    online_addr: String,
 }
 
 pub struct App {
@@ -214,17 +225,123 @@ impl App {
             .unwrap_or(1);
         match Engine::new(self.db.clone()).new_game(&setup, seed) {
             Ok((state, events)) => {
-                self.game = Some(Match::new(
-                    self.db.clone(),
-                    state,
-                    events,
-                    seed,
-                    self.settings.speed,
-                    self.settings.difficulty,
-                ))
+                let table = Table::local(self.db.clone(), state, self.settings.difficulty.bot(seed ^ 0x5eed));
+                self.game = Some(Match::new(table, events, self.settings.speed))
             }
             Err(e) => self.error = Some(e.to_string()),
         }
+    }
+
+    fn online_name(&self) -> String {
+        match self.settings.online_name.trim() {
+            "" => "Jugador".into(),
+            name => name.into(),
+        }
+    }
+
+    /// Hosts a match on this computer with the chosen rules, and sits you in
+    /// it with your Superstar and deck.
+    fn host(&mut self) {
+        self.error = None;
+        let deck = match self.deck(0) {
+            Ok(deck) => deck,
+            Err(e) => {
+                self.error = Some(e);
+                return;
+            }
+        };
+        let name = self.online_name();
+        let info =
+            MatchInfo { name: format!("Partida de {name}"), mode: self.mode(), revolution: self.revolution_rules() };
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(1);
+        let port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
+        match HostHandle::start(HostCore::new(self.db.clone(), info, seed), port) {
+            Ok(mut host) => {
+                let conn = host.connect_local();
+                let table = Table::online(self.db.clone(), conn, &name, Some(deck), Some(host));
+                self.game = Some(Match::new(table, vec![], self.settings.speed));
+            }
+            Err(e) => self.error = Some(format!("No se pudo hospedar en el puerto {port}: {e}")),
+        }
+    }
+
+    /// Joins the match at the typed address: as a player with your Superstar
+    /// and deck, or to watch.
+    fn join(&mut self, watch: bool) {
+        self.error = None;
+        let deck = if watch {
+            None
+        } else {
+            match self.deck(0) {
+                Ok(deck) => Some(deck),
+                Err(e) => {
+                    self.error = Some(e);
+                    return;
+                }
+            }
+        };
+        let addr = self.settings.online_addr.trim().to_string();
+        let addr = if addr.contains(':') { addr } else { format!("{addr}:{DEFAULT_PORT}") };
+        match Connection::connect(addr.as_str()) {
+            Ok(conn) => {
+                let table = Table::online(self.db.clone(), conn, &self.online_name(), deck, None);
+                self.game = Some(Match::new(table, vec![], self.settings.speed));
+            }
+            Err(e) => self.error = Some(format!("No se pudo conectar a {addr}: {e}")),
+        }
+    }
+
+    fn online_form(&mut self, ui: &mut Ui) {
+        ui.heading("En línea");
+        ui.label(
+            "Juegas con tu Superstar y tu mazo de arriba. Los dos jugadores y los espectadores necesitan los mismos \
+             sets de cartas y la misma versión de OpenWWX.",
+        );
+        ui.add_space(8.0);
+        egui::Grid::new("online").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
+            ui.label("Tu nombre:");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.settings.online_name).hint_text("Jugador").desired_width(240.0),
+            );
+            ui.end_row();
+
+            ui.label("Hospedar:");
+            ui.horizontal(|ui| {
+                let mut port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
+                ui.label("puerto");
+                if ui.add(egui::DragValue::new(&mut port).range(1024..=65535)).changed() {
+                    self.settings.online_port = Some(port);
+                }
+                if ui
+                    .button("Hospedar partida")
+                    .on_hover_text("Con las reglas elegidas arriba. Los demás se conectan a tu IP y este puerto.")
+                    .clicked()
+                {
+                    self.host();
+                }
+            });
+            ui.end_row();
+
+            ui.label("Unirse:");
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.settings.online_addr)
+                        .hint_text(format!("IP:puerto (por defecto {DEFAULT_PORT})"))
+                        .desired_width(240.0),
+                );
+                let typed = !self.settings.online_addr.trim().is_empty();
+                if ui.add_enabled(typed, egui::Button::new("Jugar")).clicked() {
+                    self.join(false);
+                }
+                if ui.add_enabled(typed, egui::Button::new("Mirar")).clicked() {
+                    self.join(true);
+                }
+            });
+            ui.end_row();
+        });
     }
 
     fn setup_screen(&mut self, ui: &mut Ui) {
@@ -243,7 +360,7 @@ impl App {
         ui.vertical_centered(|ui| {
             ui.add_space(24.0);
             ui.heading(RichText::new("OpenWWX").size(36.0).strong());
-            ui.label("Raw Deal contra la computadora");
+            ui.label("Raw Deal contra la computadora o en línea");
             ui.add_space(24.0);
         });
         egui::Grid::new("setup").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
@@ -407,6 +524,9 @@ impl App {
             self.start();
         }
         ui.add_space(24.0);
+        ui.separator();
+        self.online_form(ui);
+        ui.add_space(24.0);
         ui.label(
             "El texto y el arte de Raw Deal pertenecen a sus dueños, así que OpenWWX no los incluye. \
              Elige la carpeta donde tienes tus sets en formato .ron (por ejemplo, importados desde OCTGN), \
@@ -427,7 +547,8 @@ impl eframe::App for App {
             }
             return;
         }
-        egui::CentralPanel::default().show(ui, |ui| self.setup_screen(ui));
+        egui::CentralPanel::default()
+            .show(ui, |ui| egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| self.setup_screen(ui)));
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

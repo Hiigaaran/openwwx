@@ -375,16 +375,51 @@ fn zone(z: Zone) -> &'static str {
     }
 }
 
+/// Who the match log speaks to.
+pub enum Voice {
+    /// One of the players: "Robas …", "El rival roba …".
+    Player(PlayerId),
+    /// A spectator, with the players' names: "Ana roba …".
+    Spectator([String; 2]),
+}
+
+impl Voice {
+    fn me(&self) -> Option<PlayerId> {
+        match self {
+            Voice::Player(p) => Some(*p),
+            Voice::Spectator(_) => None,
+        }
+    }
+
+    /// How a player is named in a sentence.
+    pub fn who(&self, p: PlayerId) -> String {
+        match self {
+            Voice::Player(me) => player(p, *me).into(),
+            Voice::Spectator(names) => names[p.index()].clone(),
+        }
+    }
+}
+
 /// One line of the match log, or `None` for events not worth showing.
-pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Option<String> {
+pub fn event(ev: &Event, voice: &Voice, name: &dyn Fn(CardId) -> String) -> Option<String> {
+    let me = voice.me();
     // The same sentence for you ("Robas …") and for the opponent ("El rival roba …").
-    let say = |p: PlayerId, mine: String, theirs: String| if p == me { mine } else { format!("El rival {theirs}") };
+    let say = |p: PlayerId, mine: String, theirs: String| match voice {
+        Voice::Player(me) if p == *me => mine,
+        Voice::Player(_) => format!("El rival {theirs}"),
+        Voice::Spectator(names) => format!("{} {theirs}", names[p.index()]),
+    };
     Some(match ev {
-        Event::PreMatchStarted { first } => format!("Empieza el Pre-match. Juega primero: {}.", player(*first, me)),
+        Event::PreMatchStarted { first } => format!("Empieza el Pre-match. Juega primero: {}.", voice.who(*first)),
         Event::PreMatchEnded => "Termina el Pre-match.".into(),
-        Event::GameStarted { first } => format!("Empieza la lucha. Comienza: {}.", player(*first, me)),
+        Event::GameStarted { first } => format!("Empieza la lucha. Comienza: {}.", voice.who(*first)),
         Event::TurnStarted { player: p, turn } => {
-            format!("— Turno {turn}: {} —", if *p == me { "tú" } else { "rival" })
+            let whose = match voice {
+                Voice::Player(me) if p == me => "tú".to_string(),
+                Voice::Player(_) => "rival".to_string(),
+                Voice::Spectator(names) => names[p.index()].clone(),
+            };
+            format!("— Turno {turn}: {whose} —")
         }
         Event::CardDrawn { player: p, card: Some(c) } => {
             say(*p, format!("Robas {}.", name(*c)), format!("roba {}.", name(*c)))
@@ -427,11 +462,11 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
             say(*p, format!("Mueves {what}."), format!("mueve {what}."))
         }
         Event::ArsenalShuffled { player: p } => say(*p, "Barajas tu Arsenal.".into(), "baraja su Arsenal.".into()),
-        Event::HandShown { player: p, viewer, cards } if *viewer == me && *p != me => {
+        Event::HandShown { player: p, viewer, cards } if me == Some(*viewer) && me != Some(*p) => {
             let names: Vec<String> = cards.iter().map(|&c| name(c)).collect();
             format!("Mano del rival: {}.", if names.is_empty() { "vacía".into() } else { names.join(", ") })
         }
-        Event::HandShown { viewer, .. } if *viewer != me => "El rival mira tu mano.".into(),
+        Event::HandShown { viewer, .. } if me.is_some_and(|me| *viewer != me) => "El rival mira tu mano.".into(),
         Event::TurnSkipped { player: p } => say(*p, "Te saltas el turno.".into(), "se salta el turno.".into()),
         Event::CountOutRefused { player: p } => {
             say(*p, "Rechazas el Count Out y vas por el pin.".into(), "rechaza el Count Out y va por el pin.".into())
@@ -447,12 +482,12 @@ pub fn event(ev: &Event, me: PlayerId, name: &dyn Fn(CardId) -> String) -> Optio
             "No intentaste ninguna maniobra: volteas 6 cartas (regla de agresión).".into(),
             "no intentó ninguna maniobra: voltea 6 cartas (regla de agresión).".into(),
         ),
-        Event::GameOver(o) => outcome(o, me),
+        Event::GameOver(o) => outcome(o, voice),
         _ => return None,
     })
 }
 
-pub fn outcome(o: &Outcome, me: PlayerId) -> String {
+pub fn outcome(o: &Outcome, voice: &Voice) -> String {
     match o {
         Outcome::Draw => "¡Empate!".into(),
         Outcome::Win { winner, method } => {
@@ -461,7 +496,11 @@ pub fn outcome(o: &Outcome, me: PlayerId) -> String {
                 WinMethod::CountOut => "por Count Out",
                 WinMethod::Disqualification => "por descalificación",
             };
-            if *winner == me { format!("¡Ganaste {how}!") } else { format!("Perdiste: el rival gana {how}.") }
+            match voice {
+                Voice::Player(me) if winner == me => format!("¡Ganaste {how}!"),
+                Voice::Player(_) => format!("Perdiste: el rival gana {how}."),
+                Voice::Spectator(names) => format!("¡{} gana {how}!", names[winner.index()]),
+            }
         }
     }
 }

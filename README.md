@@ -49,6 +49,23 @@ título, se usa la imagen tal cual. Con "Importar imágenes de OCTGN (.o8c)…" 
 imágenes de OCTGN y el juego copia sus imágenes a la subcarpeta `art` de tu carpeta de cartas; como vienen nombradas
 por el GUID de cada carta, todas las cartas importadas desde OCTGN quedan con su imagen.
 
+### En línea
+
+En la sección "En línea" del menú se juega contra otra persona:
+
+- **Hospedar partida**: tu computadora corre la partida con las reglas elegidas arriba, y juegas con tu Superstar y tu
+  mazo. La sala de espera muestra la dirección (IP y puerto, 7777 por defecto) a la que se conectan los demás. Fuera de
+  tu red local hay que abrir ese puerto en el router.
+- **Jugar**: te unes a la partida de esa dirección como el otro jugador, con tu Superstar y tu mazo.
+- **Mirar**: entras como espectador. Ves lo mismo que vería alguien sentado junto al ring: el Ring, el Ringside, cuántas
+  cartas tiene cada uno en la mano y lo que se juega, pero no las manos.
+
+Todos necesitan la misma versión de OpenWWX y los mismos sets de cartas; si no coinciden, la sala de espera dice qué
+sets faltan o son distintos. Quien hospeda valida los mazos con las reglas de la partida. Nadie recibe las cartas
+ocultas de los demás.
+
+### Compilar
+
 Para compilarla tú mismo:
 
 ```sh
@@ -226,6 +243,9 @@ cargo run -p rawdeal-cli -- --spectate 192.168.0.10    # mirar
 - "Debajo de una carta Backstage" se trata igual que debajo de la Superstar (confirmado por Simon el 2026-10-24).
 
 ## Pendiente
+
+En línea: un servidor común donde se listen las partidas abiertas (para no tener que abrir puertos), reconexión si se
+corta la conexión, derrota por abandono y chat en la mesa.
 
 Tag Team (y sus cartas de Premiere: Cheap Shot From the Corner, Tag in Partner, Double Team, Trip, Partner
 Interference y la parte de compañero de Combination Attack). Todos los sets de OCTGN (01-51, Promos y Prize Cards)

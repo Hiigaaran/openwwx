@@ -23,6 +23,12 @@ pub struct PublicPlayer {
     /// Backstage Area cards (public), with whether each is hidden.
     #[serde(default)]
     pub backstage: Vec<(DefIdx, bool)>,
+    /// Cards removed from the game.
+    #[serde(default)]
+    pub removed: usize,
+    /// Cards put under other cards or under the Superstar.
+    #[serde(default)]
+    pub under: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -42,6 +48,10 @@ pub struct PlayerView {
     pub decision: Option<Decision>,
     /// Who the game is waiting on.
     pub waiting_on: Option<PlayerId>,
+    /// Your cards under other cards, with the card each is under (`None`:
+    /// under your Superstar).
+    #[serde(default)]
+    pub under: Vec<(CardId, Option<CardId>)>,
     /// A spectator's view: only public cards, seen from `me`'s side, with no
     /// hand, Backlash or decision.
     #[serde(default)]
@@ -73,6 +83,8 @@ impl PlayerView {
                 fortitude: engine.fortitude(state, p),
                 enforcer: ps.enforcer,
                 backstage: ps.backstage.iter().map(|&c| (c, ps.hidden.contains(&c))).collect(),
+                removed: ps.removed.len(),
+                under: ps.under.len(),
             }
         });
         let (hand, backlash, opponent_hand, under) = if spectator {
@@ -121,6 +133,7 @@ impl PlayerView {
             in_play: state.in_play,
             decision: state.decision.clone().filter(|d| d.player == me && !spectator),
             waiting_on: state.decision.as_ref().map(|d| d.player),
+            under: under.iter().map(|&c| (c, state.card(c).host)).collect(),
             spectator,
             known,
         }

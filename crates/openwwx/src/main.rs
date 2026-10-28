@@ -1,5 +1,5 @@
 //! OpenWWX desktop app: load your card sets and play Raw Deal against the
-//! computer.
+//! computer or online.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -9,6 +9,7 @@ mod art;
 mod cards;
 mod game;
 mod o8c;
+mod table;
 mod text;
 
 fn main() -> eframe::Result {

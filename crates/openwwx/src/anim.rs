@@ -30,7 +30,7 @@ impl Display {
     pub fn from_view(view: &PlayerView) -> Self {
         let side = |p: PlayerId| {
             let info = &view.players[p.index()];
-            let mine = p == view.me;
+            let mine = p == view.me && !view.spectator;
             Side {
                 arsenal: info.arsenal_count,
                 hand: match (mine, &view.opponent_hand) {
