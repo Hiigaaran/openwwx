@@ -30,7 +30,11 @@ ni arte de Raw Deal.*
 Descarga la versión para tu sistema desde [Releases](https://github.com/Hiigaaran/openwwx/releases), descomprímela,
 pon tus sets `.ron` en la carpeta `cards` y abre `openwwx`.
 
-![El menú: cartas, Superstars, dificultad, reglas y la sección En línea](docs/img/menu.png)
+![El menú: logo, botones grandes, la sección En línea, las Superstars en sus marcos, la dificultad y las reglas](docs/img/menu.png)
+
+El menú y sus imágenes (fondo de arena, logo, botones, marcos, iconos) son propios del proyecto: están en
+`crates/openwwx/assets/` y se generan con `crates/openwwx/assets/gen/make_assets.py`. La fuente Anton tiene licencia
+SIL OFL (`crates/openwwx/assets/Anton-OFL.txt`).
 
 Antes de empezar eliges la dificultad de la computadora:
 

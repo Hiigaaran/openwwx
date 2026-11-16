@@ -20,6 +20,7 @@ use crate::game::{Leave, Match, Speed};
 use crate::social::Social;
 use crate::table::Table;
 use crate::text;
+use crate::theme::{self, Icon};
 
 const SETTINGS_KEY: &str = "openwwx-settings";
 
@@ -130,11 +131,14 @@ pub struct App {
     invited: Vec<String>,
     /// The last import's result, for display.
     notice: Option<String>,
+    /// The online rows are shown under "En línea".
+    online_open: bool,
     ctx: egui::Context,
 }
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        theme::install(&cc.egui_ctx);
         let settings: Settings = cc.storage.and_then(|s| eframe::get_value(s, SETTINGS_KEY)).unwrap_or_default();
         let mut app = App {
             settings,
@@ -160,6 +164,7 @@ impl App {
             friend_name: String::new(),
             invited: Vec::new(),
             notice: None,
+            online_open: true,
             ctx: cc.egui_ctx.clone(),
         };
         // Cards next to the program (a "cards" folder) are used when nothing was chosen yet.
@@ -836,104 +841,100 @@ impl App {
         }
     }
 
+    /// The rows under "En línea": name, common server, account, hosting and joining.
     fn online_form(&mut self, ui: &mut Ui) {
-        ui.heading("En línea");
         ui.label(
-            "Juegas con tu Superstar y tu mazo de arriba. Los dos jugadores y los espectadores necesitan los mismos \
-             sets de cartas y la misma versión de OpenWWX.",
+            RichText::new(
+                "Juegas con la Superstar y el mazo elegidos en este menú. Los dos jugadores y los espectadores necesitan los \
+                 mismos sets de cartas y la misma versión de OpenWWX.",
+            )
+            .color(egui::Color32::from_gray(200)),
         );
-        ui.add_space(8.0);
+        ui.add_space(6.0);
         self.poll_matches();
         self.poll_login();
-        egui::Grid::new("online").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
-            ui.label("Tu nombre:");
+        ui.spacing_mut().item_spacing.y = 6.0;
+        theme::row(ui, Icon::User, "TU NOMBRE", |ui| {
             ui.add(
-                egui::TextEdit::singleline(&mut self.settings.online_name).hint_text("Jugador").desired_width(240.0),
+                egui::TextEdit::singleline(&mut self.settings.online_name).hint_text("Jugador").desired_width(220.0),
             )
             .on_hover_text("Para partidas directas. En el servidor común te ven con el nombre de tu cuenta.");
-            ui.end_row();
-
-            ui.label("Servidor común:");
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.settings.server_addr)
-                        .hint_text(format!("dirección:puerto (por defecto {DEFAULT_SERVER_PORT})"))
-                        .desired_width(240.0),
-                );
-                let typed = !self.settings.server_addr.trim().is_empty();
-                if ui.add_enabled(typed, egui::Button::new("Ver partidas")).clicked() {
-                    self.matches = Some(Ok(vec![]));
-                    self.fetch_matches();
-                }
-                if ui.add_enabled(typed, egui::Button::new("Ranking")).clicked() {
-                    self.fetch_board(None);
-                }
-                if ui
-                    .add_enabled(typed && self.session().is_some(), egui::Button::new("Publicar partida"))
-                    .on_hover_text(
-                        "Crea una partida con las reglas elegidas arriba y la pone en la lista del servidor.",
-                    )
-                    .on_disabled_hover_text("Entra con tu cuenta del servidor para publicar una partida.")
-                    .clicked()
-                {
-                    self.host(true);
-                }
-                let addr = self.server_addr();
-                if self.pin_changed.as_ref() == Some(&addr)
-                    && ui
-                        .button("Confiar en el certificado nuevo")
-                        .on_hover_text("Hazlo solo si el administrador del servidor te dijo que lo cambió.")
-                        .clicked()
-                {
-                    self.settings.server_pins.remove(&addr);
-                    self.pins.remove(&addr);
-                    self.pin_changed = None;
-                    self.error = None;
-                }
-            });
-            ui.end_row();
-
-            ui.label("Tu cuenta:");
-            self.account_row(ui);
-            ui.end_row();
-
-            ui.label("Hospedar aquí:");
-            ui.horizontal(|ui| {
-                let mut port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
-                ui.label("puerto");
-                if ui.add(egui::DragValue::new(&mut port).range(1024..=65535)).changed() {
-                    self.settings.online_port = Some(port);
-                }
-                if ui
-                    .button("Hospedar partida")
-                    .on_hover_text("Con las reglas elegidas arriba. Los demás se conectan a tu IP y este puerto.")
-                    .clicked()
-                {
-                    self.host(false);
-                }
-            });
-            ui.end_row();
-
-            ui.label("Unirse directo:");
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.settings.online_addr)
-                        .hint_text(format!("IP:puerto (por defecto {DEFAULT_PORT})"))
-                        .desired_width(240.0),
-                );
-                let typed = !self.settings.online_addr.trim().is_empty();
-                if ui.add_enabled(typed, egui::Button::new("Jugar")).clicked() {
-                    self.join(None, false);
-                }
-                if ui.add_enabled(typed, egui::Button::new("Mirar")).clicked() {
-                    self.join(None, true);
-                }
-            });
-            ui.end_row();
         });
-        self.friends_ui(ui);
-        self.match_list(ui);
-        self.board_ui(ui);
+        theme::row(ui, Icon::Server, "SERVIDOR COMÚN", |ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.settings.server_addr)
+                    .hint_text(format!("dirección:puerto ({DEFAULT_SERVER_PORT})"))
+                    .desired_width(125.0),
+            );
+            let typed = !self.settings.server_addr.trim().is_empty();
+            if ui.add_enabled(typed, egui::Button::new("Ver partidas")).clicked() {
+                self.matches = Some(Ok(vec![]));
+                self.fetch_matches();
+            }
+            if ui.add_enabled(typed, egui::Button::new("Ranking")).clicked() {
+                self.fetch_board(None);
+            }
+            if ui
+                .add_enabled(typed && self.session().is_some(), egui::Button::new("Publicar"))
+                .on_hover_text("Crea una partida con las reglas elegidas y la pone en la lista del servidor.")
+                .on_disabled_hover_text("Entra con tu cuenta del servidor para publicar una partida.")
+                .clicked()
+            {
+                self.host(true);
+            }
+        });
+        let addr = self.server_addr();
+        if self.pin_changed.as_ref() == Some(&addr)
+            && ui
+                .button("Confiar en el certificado nuevo del servidor")
+                .on_hover_text("Hazlo solo si el administrador del servidor te dijo que lo cambió.")
+                .clicked()
+        {
+            self.settings.server_pins.remove(&addr);
+            self.pins.remove(&addr);
+            self.pin_changed = None;
+            self.error = None;
+        }
+        theme::row(ui, Icon::Group, "TU CUENTA", |ui| self.account_row(ui));
+        theme::row(ui, Icon::House, "HOSPEDAR AQUÍ", |ui| {
+            let mut port = self.settings.online_port.unwrap_or(DEFAULT_PORT);
+            ui.label("puerto");
+            if ui.add(egui::DragValue::new(&mut port).range(1024..=65535)).changed() {
+                self.settings.online_port = Some(port);
+            }
+            if ui
+                .button("Hospedar partida")
+                .on_hover_text("Con las reglas elegidas. Los demás se conectan a tu IP y este puerto.")
+                .clicked()
+            {
+                self.host(false);
+            }
+        });
+        theme::row(ui, Icon::Link, "UNIRSE DIRECTO", |ui| {
+            ui.add(
+                egui::TextEdit::singleline(&mut self.settings.online_addr)
+                    .hint_text(format!("IP:puerto ({DEFAULT_PORT})"))
+                    .desired_width(180.0),
+            );
+            let typed = !self.settings.online_addr.trim().is_empty();
+            if ui.add_enabled(typed, egui::Button::new("Jugar")).clicked() {
+                self.join(None, false);
+            }
+            if ui.add_enabled(typed, egui::Button::new("Mirar")).clicked() {
+                self.join(None, true);
+            }
+        });
+        let extra =
+            self.social.is_some() || self.matches.is_some() || self.board.is_some() || self.board_fetch.is_some();
+        if extra {
+            ui.add_space(6.0);
+            theme::panel().show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                self.friends_ui(ui);
+                self.match_list(ui);
+                self.board_ui(ui);
+            });
+        }
     }
 
     /// Who you are on the common server, or the form to log in.
@@ -954,12 +955,12 @@ impl App {
             if self.login_name.is_empty() {
                 self.login_name = self.settings.online_name.trim().to_string();
             }
-            ui.add(egui::TextEdit::singleline(&mut self.login_name).hint_text("nombre").desired_width(140.0));
+            ui.add(egui::TextEdit::singleline(&mut self.login_name).hint_text("nombre").desired_width(95.0));
             let password = ui.add(
                 egui::TextEdit::singleline(&mut self.login_password)
                     .password(true)
                     .hint_text("contraseña")
-                    .desired_width(140.0),
+                    .desired_width(95.0),
             );
             let busy = self.logging_in.is_some();
             let ready = typed && !busy && !self.login_name.trim().is_empty() && !self.login_password.is_empty();
@@ -1052,57 +1053,270 @@ impl App {
         }
     }
 
+    /// The main menu over the arena background.
     fn setup_screen(&mut self, ui: &mut Ui) {
-        let margin = ((ui.available_width() - 900.0) / 2.0).max(0.0);
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            ui.add_space(margin);
-            ui.vertical(|ui| {
-                ui.set_max_width(900.0);
-                self.setup_form(ui);
+        let full = ui.max_rect();
+        let look = theme::get(ui.ctx());
+        theme::cover(ui, &look.arena, full);
+        ui.painter().rect_filled(full, 0.0, egui::Color32::from_black_alpha(70));
+        self.poll_import();
+        egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| {
+            egui::Frame::new().inner_margin(egui::Margin::symmetric(28, 18)).show(ui, |ui| {
+                let w = ui.available_width();
+                if w >= 1100.0 {
+                    let left = (w * 0.46).min(560.0);
+                    ui.horizontal_top(|ui| {
+                        ui.vertical(|ui| {
+                            ui.set_width(left);
+                            self.menu_left(ui);
+                        });
+                        ui.add_space((w - left - 640.0).max(24.0));
+                        ui.vertical(|ui| {
+                            ui.set_width(ui.available_width().min(640.0));
+                            self.menu_right(ui);
+                        });
+                    });
+                } else {
+                    ui.vertical(|ui| {
+                        ui.set_width(w.min(560.0));
+                        self.menu_left(ui);
+                        ui.add_space(16.0);
+                        self.menu_right(ui);
+                    });
+                }
+                ui.add_space(16.0);
+                self.menu_footer(ui);
             });
         });
     }
 
-    fn setup_form(&mut self, ui: &mut Ui) {
-        ui.vertical_centered(|ui| {
-            ui.add_space(24.0);
-            ui.heading(RichText::new("OpenWWX").size(36.0).strong());
-            ui.label("Raw Deal contra la computadora o en línea");
-            ui.add_space(24.0);
-        });
-        egui::Grid::new("setup").num_columns(2).spacing([16.0, 12.0]).show(ui, |ui| {
-            ui.label("Cartas:");
+    /// Logo, the three big buttons and the online rows.
+    fn menu_left(&mut self, ui: &mut Ui) {
+        ui.set_max_width(560.0);
+        let look = theme::get(ui.ctx());
+        let [lw, lh] = look.logo.size().map(|v| v as f32);
+        let width = ui.available_width().min(560.0);
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(width, width * lh / lw), egui::Sense::hover());
+        theme::paint_image(ui, &look.logo, rect, egui::Color32::WHITE);
+        ui.add_space(14.0);
+        let button = ui.available_width().min(560.0);
+        if theme::big_button(ui, Icon::Play, "EMPEZAR LUCHA", button).clicked() {
+            self.start();
+        }
+        if let Some(e) = &self.error {
+            ui.add_space(4.0);
+            theme::panel().show(ui, |ui| {
+                ui.colored_label(egui::Color32::from_rgb(255, 130, 120), e);
+            });
+        }
+        ui.add_space(6.0);
+        if theme::big_button(ui, Icon::Ring, "CONSTRUIR MAZOS", button).clicked() {
+            self.open_builder();
+        }
+        ui.add_space(6.0);
+        if theme::big_button(ui, Icon::Globe, "EN LÍNEA", button)
+            .on_hover_text(if self.online_open { "Ocultar las opciones en línea" } else { "Jugar en línea" })
+            .clicked()
+        {
+            self.online_open = !self.online_open;
+        }
+        if self.online_open {
+            ui.add_space(6.0);
+            self.online_form(ui);
+        }
+    }
+
+    /// Difficulty, both Superstars in their frames, and the rules.
+    fn menu_right(&mut self, ui: &mut Ui) {
+        theme::panel().show(ui, |ui| {
             ui.horizontal(|ui| {
+                theme::heading(ui, "DIFICULTAD", 18.0);
+                ui.add_space(12.0);
+                for level in Difficulty::ALL {
+                    let (name, hint) = match level {
+                        Difficulty::Easy => ("Fácil", "Juega cartas al azar."),
+                        Difficulty::Normal => {
+                            ("Normal", "Revierte siempre que puede y ataca con sus maniobras más fuertes.")
+                        }
+                        Difficulty::Hard => (
+                            "Difícil",
+                            "Prueba cada jugada contra varias suposiciones de tu mano y elige la que mejor le resulta. \
+                             No ve tus cartas ocultas.",
+                        ),
+                    };
+                    ui.radio_value(&mut self.settings.difficulty, level, name).on_hover_text(hint);
+                }
+            });
+        });
+        ui.add_space(14.0);
+        let gap = 18.0;
+        let col = (ui.available_width() - gap) / 2.0;
+        ui.horizontal_top(|ui| {
+            for i in 0..2 {
+                ui.vertical(|ui| {
+                    ui.set_width(col);
+                    self.star_picker(ui, i, col);
+                });
+                if i == 0 {
+                    ui.add_space(gap);
+                }
+            }
+        });
+        ui.add_space(14.0);
+        theme::panel().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            self.rules_ui(ui);
+        });
+    }
+
+    /// One seat: its Superstar card in a frame, and the Superstar and deck lists.
+    fn star_picker(&mut self, ui: &mut Ui, i: usize, width: f32) {
+        let frame_w = width.min(290.0);
+        let size = theme::framed_card_size(frame_w);
+        let outer = egui::vec2(frame_w, frame_w * 490.0 / 370.0);
+        let (slot, _) = ui.allocate_exact_size(egui::vec2(width, outer.y), egui::Sense::hover());
+        let card = egui::Rect::from_center_size(slot.center(), size);
+        let star = self.settings.superstars[i]
+            .as_deref()
+            .and_then(|id| self.db.superstar_by_id(id))
+            .map(|s| self.db.superstar(s).clone());
+        let painter = ui.painter_at(slot.expand(24.0));
+        match &star {
+            Some(s) => crate::cards::paint_superstar(&painter, card, s, 1.0),
+            None => {
+                painter.rect_filled(card, 6.0, egui::Color32::from_rgb(20, 20, 24));
+            }
+        }
+        theme::card_frame(ui, card, i == 0);
+        ui.add_space(6.0);
+        let label = if i == 0 { "TÚ" } else { "RIVAL" };
+        ui.horizontal(|ui| {
+            theme::heading(ui, label, 16.0);
+            let current = star.as_ref().map(|s| s.name.clone()).unwrap_or_default();
+            egui::ComboBox::from_id_salt(("star", i)).width(ui.available_width() - 8.0).selected_text(current).show_ui(
+                ui,
+                |ui| {
+                    for s in self.db.superstars() {
+                        if self.revolution_rules().revolution_cards_only && !is_revolution(&s.name) {
+                            continue;
+                        }
+                        let picked = self.settings.superstars[i].as_deref() == Some(s.id.as_str());
+                        if ui.selectable_label(picked, &s.name).on_hover_text(&s.text).clicked() {
+                            self.settings.superstars[i] = Some(s.id.clone());
+                        }
+                    }
+                },
+            );
+        });
+        let deck = match &self.settings.decks[i] {
+            Some(p) => p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            None => "Automático".into(),
+        };
+        let mut picked = None;
+        egui::ComboBox::from_id_salt(("deck", i)).width(width - 8.0).selected_text(format!("Mazo: {deck}")).show_ui(
+            ui,
+            |ui| {
+                if ui.selectable_label(self.settings.decks[i].is_none(), "Automático").clicked() {
+                    self.settings.decks[i] = None;
+                }
+                for name in crate::builder::saved_decks() {
+                    if ui.selectable_label(name == deck, &name).clicked() {
+                        picked = crate::builder::deck_path(&name);
+                    }
+                }
+                if ui.selectable_label(false, "Otro archivo…").clicked() {
+                    picked = rfd::FileDialog::new().add_filter("Mazo", &["ron"]).pick_file();
+                }
+            },
+        );
+        if let Some(file) = picked {
+            self.use_deck(i, file);
+        }
+    }
+
+    fn rules_ui(&mut self, ui: &mut Ui) {
+        theme::heading(ui, "REGLAS", 18.0);
+        ui.add_enabled(
+            !self.settings.revolution && !self.settings.virtual_rules,
+            egui::Checkbox::new(&mut self.settings.advanced, "Avanzadas (Pre-match y Backlash)"),
+        );
+        if ui
+            .add_enabled(
+                !self.settings.revolution,
+                egui::Checkbox::new(&mut self.settings.virtual_rules, "Formato Virtual (reglas avanzadas)"),
+            )
+            .on_hover_text("Backlash de hasta 12 Pre-match y 12 Mid-match, máximo 6 de cada en el Ring.")
+            .changed()
+            && self.settings.virtual_rules
+        {
+            self.settings.revolution = false;
+        }
+        ui.add_enabled(
+            !self.settings.virtual_rules,
+            egui::Checkbox::new(&mut self.settings.revolution, "Formato Revolution (reglas avanzadas)"),
+        )
+        .on_hover_text("Elige abajo qué reglas del formato Revolution se usan.");
+        if self.settings.revolution {
+            let mut rules = self.settings.revolution_rules.unwrap_or(RevolutionRules::ALL);
+            ui.indent("revolution_rules", |ui| {
+                ui.checkbox(&mut rules.revolution_cards_only, "Solo cartas y Superstars Revolution");
+                ui.checkbox(&mut rules.small_backlash, "Backlash de hasta 6 Pre-match y 6 Mid-match");
+                ui.checkbox(&mut rules.ring_limit, "Máximo 3 Pre-match y 3 Mid-match en el Ring");
+                ui.checkbox(&mut rules.hands_before_pre_match, "Robar la mano antes del Pre-match");
+                ui.checkbox(&mut rules.aggression, "Regla de agresión")
+                    .on_hover_text("Si terminas el turno sin intentar una maniobra, volteas 6 cartas.");
+            });
+            self.settings.revolution_rules = Some(rules);
+        }
+    }
+
+    /// The card folder panel and Salir.
+    fn menu_footer(&mut self, ui: &mut Ui) {
+        ui.horizontal_top(|ui| {
+            let exit = 240.0;
+            ui.vertical(|ui| {
+                ui.set_width(ui.available_width() - exit - 16.0);
+                self.cards_panel(ui);
+            });
+            ui.add_space(8.0);
+            if theme::big_button(ui, Icon::Exit, "SALIR", exit).clicked() {
+                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        });
+    }
+
+    /// Card folder, image import and the note about card text and art.
+    fn cards_panel(&mut self, ui: &mut Ui) {
+        theme::panel().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
+                theme::paint_icon(ui, Icon::Folder, rect, egui::Color32::from_gray(220));
+                ui.label(RichText::new("Cartas:").strong());
                 ui.label(&self.source);
                 if ui.button("Elegir carpeta…").clicked()
                     && let Some(dir) = rfd::FileDialog::new().set_title("Carpeta con tus sets (.ron)").pick_folder()
                 {
                     self.load_cards(Some(dir));
                 }
-                if self.settings.cards_dir.is_some() && ui.button("Usar cartas de prueba").clicked() {
-                    self.load_cards(None);
-                }
-            });
-            ui.end_row();
-
-            ui.label("");
-            ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut self.typed_dir)
                         .hint_text("o escribe la ruta de la carpeta")
-                        .desired_width(360.0),
+                        .desired_width(240.0),
                 );
                 if ui.button("Cargar").clicked() && !self.typed_dir.trim().is_empty() {
                     let dir = PathBuf::from(self.typed_dir.trim());
                     self.load_cards(Some(dir));
                 }
+                if self.settings.cards_dir.is_some() && ui.button("Usar cartas de prueba").clicked() {
+                    self.load_cards(None);
+                }
             });
-            ui.end_row();
-
             if self.settings.cards_dir.is_some() {
-                ui.label("Imágenes:");
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
+                    let (rect, _) = ui.allocate_exact_size(egui::vec2(20.0, 20.0), egui::Sense::hover());
+                    theme::paint_icon(ui, Icon::Picture, rect, egui::Color32::from_gray(220));
+                    ui.label(RichText::new("Imágenes:").strong());
                     if self.importing.is_some() {
                         ui.spinner();
                         ui.label("Importando imágenes…");
@@ -1121,151 +1335,38 @@ impl App {
                         ui.label(n);
                     }
                 });
-                ui.end_row();
             }
-
-            for (i, who) in ["Tu Superstar:", "Rival:"].into_iter().enumerate() {
-                ui.label(who);
-                ui.horizontal(|ui| {
-                    let current = self.settings.superstars[i]
-                        .as_deref()
-                        .and_then(|id| self.db.superstar_by_id(id))
-                        .map(|s| self.db.superstar(s).name.clone())
-                        .unwrap_or_default();
-                    egui::ComboBox::from_id_salt(("star", i)).width(240.0).selected_text(current).show_ui(ui, |ui| {
-                        for s in self.db.superstars() {
-                            if self.revolution_rules().revolution_cards_only && !is_revolution(&s.name) {
-                                continue;
-                            }
-                            let picked = self.settings.superstars[i].as_deref() == Some(s.id.as_str());
-                            if ui.selectable_label(picked, &s.name).on_hover_text(&s.text).clicked() {
-                                self.settings.superstars[i] = Some(s.id.clone());
-                            }
-                        }
-                    });
-                    let deck = match &self.settings.decks[i] {
-                        Some(p) => p.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
-                        None => "Automático".into(),
-                    };
-                    let mut picked = None;
-                    egui::ComboBox::from_id_salt(("deck", i))
-                        .width(200.0)
-                        .selected_text(format!("Mazo: {deck}"))
-                        .show_ui(ui, |ui| {
-                            if ui.selectable_label(self.settings.decks[i].is_none(), "Automático").clicked() {
-                                self.settings.decks[i] = None;
-                            }
-                            for name in crate::builder::saved_decks() {
-                                if ui.selectable_label(name == deck, &name).clicked() {
-                                    picked = crate::builder::deck_path(&name);
-                                }
-                            }
-                            if ui.selectable_label(false, "Otro archivo…").clicked() {
-                                picked = rfd::FileDialog::new().add_filter("Mazo", &["ron"]).pick_file();
-                            }
-                        });
-                    if let Some(file) = picked {
-                        self.use_deck(i, file);
-                    }
-                });
-                ui.end_row();
-            }
-
-            ui.label("Dificultad:");
             ui.horizontal(|ui| {
-                for level in Difficulty::ALL {
-                    let (name, hint) = match level {
-                        Difficulty::Easy => ("Fácil", "Juega cartas al azar."),
-                        Difficulty::Normal => {
-                            ("Normal", "Revierte siempre que puede y ataca con sus maniobras más fuertes.")
-                        }
-                        Difficulty::Hard => (
-                            "Difícil",
-                            "Prueba cada jugada contra varias suposiciones de tu mano y elige la que mejor le resulta. \
-                             No ve tus cartas ocultas.",
-                        ),
-                    };
-                    ui.radio_value(&mut self.settings.difficulty, level, name).on_hover_text(hint);
-                }
-            });
-            ui.end_row();
-
-            ui.label("Reglas:");
-            ui.vertical(|ui| {
-                ui.add_enabled(
-                    !self.settings.revolution && !self.settings.virtual_rules,
-                    egui::Checkbox::new(&mut self.settings.advanced, "Avanzadas (Pre-match y Backlash)"),
-                );
-                if ui
-                    .add_enabled(
-                        !self.settings.revolution,
-                        egui::Checkbox::new(&mut self.settings.virtual_rules, "Formato Virtual (reglas avanzadas)"),
+                ui.label(
+                    RichText::new(
+                        "El texto y el arte de Raw Deal pertenecen a sus dueños, así que OpenWWX no los incluye. \
+                         Elige la carpeta donde tienes tus sets en formato .ron (por ejemplo, importados desde OCTGN), \
+                         o ponlos en una carpeta \"cards\" junto al programa.",
                     )
-                    .on_hover_text("Backlash de hasta 12 Pre-match y 12 Mid-match, máximo 6 de cada en el Ring.")
-                    .changed()
-                    && self.settings.virtual_rules
-                {
-                    self.settings.revolution = false;
-                }
-                ui.add_enabled(
-                    !self.settings.virtual_rules,
-                    egui::Checkbox::new(&mut self.settings.revolution, "Formato Revolution (reglas avanzadas)"),
-                )
-                .on_hover_text("Elige abajo qué reglas del formato Revolution se usan.");
-                if self.settings.revolution {
-                    let mut rules = self.settings.revolution_rules.unwrap_or(RevolutionRules::ALL);
-                    ui.indent("revolution_rules", |ui| {
-                        ui.checkbox(&mut rules.revolution_cards_only, "Solo cartas y Superstars Revolution");
-                        ui.checkbox(&mut rules.small_backlash, "Backlash de hasta 6 Pre-match y 6 Mid-match");
-                        ui.checkbox(&mut rules.ring_limit, "Máximo 3 Pre-match y 3 Mid-match en el Ring");
-                        ui.checkbox(&mut rules.hands_before_pre_match, "Robar la mano antes del Pre-match");
-                        ui.checkbox(&mut rules.aggression, "Regla de agresión")
-                            .on_hover_text("Si terminas el turno sin intentar una maniobra, volteas 6 cartas.");
-                    });
-                    self.settings.revolution_rules = Some(rules);
-                }
-            });
-            ui.end_row();
-        });
-        ui.add_space(16.0);
-        self.poll_import();
-        if let Some(e) = &self.error {
-            ui.colored_label(egui::Color32::from_rgb(240, 110, 110), e);
-            ui.add_space(8.0);
-        }
-        ui.horizontal(|ui| {
-            if ui.button(RichText::new("Empezar lucha").size(20.0)).clicked() {
-                self.start();
-            }
-            ui.add_space(16.0);
-            if ui.button(RichText::new("Construir mazos").size(20.0)).clicked() {
-                let account = self.account();
-                let mut builder = Builder::new(
-                    &self.ctx,
-                    self.db.clone(),
-                    self.sets.clone(),
-                    self.mode(),
-                    self.settings.superstars[0].clone(),
-                    account,
+                    .small()
+                    .color(egui::Color32::from_gray(170)),
                 );
-                // Opens the deck "Tu Superstar" plays with, when it is a saved one.
-                if let Some(name) = self.settings.decks[0].as_ref().and_then(|p| p.file_stem())
-                    && crate::builder::saved_decks().iter().any(|n| n.as_str() == name)
-                {
-                    builder.open(&name.to_string_lossy());
-                }
-                self.builder = Some(builder);
-            }
+            });
         });
-        ui.add_space(24.0);
-        ui.separator();
-        self.online_form(ui);
-        ui.add_space(24.0);
-        ui.label(
-            "El texto y el arte de Raw Deal pertenecen a sus dueños, así que OpenWWX no los incluye. \
-             Elige la carpeta donde tienes tus sets en formato .ron (por ejemplo, importados desde OCTGN), \
-             o ponlos en una carpeta \"cards\" junto al programa.",
+    }
+
+    fn open_builder(&mut self) {
+        let account = self.account();
+        let mut builder = Builder::new(
+            &self.ctx,
+            self.db.clone(),
+            self.sets.clone(),
+            self.mode(),
+            self.settings.superstars[0].clone(),
+            account,
         );
+        // Opens the deck "Tu Superstar" plays with, when it is a saved one.
+        if let Some(name) = self.settings.decks[0].as_ref().and_then(|p| p.file_stem())
+            && crate::builder::saved_decks().iter().any(|n| n.as_str() == name)
+        {
+            builder.open(&name.to_string_lossy());
+        }
+        self.builder = Some(builder);
     }
 }
 
@@ -1301,8 +1402,7 @@ impl eframe::App for App {
             }
             return;
         }
-        egui::CentralPanel::default()
-            .show(ui, |ui| egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| self.setup_screen(ui)));
+        egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| self.setup_screen(ui));
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {

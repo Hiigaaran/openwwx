@@ -15,6 +15,7 @@ mod social;
 mod sync;
 mod table;
 mod text;
+mod theme;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
