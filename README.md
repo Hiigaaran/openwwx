@@ -9,7 +9,7 @@ directo o por un servidor común, con espectadores, chat, cuentas, historial, ra
 mazos. El diseño completo está
 en [docs/motor-de-reglas.md](docs/motor-de-reglas.md).
 
-![Una lucha contra la computadora: mano, Ring de cada Superstar, visor de la carta y relato](docs/img/partida.png)
+![Una lucha contra la computadora: el ring visto desde arriba con la mano, la carta en juego y el Ring de cada Superstar, las pilas a la izquierda y el visor y el relato a la derecha](docs/img/partida.png)
 
 *Las capturas usan el set de prueba del repositorio, con cartas y Superstars inventados: OpenWWX no incluye texto
 ni arte de Raw Deal.*

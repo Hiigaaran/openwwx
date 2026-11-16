@@ -17,6 +17,7 @@ use crate::anim::{Banner, Display, Float, Fly, Layout, Step, ease};
 use crate::cards::{self, Look};
 use crate::table::Table;
 use crate::text::{self, Voice};
+use crate::theme;
 
 /// Pause after the animations before the computer moves, in seconds.
 const BOT_DELAY: f64 = 0.3;
@@ -247,130 +248,161 @@ impl Match {
         let legal = if self.idle() { self.table.legal() } else { vec![] };
         let mut leave = Leave::Stay;
 
-        egui::Panel::right("log").default_size(270.0).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Animaciones:");
-                egui::ComboBox::from_id_salt("speed").selected_text(self.speed.label()).show_ui(ui, |ui| {
-                    for s in [Speed::Slow, Speed::Normal, Speed::Fast, Speed::Off] {
-                        ui.selectable_value(&mut self.speed, s, s.label());
-                    }
-                });
-                if !self.idle() && ui.button("Saltar").clicked() {
-                    self.skip = true;
-                }
-                if self.table.online_state().is_some() && view.outcome.is_none() {
-                    let hint = match (self.spectator, self.table.hosting()) {
-                        (true, _) => "Dejas de mirar la partida.",
-                        (false, true) => "Abandonas la partida (tu rival gana) y la cierras para todos.",
-                        (false, false) => "Abandonas la partida: tu rival gana.",
-                    };
-                    if ui.button("Salir").on_hover_text(hint).clicked() {
-                        self.table.leave();
-                        leave = Leave::Menu;
-                    }
-                }
-            });
-            ui.separator();
-            if self.table.online_state().is_some() {
-                let r = ui.add(
-                    egui::TextEdit::singleline(&mut self.chat)
-                        .hint_text("Chat: escribe y pulsa Enter")
-                        .desired_width(f32::INFINITY),
-                );
-                if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    let text = std::mem::take(&mut self.chat);
-                    if !text.trim().is_empty() {
-                        self.table.chat(&text);
-                    }
-                    r.request_focus();
-                }
-            }
-            ui.heading("Relato");
-            ScrollArea::vertical().stick_to_bottom(true).auto_shrink([false; 2]).show(ui, |ui| {
-                for line in &self.log {
-                    ui.label(line);
-                }
-            });
-        });
-        egui::Panel::right("preview")
-            .exact_size(cards::PREVIEW.x + 16.0)
+        egui::Panel::right("side")
+            .exact_size(300.0)
             .resizable(false)
-            .show(ui, cards::preview_panel);
-        egui::Panel::top("opponent").show(ui, |ui| {
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                self.piles(ui, &view, self.me.opponent());
-                self.superstar_card(ui, &view, self.me.opponent());
-                ui.vertical(|ui| {
-                    self.player_bar(ui, &view, self.me.opponent());
-                    let start = ui.cursor().min;
-                    ui.horizontal(|ui| {
-                        let hand = self.display.sides[self.me.opponent().index()].hand.clone();
-                        for c in hand.into_iter().take(14) {
-                            let def = c.map(|c| self.def_of(c).clone());
-                            cards::card(ui, def.as_ref(), cards::SMALL * 0.6, Look::Normal);
+            .frame(
+                egui::Frame::new()
+                    .fill(Color32::from_rgb(14, 13, 16))
+                    .stroke(Stroke::new(1.5, Color32::from_rgb(90, 90, 98)))
+                    .inner_margin(egui::Margin::same(10)),
+            )
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Animaciones:");
+                    egui::ComboBox::from_id_salt("speed").selected_text(self.speed.label()).show_ui(ui, |ui| {
+                        for s in [Speed::Slow, Speed::Normal, Speed::Fast, Speed::Off] {
+                            ui.selectable_value(&mut self.speed, s, s.label());
                         }
                     });
-                    self.layout.hand[self.me.opponent().index()] =
-                        Rect::from_min_size(start, vec2(ui.available_width().min(500.0), cards::SMALL.y * 0.6));
-                });
-            });
-            ui.add_space(4.0);
-        });
-        egui::Panel::bottom("me").show(ui, |ui| {
-            ui.add_space(4.0);
-            if let Some(l) = self.prompt(ui, &view, &legal) {
-                leave = l;
-            }
-            ui.add_space(4.0);
-            self.hand(ui, &legal);
-            ui.horizontal(|ui| {
-                self.piles(ui, &view, self.me);
-                self.superstar_card(ui, &view, self.me);
-                ui.vertical(|ui| self.player_bar(ui, &view, self.me));
-            });
-            ui.add_space(4.0);
-        });
-        egui::CentralPanel::default().show(ui, |ui| {
-            self.layout.board = ui.max_rect();
-            ui.horizontal_top(|ui| {
-                ui.vertical(|ui| {
-                    ui.set_width(cards::SIZE.x + 8.0);
-                    ui.label(RichText::new("En juego").strong());
-                    let (rect, _) = ui.allocate_exact_size(cards::SIZE, egui::Sense::hover());
-                    self.layout.in_play = rect;
-                    match self.display.in_play {
-                        Some((c, p)) => {
-                            let def = self.def_of(c);
-                            cards::paint(&ui.painter_at(rect.expand(4.0)), rect, Some(def), Look::Normal, 1.0);
-                            let who = if self.mine(p) {
-                                "La juegas tú".into()
-                            } else {
-                                format!("La juega {}", self.rival(p))
-                            };
-                            let how = match view.in_play {
-                                Some(pl) if pl.card == c && self.idle() => format!(" como {}", text::kind(pl.kind)),
-                                _ => String::new(),
-                            };
-                            ui.label(format!("{who}{how}"));
-                        }
-                        None => {
-                            ui.painter().rect_stroke(
-                                rect,
-                                CornerRadius::same(6),
-                                Stroke::new(1.0, Color32::from_gray(60)),
-                                StrokeKind::Inside,
-                            );
+                    if !self.idle() && ui.button("Saltar").clicked() {
+                        self.skip = true;
+                    }
+                    if self.table.online_state().is_some() && view.outcome.is_none() {
+                        let hint = match (self.spectator, self.table.hosting()) {
+                            (true, _) => "Dejas de mirar la partida.",
+                            (false, true) => "Abandonas la partida (tu rival gana) y la cierras para todos.",
+                            (false, false) => "Abandonas la partida: tu rival gana.",
+                        };
+                        if ui.button("Salir").on_hover_text(hint).clicked() {
+                            self.table.leave();
+                            leave = Leave::Menu;
                         }
                     }
                 });
+                ui.add_space(4.0);
+                cards::preview_with(ui, Some(110.0));
+                ui.add_space(4.0);
                 ui.separator();
-                ui.vertical(|ui| {
-                    self.ring(ui, self.me.opponent());
-                    ui.separator();
-                    self.ring(ui, self.me);
+                theme::heading(ui, "RELATO", 20.0);
+                if self.table.online_state().is_some() {
+                    let r = ui.add(
+                        egui::TextEdit::singleline(&mut self.chat)
+                            .hint_text("Chat: escribe y pulsa Enter")
+                            .desired_width(f32::INFINITY),
+                    );
+                    if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        let text = std::mem::take(&mut self.chat);
+                        if !text.trim().is_empty() {
+                            self.table.chat(&text);
+                        }
+                        r.request_focus();
+                    }
+                }
+                ScrollArea::vertical().stick_to_bottom(true).auto_shrink([false; 2]).show(ui, |ui| {
+                    for line in &self.log {
+                        ui.label(line);
+                    }
                 });
             });
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(Color32::from_rgb(8, 7, 10))).show(ui, |ui| {
+            let full = ui.max_rect();
+            let look = theme::get(ui.ctx());
+            theme::cover(ui, &look.arena, full);
+            ui.painter().rect_filled(full, 0.0, Color32::from_black_alpha(150));
+
+            // Piles outside the ring: your rival's at the top, yours at the bottom.
+            // In a short window, Arsenal and Ringside go side by side.
+            let pile_h = 3.0 * (cards::PILE.y + 22.0) + 30.0;
+            let compact = full.height() < 2.0 * pile_h + 20.0;
+            let side_w = if compact { 2.0 * cards::PILE.x + 30.0 } else { cards::PILE.x + 20.0 };
+            let pile_h = if compact { 2.0 * (cards::PILE.y + 22.0) + 30.0 } else { pile_h };
+            let side = Rect::from_min_max(full.min, egui::pos2(full.left() + side_w, full.bottom()));
+            let mut top = ui.new_child(egui::UiBuilder::new().max_rect(side.shrink(8.0)));
+            top.spacing_mut().item_spacing.y = 6.0;
+            if compact {
+                top.horizontal_top(|ui| self.piles(ui, &view, self.me.opponent()));
+            } else {
+                self.piles(&mut top, &view, self.me.opponent());
+            }
+            self.superstar_card(&mut top, &view, self.me.opponent());
+            let low = Rect::from_min_max(egui::pos2(side.left(), side.bottom() - pile_h), side.max);
+            let mut bottom = ui.new_child(
+                egui::UiBuilder::new().max_rect(low.shrink(8.0)).layout(egui::Layout::bottom_up(egui::Align::Min)),
+            );
+            bottom.spacing_mut().item_spacing.y = 6.0;
+            self.superstar_card(&mut bottom, &view, self.me);
+            if compact {
+                bottom.horizontal_top(|ui| self.piles(ui, &view, self.me));
+            } else {
+                self.piles(&mut bottom, &view, self.me);
+            }
+
+            let ring = Rect::from_min_max(egui::pos2(side.right(), full.top()), full.max).shrink(6.0);
+            let canvas = paint_ring(ui, ring);
+            self.layout.board = canvas;
+            let inner = canvas.shrink(12.0);
+
+            // Both Rings in a column on the right, your rival's above.
+            let ring_w = cards::SMALL.x + 24.0;
+            let column = Rect::from_min_max(egui::pos2(inner.right() - ring_w, inner.top()), inner.max);
+            let (theirs, mine) = column.split_top_bottom_at_fraction(0.5);
+            self.ring(ui, self.me.opponent(), theirs.shrink2(vec2(0.0, 3.0)));
+            self.ring(ui, self.me, mine.shrink2(vec2(0.0, 3.0)));
+
+            let play = Rect::from_min_max(inner.min, egui::pos2(column.left() - 10.0, inner.bottom()));
+            // Your rival's name plate and hand along the top rope.
+            let rival_h = cards::SMALL.y * 0.6 + 40.0;
+            let mut top = ui
+                .new_child(egui::UiBuilder::new().max_rect(Rect::from_min_size(play.min, vec2(play.width(), rival_h))));
+            self.plate(&mut top, &view, self.me.opponent());
+            let start = top.cursor().min;
+            top.horizontal(|ui| {
+                let hand = self.display.sides[self.me.opponent().index()].hand.clone();
+                let fits = ((play.width() + 8.0) / (cards::SMALL.x * 0.6 + 8.0)) as usize;
+                for c in hand.into_iter().take(fits.min(14)) {
+                    let def = c.map(|c| self.def_of(c).clone());
+                    cards::card(ui, def.as_ref(), cards::SMALL * 0.6, Look::Normal);
+                }
+            });
+            self.layout.hand[self.me.opponent().index()] =
+                Rect::from_min_size(start, vec2(play.width().min(500.0), cards::SMALL.y * 0.6));
+
+            // Your hand, plate and what the game asks along the bottom.
+            let mine_h = cards::SIZE.y + 110.0;
+            let low = Rect::from_min_max(egui::pos2(play.left(), play.bottom() - mine_h), play.max);
+            let mut bottom = ui.new_child(egui::UiBuilder::new().max_rect(low));
+            egui::Frame::new()
+                .fill(Color32::from_rgba_unmultiplied(12, 11, 14, 215))
+                .stroke(Stroke::new(1.0, Color32::from_rgb(90, 90, 98)))
+                .corner_radius(CornerRadius::same(4))
+                .inner_margin(egui::Margin::symmetric(8, 4))
+                .show(&mut bottom, |ui| {
+                    ui.set_width(ui.available_width());
+                    if let Some(l) = self.prompt(ui, &view, &legal) {
+                        leave = l;
+                    }
+                });
+            bottom.add_space(4.0);
+            self.hand(&mut bottom, &legal);
+            self.plate(&mut bottom, &view, self.me);
+
+            // The card in play, in the middle.
+            let middle =
+                Rect::from_min_max(egui::pos2(play.left(), play.top() + rival_h), egui::pos2(play.right(), low.top()));
+            self.in_play(ui, &view, middle);
+            if let (Some(outcome), true) = (&view.outcome, self.idle()) {
+                let text = text::outcome(outcome, &self.voice());
+                let size = (middle.width() / (text.chars().count() as f32 * 0.42)).clamp(28.0, 64.0);
+                theme::shadow_text(
+                    ui,
+                    middle.center(),
+                    Align2::CENTER_CENTER,
+                    &text,
+                    theme::display_font(size),
+                    Color32::from_rgb(255, 214, 90),
+                );
+            }
         });
         if self.idle() {
             self.choose_cards_window(ui, &view);
@@ -671,7 +703,7 @@ impl Match {
         let fortitude: u32 = side.ring.iter().map(|&c| self.def_of(c).damage as u32).sum();
         let hand = side.hand.len();
         let backlash = side.backlash.len();
-        let r = ui.horizontal(|ui| {
+        let r = ui.horizontal_wrapped(|ui| {
             let label = if self.mine(p) { "Tú".into() } else { self.rival_cap(p) };
             ui.label(RichText::new(format!("{label}: {}", star.name)).strong().size(16.0));
             if let Some((card, index)) = info.enforcer
@@ -715,29 +747,97 @@ impl Match {
         self.layout.bar[p.index()] = r.response.rect;
     }
 
-    fn ring(&mut self, ui: &mut Ui, p: PlayerId) {
-        let whose = match &self.names {
-            _ if self.mine(p) => "tu Superstar".into(),
-            Some(names) => names[p.index()].clone(),
-            None => "tu rival".into(),
-        };
-        ui.label(format!("Ring de {whose}"));
+    /// A player's name plate: gold edge for you, red for your rival.
+    fn plate(&mut self, ui: &mut Ui, view: &PlayerView, p: PlayerId) {
+        let edge = if self.mine(p) { theme::GOLD } else { theme::RED };
+        egui::Frame::new()
+            .fill(Color32::from_rgba_unmultiplied(10, 10, 12, 225))
+            .stroke(Stroke::new(1.5, edge))
+            .corner_radius(CornerRadius::same(3))
+            .inner_margin(egui::Margin::symmetric(8, 2))
+            .show(ui, |ui| self.player_bar(ui, view, p));
+    }
+
+    /// A player's Ring in `area`: cards overlapping from the top down, like a
+    /// pile you can read the titles of.
+    fn ring(&mut self, ui: &mut Ui, p: PlayerId, area: Rect) {
+        let mine = self.mine(p);
+        let edge = if mine { theme::BLUE } else { theme::RED };
+        let painter = ui.painter_at(area.expand(2.0));
+        painter.rect_filled(area, CornerRadius::same(4), Color32::from_black_alpha(35));
+        painter.rect_stroke(area, CornerRadius::same(4), Stroke::new(2.0, edge), StrokeKind::Inside);
+        let label = if mine { "TU RING" } else { "RING RIVAL" };
+        painter.text(
+            area.center_top() + vec2(0.0, 3.0),
+            Align2::CENTER_TOP,
+            label,
+            theme::display_font(14.0),
+            Color32::WHITE,
+        );
+        let body = Rect::from_min_max(area.min + vec2(0.0, 22.0), area.max - vec2(0.0, 6.0));
         let ring = self.display.sides[p.index()].ring.clone();
-        let start = ui.cursor().min;
-        let r = ScrollArea::horizontal().id_salt(("ring", p.0)).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                if ring.is_empty() {
-                    ui.add_sized(cards::SMALL, egui::Label::new("(vacío)"));
+        let n = ring.len();
+        let step = if n > 1 { ((body.height() - cards::SMALL.y) / (n - 1) as f32).clamp(8.0, 34.0) } else { 34.0 };
+        let left = body.center().x - cards::SMALL.x / 2.0;
+        let clip = ui.painter_at(area);
+        for (i, &c) in ring.iter().enumerate() {
+            let r = Rect::from_min_size(egui::pos2(left, body.top() + i as f32 * step), cards::SMALL);
+            let def = self.def_of(c).clone();
+            cards::paint(&clip, r, Some(&def), Look::Normal, 1.0);
+            if ui.interact(r.intersect(area), Id::new(("ring-card", c)), egui::Sense::hover()).hovered() {
+                cards::set_preview(ui.ctx(), cards::Preview::Card(Box::new(def)));
+            }
+            self.layout.cards.insert(c, r);
+        }
+        self.layout.ring[p.index()] = Rect::from_min_size(egui::pos2(left, body.top()), cards::SMALL);
+        self.layout.ring_step[p.index()] = step;
+    }
+
+    /// The card being played, in the middle of the ring.
+    fn in_play(&mut self, ui: &mut Ui, view: &PlayerView, area: Rect) {
+        let size = cards::SIZE * ((area.height() - 50.0) / cards::SIZE.y).clamp(0.5, 1.0);
+        let rect = Rect::from_center_size(egui::pos2(area.left() + size.x / 2.0 + 16.0, area.center().y), size);
+        self.layout.in_play = rect;
+        let painter = ui.painter_at(area.expand(6.0));
+        painter.text(
+            rect.center_top() - vec2(0.0, 4.0),
+            Align2::CENTER_BOTTOM,
+            "EN JUEGO",
+            theme::display_font(15.0),
+            Color32::from_gray(60),
+        );
+        match self.display.in_play {
+            Some((c, p)) => {
+                let def = self.def_of(c).clone();
+                painter.rect_filled(
+                    rect.translate(vec2(4.0, 6.0)),
+                    CornerRadius::same(6),
+                    Color32::from_black_alpha(90),
+                );
+                cards::paint(&painter, rect, Some(&def), Look::Normal, 1.0);
+                if ui.interact(rect, Id::new("in-play"), egui::Sense::hover()).hovered() {
+                    cards::set_preview(ui.ctx(), cards::Preview::Card(Box::new(def)));
                 }
-                for c in ring {
-                    let def = self.def_of(c);
-                    let rect = cards::card(ui, Some(def), cards::SMALL, Look::Normal).rect;
-                    self.layout.cards.insert(c, rect);
-                }
-            });
-        });
-        let width = r.inner_rect.width().max(cards::SMALL.x);
-        self.layout.ring[p.index()] = Rect::from_min_size(start, vec2(width, cards::SMALL.y));
+                let who = if self.mine(p) { "La juegas tú".into() } else { format!("La juega {}", self.rival(p)) };
+                let how = match view.in_play {
+                    Some(pl) if pl.card == c && self.idle() => format!(" como {}", text::kind(pl.kind)),
+                    _ => String::new(),
+                };
+                let caption = format!("{who}{how}");
+                let galley = painter.layout_no_wrap(caption, FontId::proportional(13.0), Color32::WHITE);
+                let back = Rect::from_min_size(rect.left_bottom() + vec2(-4.0, 6.0), galley.size() + vec2(8.0, 4.0));
+                painter.rect_filled(back, CornerRadius::same(3), Color32::from_black_alpha(190));
+                painter.galley(back.min + vec2(4.0, 2.0), galley, Color32::WHITE);
+            }
+            None => {
+                painter.rect_stroke(
+                    rect,
+                    CornerRadius::same(6),
+                    Stroke::new(1.5, Color32::from_black_alpha(60)),
+                    StrokeKind::Inside,
+                );
+            }
+        }
     }
 
     /// Your hand (and Backlash deck), with the cards you can use highlighted.
@@ -1178,4 +1278,65 @@ fn card_of(action: &Action) -> Option<CardId> {
         Action::PlayCard { card, .. } | Action::Reverse { card } => Some(*card),
         _ => None,
     }
+}
+
+/// Paints the ring from above in `rect` (apron, ropes, turnbuckles and canvas)
+/// and returns the canvas.
+fn paint_ring(ui: &Ui, rect: Rect) -> Rect {
+    let look = theme::get(ui.ctx());
+    let p = ui.painter_at(rect.expand(4.0));
+    p.rect_filled(rect.translate(vec2(0.0, 6.0)), CornerRadius::same(8), Color32::from_black_alpha(160));
+    p.rect_filled(rect, CornerRadius::same(6), Color32::from_rgb(18, 17, 20));
+    p.rect_stroke(rect, CornerRadius::same(6), Stroke::new(2.0, Color32::from_rgb(70, 70, 78)), StrokeKind::Inside);
+    for (y, align) in [(rect.top() + 4.0, Align2::CENTER_TOP), (rect.bottom() - 4.0, Align2::CENTER_BOTTOM)] {
+        p.text(
+            egui::pos2(rect.center().x, y),
+            align,
+            "OPENWWX",
+            theme::display_font(18.0),
+            Color32::from_rgb(70, 22, 24),
+        );
+    }
+    let canvas = rect.shrink(46.0);
+    let uv = Rect::from_min_size(egui::pos2(0.0, 0.0), canvas.size() / 256.0);
+    p.image(look.canvas.id(), canvas, uv, Color32::WHITE);
+    // Shade near the ropes.
+    for i in 0..8 {
+        let a = 46 - i * 5;
+        p.rect_stroke(
+            canvas.shrink(i as f32 * 3.0),
+            CornerRadius::ZERO,
+            Stroke::new(3.0, Color32::from_black_alpha(a as u8)),
+            StrokeKind::Inside,
+        );
+    }
+    // Three ropes, outside in.
+    let ropes = [Color32::from_rgb(200, 26, 30), Color32::from_rgb(235, 235, 235), Color32::from_rgb(30, 70, 190)];
+    for (k, color) in ropes.into_iter().enumerate() {
+        let r = canvas.expand(22.0 - k as f32 * 8.0);
+        p.rect_stroke(
+            r.translate(vec2(2.0, 4.0)),
+            CornerRadius::ZERO,
+            Stroke::new(5.0, Color32::from_black_alpha(110)),
+            StrokeKind::Middle,
+        );
+        p.rect_stroke(r, CornerRadius::ZERO, Stroke::new(5.0, color), StrokeKind::Middle);
+        p.rect_stroke(
+            r.shrink(1.2),
+            CornerRadius::ZERO,
+            Stroke::new(1.0, Color32::from_white_alpha(70)),
+            StrokeKind::Middle,
+        );
+    }
+    let post = canvas.expand(18.0);
+    for corner in [post.left_top(), post.right_top(), post.left_bottom(), post.right_bottom()] {
+        let r = Rect::from_center_size(corner, egui::Vec2::splat(64.0));
+        p.image(
+            look.turnbuckle.id(),
+            r,
+            Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            Color32::WHITE,
+        );
+    }
+    canvas
 }

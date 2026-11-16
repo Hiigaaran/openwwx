@@ -631,6 +631,11 @@ pub fn pile(ui: &mut Ui, label: &str, top: Option<&CardDef>, count: usize, face_
 
 /// The preview panel: the card last under the mouse, large, and its details.
 pub fn preview_panel(ui: &mut Ui) {
+    preview_with(ui, None);
+}
+
+/// The preview, with its text at most `text_height` tall.
+pub fn preview_with(ui: &mut Ui, text_height: Option<f32>) {
     ui.heading("Carta");
     let Some(preview) = preview(ui.ctx()) else {
         ui.label(egui::RichText::new("Pasa el mouse sobre una carta para verla aquí.").weak());
@@ -645,7 +650,11 @@ pub fn preview_panel(ui: &mut Ui) {
         Preview::Superstar(star) => paint_superstar(&painter, rect, star, 1.0),
     }
     ui.add_space(6.0);
-    egui::ScrollArea::vertical().id_salt("preview-text").show(ui, |ui| match &preview {
+    let mut text = egui::ScrollArea::vertical().id_salt("preview-text");
+    if let Some(h) = text_height {
+        text = text.max_height(h);
+    }
+    text.show(ui, |ui| match &preview {
         Preview::Card(def) => details(ui, def),
         Preview::Superstar(star) => {
             ui.strong(&star.name);

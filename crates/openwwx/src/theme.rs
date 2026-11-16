@@ -3,15 +3,12 @@
 //! from them. All images are original and come from `assets/`, made by
 //! `assets/gen/make_assets.py`.
 
-// The ring pieces are for the match view (next stage).
-#![allow(dead_code)]
-
 use std::sync::Arc;
 
 use eframe::egui::{
     self, Align, Align2, Color32, Context, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Id, Layout,
-    Margin, Pos2, Rect, Response, Sense, Stroke, StrokeKind, TextureHandle, TextureOptions, TextureWrapMode, Ui,
-    UiBuilder, Vec2, pos2, vec2,
+    Margin, Pos2, Rect, Response, Sense, Stroke, TextureHandle, TextureOptions, TextureWrapMode, Ui, UiBuilder, Vec2,
+    pos2, vec2,
 };
 
 /// Red used for accents.
@@ -242,14 +239,6 @@ pub fn card_frame(ui: &Ui, card: Rect, gold: bool) {
 pub fn framed_card_size(width: f32) -> Vec2 {
     let card_w = width * 286.0 / 370.0;
     vec2(card_w, card_w * 406.0 / 286.0)
-}
-
-/// A plate (as on the ring apron) with text, its color edge on the left.
-pub fn plate(ui: &Ui, rect: Rect, edge: Color32) {
-    let p = ui.painter();
-    p.rect_filled(rect, CornerRadius::same(3), Color32::from_rgba_unmultiplied(10, 10, 12, 220));
-    p.rect_stroke(rect, CornerRadius::same(3), Stroke::new(1.0, METAL), StrokeKind::Inside);
-    p.rect_filled(Rect::from_min_size(rect.min, vec2(4.0, rect.height())), CornerRadius::same(2), edge);
 }
 
 /// Text with a dark shadow, for banners over the ring.

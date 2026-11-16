@@ -129,6 +129,8 @@ pub struct Layout {
     pub hand: [Rect; 2],
     pub ring: [Rect; 2],
     pub bar: [Rect; 2],
+    /// How far apart the cards of each Ring are, top to top.
+    pub ring_step: [f32; 2],
     pub in_play: Rect,
     pub board: Rect,
 }
@@ -142,6 +144,7 @@ impl Default for Layout {
             hand: [Rect::NOTHING; 2],
             ring: [Rect::NOTHING; 2],
             bar: [Rect::NOTHING; 2],
+            ring_step: [24.0; 2],
             in_play: Rect::NOTHING,
             board: Rect::NOTHING,
         }
@@ -164,7 +167,13 @@ impl Layout {
             Zone::Ringside | Zone::Removed => self.ringside[i],
             Zone::InPlay => self.in_play,
             Zone::Under => self.ring[i],
-            Zone::Ring => after_last(&mut d.sides[i].ring.iter().copied(), self.ring[i]),
+            Zone::Ring => {
+                let last = d.sides[i].ring.iter().rev().find_map(|c| self.cards.get(c));
+                match last {
+                    Some(r) => Rect::from_min_size(Pos2::new(r.left(), r.top() + self.ring_step[i]), size),
+                    None => Rect::from_min_size(self.ring[i].min, size),
+                }
+            }
             Zone::Hand => after_last(&mut d.sides[i].hand.iter().flatten().copied(), self.hand[i]),
         }
     }
