@@ -13,12 +13,14 @@ use std::time::{Duration, Instant};
 use rand::SeedableRng;
 use rand::seq::IndexedRandom;
 use rand_chacha::ChaCha8Rng;
-use rawdeal_ai::{Bot, Difficulty, SearchBot, Weights};
+use rawdeal_ai::{Bot, Difficulty, GreedyBot, SearchBot, Style, Weights};
 use rawdeal_core::{Engine, GameSetup, Outcome, PlayerId, Seat};
 
 fn bot(name: &str, seed: u64) -> Box<dyn Bot + Send> {
     let mut b = SearchBot::HARD;
     let mut w = Weights::DEFAULT;
+    let mut st = Style::NORMAL;
+    let mut greedy = false;
     for part in name.split(',') {
         let (k, v) = part.split_once('=').unwrap_or((part, "0"));
         let f: f32 = v.parse().unwrap_or(0.0);
@@ -27,6 +29,20 @@ fn bot(name: &str, seed: u64) -> Box<dyn Bot + Send> {
             "normal" => return Difficulty::Normal.bot(seed),
             "hard" => return Difficulty::Hard.bot(seed),
             "s" => {}
+            "n" => b = SearchBot::NORMAL,
+            "g" => greedy = true,
+            "old" => st = Style::OLD,
+            "gn" => st.noise = f,
+            "gm" => st.maneuver = f,
+            "gd" => st.per_damage = f,
+            "gf" => st.per_fortitude = f,
+            "ga" => st.action = f,
+            "gab" => st.ability = f,
+            "ge" => st.end_turn = f,
+            "grw" => st.reversal_worth = f,
+            "gdw" => st.damage_worth = f,
+            "gy" => st.optional_yes = f as f64,
+            "gown" => st.owner_aware = f > 0.0,
             "p" => b.playouts = f as usize,
             "a" => b.max_actions = f as usize,
             "t" => b.turns = Some(f as u32),
@@ -41,7 +57,11 @@ fn bot(name: &str, seed: u64) -> Box<dyn Bot + Send> {
             _ => panic!("unknown {k}"),
         }
     }
+    if greedy {
+        return Box::new(GreedyBot::with_style(seed, st));
+    }
     b.weights = w;
+    b.style = st;
     Box::new(SearchBot::new(seed, b))
 }
 

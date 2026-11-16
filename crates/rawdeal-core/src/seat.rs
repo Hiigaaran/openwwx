@@ -8,7 +8,7 @@ use rand_chacha::ChaCha8Rng;
 
 use crate::decision::Action;
 use crate::engine::Engine;
-use crate::state::{GameState, PlayerId, Zone};
+use crate::state::{CardId, GameState, PlayerId, Zone};
 use crate::view::PlayerView;
 
 pub struct Seat<'a> {
@@ -28,6 +28,11 @@ impl<'a> Seat<'a> {
 
     pub fn me(&self) -> PlayerId {
         self.me
+    }
+
+    /// Whose card `card` is; everyone knows that.
+    pub fn owner(&self, card: CardId) -> PlayerId {
+        self.state.card(card).owner
     }
 
     pub fn view(&self) -> PlayerView {

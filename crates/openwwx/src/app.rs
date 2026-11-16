@@ -1136,7 +1136,7 @@ impl App {
                     let (name, hint) = match level {
                         Difficulty::Easy => ("Fácil", "Juega cartas al azar."),
                         Difficulty::Normal => {
-                            ("Normal", "Revierte siempre que puede y ataca con sus maniobras más fuertes.")
+                            ("Normal", "Revierte siempre que puede, ataca con sus maniobras más fuertes y revisa cada jugada con unas pocas simulaciones.")
                         }
                         Difficulty::Hard => (
                             "Difícil",
