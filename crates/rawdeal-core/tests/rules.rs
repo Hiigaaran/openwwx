@@ -259,8 +259,8 @@ fn deck_rules() {
     let db = rawdeal_cards::test_db();
     let mut deck = rawdeal_cards::test_deck(TECH);
     assert!(validate_deck(&db, &deck).is_empty());
-    for i in 57..60 {
-        deck.arsenal[i] = "test/jab".into();
+    for card in &mut deck.arsenal[57..60] {
+        *card = "test/jab".into();
     }
     let jabs = deck.arsenal.iter().filter(|c| *c == "test/jab").count();
     assert!(validate_deck(&db, &deck).contains(&DeckProblem::TooManyCopies {
