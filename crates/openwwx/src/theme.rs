@@ -33,6 +33,8 @@ pub enum Icon {
     Exit,
     Picture,
     Folder,
+    /// The play arrow, pointing left.
+    Back,
 }
 
 pub struct Theme {
@@ -84,6 +86,7 @@ pub fn install(ctx: &Context) {
 
     ctx.set_theme(egui::Theme::Dark);
     ctx.style_mut_of(egui::Theme::Dark, |style| {
+        style.text_styles.insert(egui::TextStyle::Heading, display_font(22.0));
         let v = &mut style.visuals;
         *v = egui::Visuals::dark();
         v.panel_fill = Color32::from_rgb(14, 13, 16);
@@ -93,6 +96,7 @@ pub fn install(ctx: &Context) {
         v.selection.bg_fill = Color32::from_rgb(150, 20, 24);
         v.selection.stroke = Stroke::new(1.0, Color32::from_rgb(255, 200, 200));
         v.hyperlink_color = Color32::from_rgb(255, 120, 110);
+        v.widgets.noninteractive.fg_stroke.color = Color32::from_gray(205);
         let w = &mut v.widgets;
         w.inactive.weak_bg_fill = Color32::from_rgb(44, 40, 44);
         w.inactive.bg_fill = Color32::from_rgb(44, 40, 44);
@@ -147,6 +151,11 @@ pub fn paint_image(ui: &Ui, texture: &TextureHandle, rect: Rect, tint: Color32) 
 
 pub fn paint_icon(ui: &Ui, icon: Icon, rect: Rect, tint: Color32) {
     let theme = get(ui.ctx());
+    if let Icon::Back = icon {
+        let mirrored = Rect::from_min_max(pos2(1.0, 0.0), pos2(0.0, 1.0));
+        ui.painter().image(theme.icons[Icon::Play as usize].id(), rect, mirrored, tint);
+        return;
+    }
     paint_image(ui, &theme.icons[icon as usize], rect, tint);
 }
 
@@ -247,4 +256,25 @@ pub fn shadow_text(ui: &Ui, pos: Pos2, align: Align2, text: &str, font: FontId, 
         ui.painter().text(pos + d, align, text, font.clone(), Color32::from_black_alpha(200));
     }
     ui.painter().text(pos, align, text, font, color);
+}
+
+/// The arena behind a screen, darkened so panels on it read well.
+pub fn backdrop(ui: &Ui, darken: u8) {
+    let rect = ui.max_rect();
+    cover(ui, &get(ui.ctx()).arena, rect);
+    ui.painter().rect_filled(rect, 0.0, Color32::from_black_alpha(darken));
+}
+
+/// The frame of a side or top panel: dark, with a metal edge.
+pub fn side_frame() -> egui::Frame {
+    egui::Frame::new().fill(Color32::from_rgb(14, 13, 16)).stroke(Stroke::new(1.5, METAL)).inner_margin(Margin::same(8))
+}
+
+/// The OPENWWX logo, `height` tall.
+pub fn logo(ui: &mut Ui, height: f32) -> Response {
+    let logo = &get(ui.ctx()).logo;
+    let [w, h] = logo.size().map(|v| v as f32);
+    let (rect, response) = ui.allocate_exact_size(vec2(height * w / h, height), Sense::hover());
+    paint_image(ui, logo, rect, Color32::WHITE);
+    response
 }

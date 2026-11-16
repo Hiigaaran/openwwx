@@ -415,12 +415,35 @@ impl Match {
     /// Who is connected, while an online match waits for its players.
     fn lobby(&mut self, ui: &mut Ui) -> Leave {
         let mut leave = Leave::Stay;
+        if self.table.online_state().is_none() {
+            return leave;
+        }
+        egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| {
+            theme::backdrop(ui, 90);
+            ui.vertical_centered(|ui| {
+                ui.add_space(30.0);
+                theme::logo(ui, 90.0);
+                ui.add_space(16.0);
+            });
+            let width = ui.available_width().min(640.0);
+            ui.horizontal(|ui| {
+                ui.add_space((ui.available_width() - width) / 2.0);
+                theme::panel().show(ui, |ui| {
+                    ui.set_width(width - 20.0);
+                    self.lobby_body(ui, &mut leave);
+                });
+            });
+        });
+        leave
+    }
+
+    fn lobby_body(&mut self, ui: &mut Ui, leave: &mut Leave) {
         let port = self.table.hosting_port();
         let hosting = self.table.hosting();
-        let Some(online) = self.table.online_state() else { return leave };
-        egui::CentralPanel::default().show(ui, |ui| {
+        let Some(online) = self.table.online_state() else { return };
+        {
             ui.vertical_centered(|ui| {
-                ui.add_space(40.0);
+                ui.add_space(8.0);
                 match &online.info {
                     Some(info) => {
                         ui.heading(RichText::new(&info.name).size(28.0).strong());
@@ -471,12 +494,12 @@ impl Match {
                     }
                 }
                 ui.add_space(12.0);
-                if ui.button("Volver al menú").clicked() {
-                    leave = Leave::Menu;
+                if theme::big_button(ui, theme::Icon::Back, "VOLVER AL MENÚ", 240.0).clicked() {
+                    *leave = Leave::Menu;
                 }
+                ui.add_space(4.0);
             });
-        });
-        leave
+        }
     }
 
     /// Replays queued events until one needs time on screen.
@@ -910,10 +933,10 @@ impl Match {
             let local = self.table.online_state().is_none();
             ui.horizontal(|ui| {
                 ui.label(RichText::new(text::outcome(outcome, &self.voice())).size(20.0).strong());
-                if local && ui.button("Revancha").clicked() {
+                if local && theme::big_button(ui, theme::Icon::Play, "REVANCHA", 200.0).clicked() {
                     leave = Some(Leave::Rematch);
                 }
-                if ui.button("Volver al menú").clicked() {
+                if theme::big_button(ui, theme::Icon::Back, "VOLVER AL MENÚ", 240.0).clicked() {
                     leave = Some(Leave::Menu);
                 }
             });

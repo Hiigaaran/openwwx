@@ -15,6 +15,7 @@ use crate::analysis::{self, AXES, Analysis};
 use crate::cards::{self, Look, Preview};
 use crate::sync::{self, Account};
 use crate::text;
+use crate::theme::{self, Icon};
 
 /// Where saved decks live, one `.ron` file each.
 pub fn decks_dir() -> Option<PathBuf> {
@@ -494,13 +495,19 @@ impl Builder {
         let mut exit = Exit::Stay;
         self.poll_account();
         self.share_window(ui.ctx());
-        egui::Panel::top("builder-top").show(ui, |ui| {
-            ui.add_space(6.0);
+        egui::Panel::top("builder-top").frame(theme::side_frame()).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                theme::logo(ui, 36.0);
+                ui.add_space(8.0);
+                theme::heading(ui, "CONSTRUIR MAZOS", 30.0);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if theme::big_button(ui, Icon::Back, "VOLVER AL MENÚ", 240.0).clicked() {
+                        exit = Exit::Menu(self.saved_as.clone());
+                    }
+                });
+            });
+            ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Volver al menú").clicked() {
-                    exit = Exit::Menu(self.saved_as.clone());
-                }
-                ui.separator();
                 ui.label("Mazo:");
                 ui.add(egui::TextEdit::singleline(&mut self.name).hint_text("nombre").desired_width(180.0));
                 if ui.button("Guardar").clicked() {
@@ -598,9 +605,22 @@ impl Builder {
             }
             ui.add_space(4.0);
         });
-        egui::Panel::right("builder-preview").resizable(false).exact_size(260.0).show(ui, cards::preview_panel);
-        egui::Panel::right("builder-deck").resizable(true).default_size(380.0).show(ui, |ui| self.deck_ui(ui));
-        egui::CentralPanel::default().show(ui, |ui| self.catalog_ui(ui));
+        egui::Panel::right("builder-preview")
+            .resizable(false)
+            .exact_size(260.0)
+            .frame(theme::side_frame())
+            .show(ui, cards::preview_panel);
+        egui::Panel::right("builder-deck")
+            .resizable(true)
+            .default_size(380.0)
+            .frame(theme::side_frame().fill(egui::Color32::from_rgb(18, 16, 20)))
+            .show(ui, |ui| self.deck_ui(ui));
+        egui::CentralPanel::default().frame(egui::Frame::NONE.inner_margin(egui::Margin::same(10))).show(ui, |ui| {
+            let full = ui.max_rect().expand(10.0);
+            theme::cover(ui, &theme::get(ui.ctx()).arena, full);
+            ui.painter().rect_filled(full, 0.0, egui::Color32::from_black_alpha(205));
+            self.catalog_ui(ui)
+        });
         exit
     }
 
