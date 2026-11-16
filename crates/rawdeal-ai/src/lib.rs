@@ -10,6 +10,7 @@ use rawdeal_core::{
     YesNoPurpose,
 };
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 
 pub trait Bot {
     /// Picks one of the seat's legal actions, which are never empty.
@@ -24,8 +25,8 @@ pub enum Difficulty {
     /// Plays its strongest cards and always reverses, without looking ahead.
     #[default]
     Normal,
-    /// Tries each move against guesses of your hand and plays out the rest of
-    /// the turn.
+    /// Tries each move against guesses of your hand and plays the match out
+    /// to the end.
     Hard,
 }
 
@@ -171,10 +172,12 @@ impl Bot for GreedyBot {
     }
 }
 
-/// Hard level: flat Monte Carlo search. Each legal action is tried against
-/// several guesses of the hidden cards ([`Seat::sample`]); both players then
-/// follow [`greedy`] for the rest of the turn (see [`Budget::turns`]), and
-/// the action with the best average position wins.
+/// Hard level: Monte Carlo search. Each legal action is tried against
+/// guesses of the hidden cards ([`Seat::sample`]); both players then follow
+/// [`greedy`] to the end of the match (see [`Budget::turns`]) and the action
+/// that wins most often is played. The play-outs are spent by successive
+/// halving: every action gets a few, then the worse half is dropped and the
+/// rest get more.
 pub struct SearchBot {
     rng: ChaCha8Rng,
     budget: Budget,
@@ -182,28 +185,59 @@ pub struct SearchBot {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Budget {
-    /// Play-outs per legal action.
+    /// Play-outs per legal action, on average: the decision gets
+    /// `playouts` times the number of actions tried.
     pub playouts: usize,
     /// At most this many actions are tried; the others are skipped.
     pub max_actions: usize,
-    /// Actions in one play-out, at most.
+    /// Actions in one play-out, at most; then the position is scored by
+    /// [`evaluate`].
     pub max_steps: usize,
-    /// Turns a play-out lasts: 1 to the end of this turn, 2 also through
-    /// the opponent's next turn.
-    pub turns: u32,
+    /// Turns a play-out lasts (1: to the end of this turn), `None` to the
+    /// end of the match.
+    pub turns: Option<u32>,
+    /// How positions are scored when a play-out stops before the end.
+    pub weights: Weights,
+    /// Thinking time per decision, at most: past it the best action so far
+    /// is played.
+    pub max_time: Duration,
+}
+
+/// Weights of [`evaluate`].
+#[derive(Debug, Clone, Copy)]
+pub struct Weights {
+    pub arsenal: f32,
+    /// Below this many Arsenal cards each missing card costs `danger` more.
+    pub danger_below: f32,
+    pub danger: f32,
+    pub hand: f32,
+    /// On top of `hand`, for each Reversal in hand.
+    pub reversal: f32,
+    pub fortitude: f32,
+}
+
+impl Weights {
+    pub const DEFAULT: Weights =
+        Weights { arsenal: 1.0, danger_below: 10.0, danger: 1.5, hand: 0.7, reversal: 1.0, fortitude: 0.05 };
 }
 
 impl SearchBot {
-    pub const HARD: Budget = Budget { playouts: 12, max_actions: 16, max_steps: 400, turns: 1 };
+    pub const HARD: Budget = Budget {
+        playouts: 50,
+        max_actions: 16,
+        max_steps: 600,
+        turns: None,
+        weights: Weights::DEFAULT,
+        max_time: Duration::from_millis(400),
+    };
 
     pub fn new(seed: u64, budget: Budget) -> Self {
         SearchBot { rng: ChaCha8Rng::seed_from_u64(seed), budget }
     }
 
+    /// Plays `state` out and scores it for `me`, from -1 (lost) to 1 (won).
     fn playout(&self, engine: &Engine, state: &mut GameState, me: PlayerId, rng: &mut ChaCha8Rng) -> f32 {
-        // To the end of this turn, or also through the opponent's next one.
-        let start = state.turn;
-        let horizon = start + self.budget.turns - u32::from(state.active != me && self.budget.turns > 1);
+        let horizon = self.budget.turns.map_or(u32::MAX, |t| state.turn.saturating_add(t));
         for _ in 0..self.budget.max_steps {
             if state.is_over() || state.turn >= horizon {
                 break;
@@ -220,27 +254,33 @@ impl SearchBot {
                 break;
             }
         }
-        evaluate(engine, state, me)
+        match state.outcome {
+            Some(Outcome::Win { winner, .. }) => {
+                if winner == me {
+                    1.0
+                } else {
+                    -1.0
+                }
+            }
+            Some(Outcome::Draw) => 0.0,
+            None => (evaluate(engine, state, me, &self.budget.weights) / 20.0).tanh(),
+        }
     }
 }
 
-/// How good `state` is for `me`: winning or losing outweighs everything,
-/// then the Arsenal left (the life total), cards in hand (Reversals most) and
-/// Fortitude.
-fn evaluate(engine: &Engine, state: &GameState, me: PlayerId) -> f32 {
-    match state.outcome {
-        Some(Outcome::Win { winner, .. }) => return if winner == me { 1000.0 } else { -1000.0 },
-        Some(Outcome::Draw) => return 0.0,
-        None => {}
-    }
+/// How good `state` is for `me`: the Arsenal left (the life total), cards in
+/// hand (Reversals most) and Fortitude, against the opponent's.
+fn evaluate(engine: &Engine, state: &GameState, me: PlayerId, w: &Weights) -> f32 {
     let side = |p: PlayerId| {
         let ps = state.player(p);
         let arsenal = ps.arsenal.len() as f32;
         // Running out of Arsenal is what loses the match.
-        let danger = if arsenal < 10.0 { (10.0 - arsenal) * 1.5 } else { 0.0 };
+        let danger = (w.danger_below - arsenal).max(0.0) * w.danger;
         let reversals = ps.hand.iter().filter(|&&c| engine.db().card(state.card(c).def).is_reversal()).count();
-        // Reversals in hand are worth more than other cards: they are the defence.
-        arsenal - danger + ps.hand.len() as f32 * 0.7 + reversals as f32 + engine.fortitude(state, p) as f32 * 0.05
+        arsenal * w.arsenal - danger
+            + ps.hand.len() as f32 * w.hand
+            + reversals as f32 * w.reversal
+            + engine.fortitude(state, p) as f32 * w.fortitude
     };
     side(me) - side(me.opponent())
 }
@@ -263,23 +303,39 @@ impl Bot for SearchBot {
         }
         let engine = seat.engine();
         let me = seat.me();
-        let mut totals = vec![0.0f32; legal.len()];
-        for _ in 0..self.budget.playouts {
-            // The same guess for every action, so they are compared fairly.
-            // The same guess and the same random choices for every action, so
-            // they are compared fairly.
-            let guess = seat.sample(&mut self.rng);
-            let seed: u64 = self.rng.random();
-            for (i, action) in legal.iter().enumerate() {
-                let mut state = guess.clone();
-                let mut rng = ChaCha8Rng::seed_from_u64(seed);
-                totals[i] += match engine.apply(&mut state, me, action.clone()) {
-                    Ok(_) => self.playout(engine, &mut state, me, &mut rng),
-                    Err(_) => -10_000.0,
-                };
+        let started = Instant::now();
+        // (action, total score, play-outs)
+        let mut arms: Vec<(Action, f32, usize)> = legal.into_iter().map(|a| (a, 0.0, 0)).collect();
+        let rounds = (arms.len() as f32).log2().ceil().max(1.0) as usize;
+        let mut budget = self.budget.playouts * arms.len();
+        'search: for round in 0..rounds {
+            let per_arm = (budget / (arms.len() * (rounds - round))).max(1);
+            for _ in 0..per_arm {
+                // The same guess and the same random choices for every
+                // action, so they are compared fairly.
+                let guess = seat.sample(&mut self.rng);
+                let seed: u64 = self.rng.random();
+                for (action, total, n) in arms.iter_mut() {
+                    let mut state = guess.clone();
+                    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+                    *total += match engine.apply(&mut state, me, action.clone()) {
+                        Ok(_) => self.playout(engine, &mut state, me, &mut rng),
+                        Err(_) => -10.0,
+                    };
+                    *n += 1;
+                }
+                if started.elapsed() > self.budget.max_time {
+                    break 'search;
+                }
+            }
+            budget = budget.saturating_sub(per_arm * arms.len());
+            if round + 1 < rounds {
+                arms.sort_by(|a, b| (b.1 / b.2 as f32).total_cmp(&(a.1 / a.2 as f32)));
+                arms.truncate(arms.len().div_ceil(2));
             }
         }
-        let best = totals.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).map_or(0, |(i, _)| i);
-        legal.swap_remove(best)
+        let best = arms.iter().enumerate().max_by(|a, b| (a.1.1 / a.1.2 as f32).total_cmp(&(b.1.1 / b.1.2 as f32)));
+        let i = best.map_or(0, |(i, _)| i);
+        arms.swap_remove(i).0
     }
 }

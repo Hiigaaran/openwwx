@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
-use rawdeal_ai::Difficulty;
+use rawdeal_ai::{Bot, Difficulty, SearchBot};
 use rawdeal_core::{Engine, GameSetup, PlayerId, Seat};
 
 fn engine() -> Engine {
@@ -23,7 +23,14 @@ fn every_level_finishes_matches() {
         for seed in 0..4 {
             let setup = if seed % 2 == 0 { GameSetup::standard(decks()) } else { GameSetup::advanced(decks()) };
             let (mut state, _) = e.new_game(&setup, seed).unwrap();
-            let mut bots = [level.bot(seed), Difficulty::Easy.bot(seed + 1)];
+            // The Hard search with fewer play-outs, as debug builds are slow.
+            let bot: Box<dyn Bot> = match level {
+                Difficulty::Hard => {
+                    Box::new(SearchBot::new(seed, rawdeal_ai::Budget { playouts: 3, ..SearchBot::HARD }))
+                }
+                _ => level.bot(seed),
+            };
+            let mut bots = [bot, Difficulty::Easy.bot(seed + 1)];
             let mut actions = 0;
             while state.outcome.is_none() {
                 let p = state.decision.as_ref().unwrap().player;

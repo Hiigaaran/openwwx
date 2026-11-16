@@ -1140,7 +1140,8 @@ impl App {
                         }
                         Difficulty::Hard => (
                             "Difícil",
-                            "Prueba cada jugada contra varias suposiciones de tu mano y elige la que mejor le resulta. \
+                            "Prueba cada jugada contra varias suposiciones de tu mano, juega la partida hasta el final \
+                             y elige la que más veces gana. \
                              No ve tus cartas ocultas.",
                         ),
                     };

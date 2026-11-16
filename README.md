@@ -40,12 +40,21 @@ Antes de empezar eliges la dificultad de la computadora:
 
 - **Fácil**: juega cartas al azar.
 - **Normal**: revierte siempre que puede, ataca con sus maniobras más fuertes y descarta las cartas que menos le sirven.
-- **Difícil**: prueba cada jugada posible contra varias suposiciones de tu mano y de su Arsenal, juega el resto del
-  turno en cada una y elige la que mejor le resulta. No ve tus cartas ocultas: solo sabe lo que sabría un jugador en
-  la mesa.
+- **Difícil**: prueba cada jugada posible contra varias suposiciones de tu mano y de su Arsenal, juega la partida
+  hasta el final en cada una y elige la que más veces gana (dedica más simulaciones a las jugadas más prometedoras y
+  piensa como mucho 400 ms por decisión). No ve tus cartas ocultas: solo sabe lo que sabría un jugador en la mesa.
 
-En 800 partidas entre bots con los 53 sets (`cargo run --release -p rawdeal-cards --example arena -- <carpeta> 800`),
-Normal le gana a Fácil el 66% de las veces, y Difícil le gana a Fácil el 73% y a Normal el 58%.
+En 2000 partidas entre bots (`cargo run --release -p rawdeal-cards --example tune -- <carpeta> 2000 hard normal`,
+que usa todos los núcleos):
+
+| | Solo Premiere | Los 53 sets |
+|---|---|---|
+| Normal contra Fácil | 69% | 67% |
+| Difícil contra Fácil | 82% | 76% |
+| Difícil contra Normal | 69% | 63% |
+
+Con los 53 sets los mazos automáticos son más desparejos (hay partidas que se deciden en el primer turno), así que
+la suerte pesa más.
 
 La mesa repite cada jugada con animaciones: la carta vuela de la mano a "En juego", las cartas volteadas por daño
 caen al Ringside con un destello rojo, y los avisos grandes marcan turnos, reversals, daño recibido y manos mostradas.
