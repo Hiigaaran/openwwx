@@ -39,7 +39,9 @@ SIL OFL (`crates/openwwx/assets/Anton-OFL.txt`).
 Antes de empezar eliges la dificultad de la computadora:
 
 - **Fácil**: juega cartas al azar.
-- **Normal**: revierte siempre que puede, ataca con sus maniobras más fuertes y descarta las cartas que menos le sirven.
+- **Normal**: revierte siempre que puede, ataca con sus maniobras más fuertes y descarta las cartas que menos le sirven
+  (al elegir cartas distingue las suyas de las tuyas); además revisa cada jugada con 4 simulaciones hasta el final de
+  la partida, una versión liviana de Difícil (unos 2 ms por decisión).
 - **Difícil**: prueba cada jugada posible contra varias suposiciones de tu mano y de su Arsenal, juega la partida
   hasta el final en cada una y elige la que más veces gana (dedica más simulaciones a las jugadas más prometedoras y
   piensa como mucho 400 ms por decisión). No ve tus cartas ocultas: solo sabe lo que sabría un jugador en la mesa.
@@ -49,9 +51,11 @@ que usa todos los núcleos):
 
 | | Solo Premiere | Los 53 sets |
 |---|---|---|
-| Normal contra Fácil | 69% | 67% |
-| Difícil contra Fácil | 82% | 76% |
-| Difícil contra Normal | 69% | 63% |
+| Normal contra Fácil | 73% | 71% |
+| Normal contra el Normal de la 0.42 | 58% | 55% |
+| Difícil contra Fácil | 83% | 78% |
+| Difícil contra Normal | 59% | 57% |
+| Difícil contra el Normal de la 0.42 | 69% | 62% |
 
 Con los 53 sets los mazos automáticos son más desparejos (hay partidas que se deciden en el primer turno), así que
 la suerte pesa más.
