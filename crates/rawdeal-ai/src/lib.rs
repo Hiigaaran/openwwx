@@ -22,7 +22,8 @@ pub trait Bot {
 pub enum Difficulty {
     /// Random legal moves.
     Easy,
-    /// Plays its strongest cards and always reverses, without looking ahead.
+    /// Rules of thumb (strongest cards first, always reverse) checked by a
+    /// few play-outs of each move: a light version of Hard.
     #[default]
     Normal,
     /// Tries each move against guesses of your hand and plays the match out
@@ -36,7 +37,7 @@ impl Difficulty {
     pub fn bot(self, seed: u64) -> Box<dyn Bot + Send> {
         match self {
             Difficulty::Easy => Box::new(RandomBot::new(seed)),
-            Difficulty::Normal => Box::new(GreedyBot::new(seed)),
+            Difficulty::Normal => Box::new(SearchBot::new(seed, SearchBot::NORMAL)),
             Difficulty::Hard => Box::new(SearchBot::new(seed, SearchBot::HARD)),
         }
     }
@@ -70,19 +71,69 @@ impl Bot for RandomBot {
     }
 }
 
+/// Weights of [`greedy`]'s rules of thumb.
+#[derive(Debug, Clone, Copy)]
+pub struct Style {
+    /// Random amount, up to this, added to every score.
+    pub noise: f32,
+    /// A maneuver scores `maneuver + damage * per_damage - fortitude * per_fortitude`.
+    pub maneuver: f32,
+    pub per_damage: f32,
+    pub per_fortitude: f32,
+    pub action: f32,
+    pub ability: f32,
+    pub end_turn: f32,
+    /// How much a Reversal is worth keeping; other cards are worth
+    /// `1 + damage * damage_worth`.
+    pub reversal_worth: f32,
+    pub damage_worth: f32,
+    /// Chances of saying yes to a "you may" effect.
+    pub optional_yes: f64,
+    /// Which cards a choice counts as a loss for their owner: the 0.41
+    /// list (only the chooser's discards) or every card that leaves its
+    /// owner's hand or Ring, either player's.
+    pub owner_aware: bool,
+}
+
+impl Style {
+    pub const NORMAL: Style = Style {
+        noise: 1.5,
+        maneuver: 3.0,
+        per_damage: 1.0,
+        per_fortitude: 0.0,
+        action: 2.5,
+        ability: 3.0,
+        end_turn: 1.0,
+        reversal_worth: 6.0,
+        damage_worth: 0.6,
+        optional_yes: 0.8,
+        owner_aware: true,
+    };
+    /// Normal up to version 0.42.
+    pub const OLD: Style = Style { owner_aware: false, ..Style::NORMAL };
+
+    fn worth(&self, def: &CardDef) -> f32 {
+        if def.is_reversal() { self.reversal_worth } else { def.damage as f32 * self.damage_worth + 1.0 }
+    }
+}
+
 /// Simple rules of thumb: reverse whenever possible, attack with the hardest
-/// hitting maneuver, play Actions now and then, and keep good cards when
-/// discarding.
+/// hitting maneuver, play Actions now and then, keep good cards and take
+/// the opponent's.
+#[allow(clippy::too_many_arguments)]
 fn greedy(
     engine: &Engine,
+    style: &Style,
+    me: PlayerId,
     def: impl Fn(CardId) -> Option<DefIdx>,
+    owner: impl Fn(CardId) -> PlayerId,
     decision: Option<&DecisionKind>,
     legal: &[Action],
     rng: &mut ChaCha8Rng,
 ) -> Action {
     let def_card = |c: CardId| def(c).map(|d| engine.db().card(d));
-    let worth = |c: CardId| def_card(c).map_or(1.0, card_worth);
-    let noise = |rng: &mut ChaCha8Rng| rng.random_range(0.0..1.5);
+    let worth = |c: CardId| def_card(c).map_or(1.0, |d| style.worth(d));
+    let noise = |rng: &mut ChaCha8Rng| if style.noise > 0.0 { rng.random_range(0.0..style.noise) } else { 0.0 };
     let best = |rng: &mut ChaCha8Rng, score: &dyn Fn(&Action) -> Option<f32>| {
         legal
             .iter()
@@ -100,15 +151,34 @@ fn greedy(
             Action::PlayCard { card, kind } => {
                 let d = def_card(*card);
                 Some(match kind {
-                    CardKind::Maneuver(_) => 3.0 + d.map_or(2.0, |d| d.damage as f32),
+                    CardKind::Maneuver(_) => {
+                        style.maneuver
+                            + d.map_or(2.0, |d| {
+                                d.damage as f32 * style.per_damage - d.fortitude as f32 * style.per_fortitude
+                            })
+                    }
                     CardKind::Reversal => -5.0,
-                    _ => 2.5,
+                    _ => style.action,
                 })
             }
-            Action::UseAbility | Action::UseRingCard { .. } | Action::UseBackstageCard { .. } => Some(3.0),
-            Action::EndTurn => Some(1.0),
+            Action::UseAbility | Action::UseRingCard { .. } | Action::UseBackstageCard { .. } => Some(style.ability),
+            Action::EndTurn => Some(style.end_turn),
             _ => Some(0.0),
         }),
+        Some(DecisionKind::ChooseCards { purpose, .. }) if style.owner_aware => {
+            // Positive: the chosen cards are gained by their owner.
+            let gain = match gains(purpose) {
+                Some(true) => 1.0,
+                Some(false) => -1.0,
+                None => 0.0,
+            };
+            best(rng, &|a| match a {
+                Action::ChooseCards(cs) => {
+                    Some(cs.iter().map(|&c| worth(c) * gain * if owner(c) == me { 1.0 } else { -1.0 }).sum::<f32>())
+                }
+                _ => None,
+            })
+        }
         Some(DecisionKind::ChooseCards { purpose, .. }) if is_loss(purpose) => best(rng, &|a| match a {
             Action::ChooseCards(cs) => Some(-cs.iter().map(|&c| worth(c)).sum::<f32>()),
             _ => None,
@@ -118,7 +188,9 @@ fn greedy(
             _ => None,
         }),
         Some(DecisionKind::YesNo { purpose: YesNoPurpose::ClaimCountOut }) => Some(Action::Yes),
-        Some(DecisionKind::YesNo { purpose: YesNoPurpose::OptionalEffect { .. } }) if rng.random_bool(0.8) => {
+        Some(DecisionKind::YesNo { purpose: YesNoPurpose::OptionalEffect { .. } })
+            if rng.random_bool(style.optional_yes) =>
+        {
             legal.iter().find(|a| **a == Action::Yes).cloned()
         }
         Some(DecisionKind::StunDraw { .. }) => best(rng, &|a| match a {
@@ -134,7 +206,7 @@ fn greedy(
     pick.unwrap_or_else(|| legal.choose(rng).expect("legal is non-empty").clone())
 }
 
-/// Does choosing cards for `purpose` cost the chooser those cards?
+/// Does choosing cards for `purpose` cost the chooser those cards? (0.41)
 fn is_loss(purpose: &ChoicePurpose) -> bool {
     matches!(
         purpose,
@@ -147,19 +219,46 @@ fn is_loss(purpose: &ChoicePurpose) -> bool {
     )
 }
 
-/// How much a card is worth keeping: Reversals and big maneuvers most.
-fn card_worth(def: &CardDef) -> f32 {
-    if def.is_reversal() { 6.0 } else { def.damage as f32 * 0.6 + 1.0 }
+/// Do the cards chosen for `purpose` go somewhere better for their owner
+/// (`Some(true)`), worse (`Some(false)`), or is it unclear (`None`)?
+fn gains(purpose: &ChoicePurpose) -> Option<bool> {
+    use ChoicePurpose as P;
+    match purpose {
+        P::Discard
+        | P::ForcedDiscard
+        | P::HandToArsenal
+        | P::HandToArsenalBottom
+        | P::HandToArsenalTop
+        | P::DiscardForDamage { .. }
+        | P::DiscardMirror
+        | P::RingToRingside
+        | P::RemoveFromGame
+        | P::RingToHand => Some(false),
+        P::RingsideToHand
+        | P::RingsideToArsenal
+        | P::RingsideToArsenalBottom
+        | P::SearchToHand
+        | P::DigToHand
+        | P::AfterSuccess(_)
+        | P::RingsideToBacklash => Some(true),
+        _ => None,
+    }
 }
 
-/// Normal level: [`greedy`] on what it can see.
+/// [`greedy`] on what it can see, without looking ahead (Normal up to
+/// version 0.42, and the play-outs of [`SearchBot`]).
 pub struct GreedyBot {
     rng: ChaCha8Rng,
+    style: Style,
 }
 
 impl GreedyBot {
     pub fn new(seed: u64) -> Self {
-        GreedyBot { rng: ChaCha8Rng::seed_from_u64(seed) }
+        GreedyBot::with_style(seed, Style::NORMAL)
+    }
+
+    pub fn with_style(seed: u64, style: Style) -> Self {
+        GreedyBot { rng: ChaCha8Rng::seed_from_u64(seed), style }
     }
 }
 
@@ -168,7 +267,9 @@ impl Bot for GreedyBot {
         let view = seat.view();
         let legal = seat.legal();
         let def = |c: CardId| view.def_of(c);
-        greedy(seat.engine(), def, view.decision.as_ref().map(|d| &d.kind), &legal, &mut self.rng)
+        let owner = |c: CardId| seat.owner(c);
+        let decision = view.decision.as_ref().map(|d| &d.kind);
+        greedy(seat.engine(), &self.style, seat.me(), def, owner, decision, &legal, &mut self.rng)
     }
 }
 
@@ -198,6 +299,8 @@ pub struct Budget {
     pub turns: Option<u32>,
     /// How positions are scored when a play-out stops before the end.
     pub weights: Weights,
+    /// How both players play during a play-out.
+    pub style: Style,
     /// Thinking time per decision, at most: past it the best action so far
     /// is played.
     pub max_time: Duration,
@@ -228,8 +331,11 @@ impl SearchBot {
         max_steps: 600,
         turns: None,
         weights: Weights::DEFAULT,
+        style: Style::NORMAL,
         max_time: Duration::from_millis(400),
     };
+    /// Few play-outs: about a tenth of Hard's thinking.
+    pub const NORMAL: Budget = Budget { playouts: 4, max_time: Duration::from_millis(100), ..SearchBot::HARD };
 
     pub fn new(seed: u64, budget: Budget) -> Self {
         SearchBot { rng: ChaCha8Rng::seed_from_u64(seed), budget }
@@ -238,6 +344,7 @@ impl SearchBot {
     /// Plays `state` out and scores it for `me`, from -1 (lost) to 1 (won).
     fn playout(&self, engine: &Engine, state: &mut GameState, me: PlayerId, rng: &mut ChaCha8Rng) -> f32 {
         let horizon = self.budget.turns.map_or(u32::MAX, |t| state.turn.saturating_add(t));
+        let mut steps = 0;
         for _ in 0..self.budget.max_steps {
             if state.is_over() || state.turn >= horizon {
                 break;
@@ -249,17 +356,22 @@ impl SearchBot {
                 break;
             }
             let def = |c: CardId| Some(state.card(c).def);
-            let action = greedy(engine, def, Some(&decision.kind), &legal, rng);
+            let owner = |c: CardId| state.card(c).owner;
+            let action = greedy(engine, &self.budget.style, p, def, owner, Some(&decision.kind), &legal, rng);
             if engine.apply(state, p, action).is_err() {
                 break;
             }
+            steps += 1;
         }
+        // A win sooner is better than a win later (and a loss later better
+        // than a loss sooner), so a won match is closed rather than dragged on.
+        let sooner = 1.0 - steps.min(500) as f32 * 0.001;
         match state.outcome {
             Some(Outcome::Win { winner, .. }) => {
                 if winner == me {
-                    1.0
+                    sooner
                 } else {
-                    -1.0
+                    -sooner
                 }
             }
             Some(Outcome::Draw) => 0.0,
@@ -295,7 +407,10 @@ impl Bot for SearchBot {
             // Keep the greedy choice and a random sample of the rest.
             let view = seat.view();
             let def = |c: CardId| view.def_of(c);
-            let first = greedy(seat.engine(), def, view.decision.as_ref().map(|d| &d.kind), &legal, &mut self.rng);
+            let owner = |c: CardId| seat.owner(c);
+            let decision = view.decision.as_ref().map(|d| &d.kind);
+            let first =
+                greedy(seat.engine(), &self.budget.style, seat.me(), def, owner, decision, &legal, &mut self.rng);
             let mut rest: Vec<Action> = legal.into_iter().filter(|a| *a != first).collect();
             rest.shuffle(&mut self.rng);
             rest.truncate(self.budget.max_actions - 1);
@@ -334,8 +449,15 @@ impl Bot for SearchBot {
                 arms.truncate(arms.len().div_ceil(2));
             }
         }
-        let best = arms.iter().enumerate().max_by(|a, b| (a.1.1 / a.1.2 as f32).total_cmp(&(b.1.1 / b.1.2 as f32)));
-        let i = best.map_or(0, |(i, _)| i);
-        arms.swap_remove(i).0
+        // The first of equally good actions: the legal order puts the
+        // natural one first (claiming a Count Out, playing a card).
+        let mean = |a: &(Action, f32, usize)| a.1 / a.2 as f32;
+        let mut best = 0;
+        for i in 1..arms.len() {
+            if mean(&arms[i]) > mean(&arms[best]) {
+                best = i;
+            }
+        }
+        arms.swap_remove(best).0
     }
 }

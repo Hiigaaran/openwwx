@@ -23,10 +23,13 @@ fn every_level_finishes_matches() {
         for seed in 0..4 {
             let setup = if seed % 2 == 0 { GameSetup::standard(decks()) } else { GameSetup::advanced(decks()) };
             let (mut state, _) = e.new_game(&setup, seed).unwrap();
-            // The Hard search with fewer play-outs, as debug builds are slow.
+            // The searches with fewer play-outs, as debug builds are slow.
             let bot: Box<dyn Bot> = match level {
                 Difficulty::Hard => {
                     Box::new(SearchBot::new(seed, rawdeal_ai::Budget { playouts: 3, ..SearchBot::HARD }))
+                }
+                Difficulty::Normal => {
+                    Box::new(SearchBot::new(seed, rawdeal_ai::Budget { playouts: 1, ..SearchBot::NORMAL }))
                 }
                 _ => level.bot(seed),
             };
